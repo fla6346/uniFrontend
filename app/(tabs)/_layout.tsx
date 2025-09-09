@@ -1,59 +1,61 @@
+// frontend/app/(tabs)/_layout.tsx // Asegúrate de que la extensión sea .tsx
 import React from 'react';
+import { Stack, Tabs } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { ComponentProps } from 'react'; // Para obtener los tipos de props de un componente
+import { Ionicons } from '@expo/vector-icons';
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+// Definir un tipo para las props que realmente nos importan para TabBarIcon
+type TabBarIconProps = {
+  name: ComponentProps<typeof FontAwesome>['name']; // Obtiene el tipo de la prop 'name' de FontAwesome
   color: string;
-}) {
+};
+
+function TabBarIcon(props: TabBarIconProps) {
   return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
+    <Tabs screenOptions={{
+        tabBarActiveTintColor: '#FF5733',
+        tabBarInactiveTintColor: 'gray',
+         tabBarStyle: {
+            backgroundColor: '#fff', // Fondo de la barra de pestañas
+            borderTopWidth: 1,
+            borderTopColor: '#f0f0f0',
+        }
       }}>
-      <Tabs.Screen
-        name="index"
+    <Tabs.Screen
+        name="index" // Esto hace referencia a app/(tabs)/index.tsx (tu componente Home)
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          title: 'Inicio', // Título para la pestaña
+          headerShown: false, // Puedes ocultar el header si ya lo manejas en el _layout principal
+          tabBarIcon: ({ color }) => <Ionicons name="home" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="Home"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: 'Inicio',
+          tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="Login"
+        options={{
+          title: 'Login',
+          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chatbot"
+        options={{
+          title: 'Chatbot',
+          tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
         }}
       />
     </Tabs>
+    
   );
 }
