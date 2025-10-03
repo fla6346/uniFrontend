@@ -62,18 +62,14 @@ const LoginScreen = () => {
 
       console.log("Respuesta del servidor (login):", response.data);
 
-      // Asumiendo que tu backend devuelve un token para cualquier login exitoso
       if (response.status === 200 && response.data.token && response.data.user) {
         const { token, user } = response.data;
         
-        // --- GUARDAR TOKEN ---
-        const TOKEN_KEY = 'adminAuthToken'; // <--- CLAVE CONSISTENTE
+        const TOKEN_KEY = 'adminAuthToken';
         if (Platform.OS === 'web') {
           localStorage.setItem(TOKEN_KEY, token);
-          console.log(`Token guardado en localStorage (web) con clave: ${TOKEN_KEY}`);
         } else {
           await SecureStore.setItemAsync(TOKEN_KEY, token);
-          console.log(`Token guardado en SecureStore (nativo) con clave: ${TOKEN_KEY}`);
         }
         const USER_DATA_KEY = 'userData';
         try {
@@ -89,37 +85,68 @@ const LoginScreen = () => {
         
         console.log('Login exitoso. Usuario:', user);
         
-        if (user.role === 'admin') { 
-          router.replace({
-            pathname:'../admin/HomeAdministradorScreen',
-            params:{
-              nombre:user.nombre
-            }});
-        } else if (user.role === 'Admisiones') {
-            router.replace({
-              pathname:'../admin/HomeAdmisiones',
-              params:{
-              nombre:user.nombre,
-              idUsuario:user.id}
-            });
-        } else 
-          if(user.role=='student'){
-            router.replace({
-              pathname:'../admin/HomeEstudiante',
-              params:{
-                nombre:user.nombre,
-              }})
-          }else{
-            // Ruta por defecto o manejo de error si el rol no es reconocido
+         let targetRoute = '/';
+        let routeParams = {};
+        switch (user.role) {
+          case 'admin':
+            targetRoute = '../admin/HomeAdministradorScreen';
+            routeParams = { nombre: user.nombre };
+            break;
+            
+          case 'student':
+            targetRoute = '../admin/HomeEstudiante';
+            routeParams = { nombre: user.nombre };
+            break;
+            
+          case 'DAF':
+            targetRoute = '../admin/HomeDAF'; // Necesitarás crear esta pantalla
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+            
+          case 'comunicacion':
+            targetRoute = '../admin/HomeComunicacion'; // Necesitarás crear esta pantalla
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+              case 'academico':
+            targetRoute = '../admin/HomeAcademico'; // Necesitarás crear esta pantalla
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+            
+          case 'TI':
+            targetRoute = '../admin/HomeTI'; // Necesitarás crear esta pantalla
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+            
+          case 'recursos':
+            targetRoute = '../admin/HomeRecursosHumanos'; // Necesitarás crear esta pantalla
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+            
+          case 'Admisiones':
+            targetRoute = '../admin/HomeAdmisiones';
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+            
+          case 'Serv. Estudiatil': // Nota: El valor debe coincidir exactamente con lo que envía el backend
+            targetRoute = '../admin/HomeServiciosEstudiantiles'; // Necesitarás crear esta pantalla
+            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            break;
+            
+          default:
             console.warn("Rol de usuario no reconocido:", user.role);
-            router.replace('/'); // O una página de error/dashboard general
-        }
-
+            Alert.alert('Acceso', 'Tu rol no tiene una interfaz asignada.');
+            targetRoute = '/';
+            break;
+      } 
+       router.replace({
+          pathname: targetRoute,
+          params: routeParams
+        });
       } else {
         Alert.alert('Login Fallido', response.data.message || 'Respuesta inesperada del servidor.');
       }
     } catch (err) {
-      console.error("Error completo en handleLogin:", err.toJSON ? err.toJSON() : err);
+       console.error("Error completo en handleLogin:", err.toJSON ? err.toJSON() : err);
       if (err.response) {
         console.error("Error data:", err.response.data);
         console.error("Error status:", err.response.status);
@@ -134,6 +161,7 @@ const LoginScreen = () => {
     } finally {
       setLoading(false);
     }
+    
   };
 
   return (

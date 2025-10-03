@@ -1,18 +1,14 @@
-// D:\Nueva carpeta\frontend\app\admin\HomeEstudiante.js
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Stack, useRouter } from 'expo-router'; // useRouter para la navegación
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router'; // useRouter para la navegación
 // import { useAuth } from '../../path/to/authContext'; // Si necesitas el contexto de autenticación
 
 const HomeEstudianteScreen = () => {
+  const params=useLocalSearchParams();
+  const nombreUsuario= params.nombre||'Estudiante';
   const router = useRouter();
-  // const { signOut, userToken } = useAuth(); // Ejemplo si usas contexto de autenticación
 
   const handleLogout = () => {
-    // Lógica para cerrar sesión (similar a la de HomeAdministradorScreen)
-    // Idealmente, esta lógica estaría en tu useAuth() hook
-    // await signOut();
-    // router.replace('/Login'); // O la ruta de tu pantalla de login principal
     Alert.alert("Cerrar Sesión", "Funcionalidad de logout pendiente aquí.");
   };
 
@@ -29,7 +25,7 @@ const HomeEstudianteScreen = () => {
           // ),
         }}
       />
-      <Text style={styles.title}>¡Bienvenido, Estudiante!</Text>
+      <Text style={styles.title}>¡Bienvenido, Estudiante {nombreUsuario}!</Text>
       <Text style={styles.subtitle}>Este es tu panel principal.</Text>
 
       {/* Aquí puedes añadir enlaces o botones a otras secciones para estudiantes */}
