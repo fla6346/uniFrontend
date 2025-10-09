@@ -47,10 +47,6 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{title:'Mi Inicio',headerShown:false}}/>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="CategoryDetail/[categoryId]" /> 
-        <Stack.Screen name="ItemDetail/[itemId]" />
-        {/* --- AÑADE AQUÍ LA RUTA A TU FORMULARIO --- */}
-        {/* Por ejemplo, si tu formulario está en app/(admin)/ProyectoEvento.js */}
-        <Stack.Screen name="(admin)/ProyectoEvento" options={{ title: 'Crear Evento' }} />
       </Stack>
     </ThemeProvider>
   );

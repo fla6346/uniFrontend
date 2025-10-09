@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
@@ -16,6 +14,12 @@ import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+const ESTADOS_PROYECTO = {
+  PENDIENTE: 'pendiente',
+  APROBADO: 'aprobado',
+  RECHAZADO: 'rechazado',
+  EN_REVISION: 'en_revision'
+};
 const TIPOS_DE_EVENTO = [
   { id: '1', label: 'Curricular' },
   { id: '2', label: 'Extracurricular' },
@@ -40,23 +44,167 @@ const OBJETIVOS_EVENTO_MAP = {
   fidelizacion: 5,
   otro: 6
 };
+const ProyectoDetalleModal = ({ visible, proyecto, onClose, onAprobar, onRechazar, isLoading }) => {
+  const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [showRechazoInput, setShowRechazoInput] = useState(false);
 
-// Función para obtener el icono según el tipo de notificación
-const getNotificationIcon = (type) => {
-  switch (type) {
-    case 'nuevo_evento':
-      return 'calendar';
-    case 'evento_aprobado':
-      return 'checkmark-circle';
-    case 'evento_rechazado':
-      return 'close-circle';
-    case 'recordatorio':
-      return 'alarm';
-    default:
-      return 'notifications';
-  }
+  if (!proyecto) return null;
+
+  const handleRechazar = () => {
+    if (!motivoRechazo.trim()) {
+      Alert.alert('Error', 'Debes proporcionar un motivo para el rechazo.');
+      return;
+    }
+    onRechazar(proyecto.id, motivoRechazo);
+    setMotivoRechazo('');
+    setShowRechazoInput(false);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.detalleModalContent}>
+          <View style={styles.detalleModalHeader}>
+            <Text style={styles.detalleModalTitle}>Detalle del Proyecto</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.detalleScrollView}>
+            {/* Información básica */}
+            <View style={styles.detalleSection}>
+              <Text style={styles.detalleSectionTitle}>Información General</Text>
+              <View style={styles.detalleRow}>
+                <Text style={styles.detalleLabel}>Nombre:</Text>
+                <Text style={styles.detalleValue}>{proyecto.nombreevento}</Text>
+              </View>
+              <View style={styles.detalleRow}>
+                <Text style={styles.detalleLabel}>Fecha:</Text>
+                <Text style={styles.detalleValue}>
+                  {dayjs(proyecto.fechaevento).format('DD/MM/YYYY')} a las {dayjs(proyecto.horaevento, 'HH:mm:ss').format('HH:mm')}
+                </Text>
+              </View>
+              <View style={styles.detalleRow}>
+                <Text style={styles.detalleLabel}>Lugar:</Text>
+                <Text style={styles.detalleValue}>{proyecto.lugarevento}</Text>
+              </View>
+              <View style={styles.detalleRow}>
+                <Text style={styles.detalleLabel}>Responsable:</Text>
+                <Text style={styles.detalleValue}>{proyecto.responsable_evento}</Text>
+              </View>
+              <View style={styles.detalleRow}>
+                <Text style={styles.detalleLabel}>Creado:</Text>
+                <Text style={styles.detalleValue}>
+                  {dayjs(proyecto.created_at).format('DD/MM/YYYY HH:mm')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Argumentación */}
+            <View style={styles.detalleSection}>
+              <Text style={styles.detalleSectionTitle}>Argumentación</Text>
+              <Text style={styles.detalleArgumentacion}>{proyecto.argumentacion}</Text>
+            </View>
+
+            {/* Presupuesto */}
+            {proyecto.balance_economico && (
+              <View style={styles.detalleSection}>
+                <Text style={styles.detalleSectionTitle}>Balance Económico</Text>
+                <Text style={[
+                  styles.detalleBalance,
+                  { color: proyecto.balance_economico >= 0 ? '#27ae60' : '#e74c3c' }
+                ]}>
+                  Bs {proyecto.balance_economico?.toFixed(2)}
+                </Text>
+              </View>
+            )}
+
+            {/* Tipos de evento */}
+            {proyecto.tipos_de_evento && proyecto.tipos_de_evento.length > 0 && (
+              <View style={styles.detalleSection}>
+                <Text style={styles.detalleSectionTitle}>Tipos de Evento</Text>
+                {proyecto.tipos_de_evento.map((tipo, index) => (
+                  <Text key={index} style={styles.detalleTipo}>• {tipo.label || tipo.nombre}</Text>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Acciones */}
+          <View style={styles.detalleActions}>
+            {!showRechazoInput ? (
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity 
+                  style={styles.actionButtonReject} 
+                  onPress={() => setShowRechazoInput(true)}
+                  disabled={isLoading}
+                >
+                  <Ionicons name="close-circle" size={20} color="white" />
+                  <Text style={styles.actionButtonText}>Rechazar</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.actionButtonApprove} 
+                  onPress={() => onAprobar(proyecto.id)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color="white" />
+                      <Text style={styles.actionButtonText}>Aprobar</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.rechazoInputContainer}>
+                <Text style={styles.rechazoLabel}>Motivo del rechazo:</Text>
+                <TextInput
+                  style={styles.rechazoInput}
+                  multiline
+                  numberOfLines={3}
+                  placeholder="Explica por qué se rechaza este proyecto..."
+                  value={motivoRechazo}
+                  onChangeText={setMotivoRechazo}
+                />
+                <View style={styles.rechazoActions}>
+                  <TouchableOpacity 
+                    style={styles.cancelButton} 
+                    onPress={() => {
+                      setShowRechazoInput(false);
+                      setMotivoRechazo('');
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.confirmRejectButton} 
+                    onPress={handleRechazar}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <Text style={styles.confirmRejectButtonText}>Confirmar Rechazo</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 };
-
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
     <Ionicons name="notifications-outline" size={24} color="#333" />
@@ -69,72 +217,35 @@ const NotificationBell = ({ notificationCount, onPress }) => (
     )}
   </TouchableOpacity>
 );
-
-const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => (
+const NotificationsModal = ({ visible, onClose, notifications }) => (
   <Modal
     visible={visible}
     transparent={true}
     animationType="slide"
     onRequestClose={onClose}
   >
-    <View style={styles.notificationsModalOverlay}>
-      <View style={styles.notificationsModalContent}>
+    <View style={styles.notificationsModalTitle}>
+      <View style={styles.notificationContent}>
         <View style={styles.notificationsModalHeader}>
           <Text style={styles.notificationsModalTitle}>Notificaciones</Text>
           <TouchableOpacity onPress={onClose}>
             <Ionicons name="close" size={24} color="#333" />
           </TouchableOpacity>
         </View>
-        <ScrollView style={styles.notificationsList}>
+         <ScrollView style={styles.notificationsList}>
           {notifications.length === 0 ? (
             <Text style={styles.noNotificationsText}>No hay notificaciones</Text>
           ) : (
-            notifications.map((notification) => (
-              <TouchableOpacity
-                key={notification.id || notification.idnotification}
-                style={[
-                  styles.notificationItem,
-                  (!notification.read && notification.estado !== 'leida') && styles.notificationItemUnread
-                ]}
-                onPress={() => markAsRead(notification.id || notification.idnotification)}
-              >
-                <View style={styles.notificationIconContainer}>
-                  <Ionicons 
-                    name={getNotificationIcon(notification.type || notification.tipo)} 
-                    size={20} 
-                    color="#e95a0c" 
-                    style={styles.notificationIcon} 
-                  />
-                  {(!notification.read && notification.estado !== 'leida') && (
-                    <View style={styles.unreadDot} />
-                  )}
-                </View>
-                <View style={styles.notificationContentContainer}>
-                  <Text style={[
-                    styles.notificationText,
-                    (!notification.read && notification.estado !== 'leida') && styles.notificationTextUnread
-                  ]}>
-                    {notification.title || notification.titulo}
-                  </Text>
-                  <Text style={styles.notificationMessage}>
-                    {notification.message || notification.mensaje}
-                  </Text>
+            notifications.map((notification, index) => (
+              <View key={index} style={styles.notificationItem}>
+                <Ionicons name="calendar" size={20} color="#e95a0c" style={styles.notificationIcon} />
+                <View style={styles.notificationContent}>
+                  <Text style={styles.notificationText}>{notification.message}</Text>
                   <Text style={styles.notificationTime}>
-                    {dayjs(notification.timestamp || notification.created_at).format('DD/MM/YYYY HH:mm')}
+                    {dayjs(notification.timestamp).fromNow()}
                   </Text>
-                  {/*notification.eventData && (
-                    <View style={styles.eventDataContainer}>
-                      <Text style={styles.eventDataText}>
-                        📅 {dayjs(notification.eventData.fecha).format('DD/MM/YYYY')} - {notification.eventData.hora}
-                      </Text>
-                    
-                      <Text style={styles.eventDataText}>
-                        👤 {notification.eventData.responsable}
-                      </Text>
-                    </View>
-                  )*/}
                 </View>
-              </TouchableOpacity>
+              </View>
             ))
           )}
         </ScrollView>
@@ -142,7 +253,7 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
     </View>
   </Modal>
 );
-{/*
+
 const InteractiveClockPicker = ({ value, onChange }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragType, setDragType] = useState(null);
@@ -234,7 +345,7 @@ const InteractiveClockPicker = ({ value, onChange }) => {
   };
 
   const panResponder = useRef(
-    PanResponder.create({
+    PanResponder.create({ // Cambiado de panResponder.create a PanResponder.create
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
@@ -276,8 +387,6 @@ const InteractiveClockPicker = ({ value, onChange }) => {
     onChange(newDate);
   };
 
-
-  
   const hourHandX = centerX + 50 * Math.cos(hourAngle * Math.PI / 180);
   const hourHandY = centerY + 50 * Math.sin(hourAngle * Math.PI / 180);
   const minuteHandX = centerX + 70 * Math.cos(minuteAngle * Math.PI / 180);
@@ -451,8 +560,7 @@ const InteractiveClockPicker = ({ value, onChange }) => {
       </View>
     </View>
   );
-};*/}
-
+};
 const getTokenAsync = async () => {
   const TOKEN_KEY = 'adminAuthToken';
   try {
@@ -564,10 +672,9 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
 
   const getEventsForDay = (date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD');
-    return eventos.filter(evento => {
-      const fechaEventoStr = evento.fechaevento.split('T')[0];
-      return fechaEventoStr === dateStr
-    });
+    return eventos.filter(evento => 
+      dayjs(evento.fechaevento).format('YYYY-MM-DD') === dateStr
+    );
   };
 
   const navigateMonth = (direction) => {
@@ -653,7 +760,7 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
                   <View style={styles.eventPreview}>
                     {dayEvents.slice(0, 2).map((evento, idx) => (
                       <Text key={idx} style={styles.eventPreviewText}>
-                        {dayjs(evento.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
+                        {dayjs(evento.horaevento, 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
                       </Text>
                     ))}
                     {dayEvents.length > 2 && (
@@ -695,7 +802,7 @@ const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetec
                 {conflictoDetectado.nombreevento}
               </Text>
               <Text style={styles.conflictEventDetails}>
-                {dayjs(conflictoDetectado.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} - {conflictoDetectado.lugarevento}
+                {dayjs(conflictoDetectado.horaevento, 'HH:mm:ss').format('HH:mm')} - {conflictoDetectado.lugarevento}
               </Text>
               <Text style={styles.conflictEventResponsible}>
                 Responsable: {conflictoDetectado.responsable_evento}
@@ -751,13 +858,11 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
         showsVerticalScrollIndicator={false}
       >
         {eventosDelDia.map((evento, index) => {
-          const horaEventoString = (evento.horaevento || '').split('+')[0].trim();
-          const horaEvento = dayjs(`2000-01-01 ${horaEventoString}`, 'YYYY-MM-DD HH:mm:ss');
-          const isHoraValida = horaEvento.isValid();
+          const horaEvento = dayjs(evento.horaevento, 'HH:mm:ss');
           const isConflict = verificarConflictoHorario(
             dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD') + 'T' + 
             dayjs(fechaHoraSeleccionada).format('HH:mm:ss')
-          ).some(e => e.id === evento.id || e.idevento === evento.idevento);
+          ).some(e => e.id === evento.id);
 
           return (
             <View key={index} style={[
@@ -775,7 +880,7 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
                     styles.eventoTime,
                     isConflict && styles.eventoTimeConflict
                   ]}>
-                    {isHoraValida ? horaEvento.format('HH:mm') : 'Hora no disponible'}
+                    {horaEvento.format('HH:mm')}
                   </Text>
                 </View>
                 {isConflict && (
@@ -811,83 +916,18 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
   );
 };
 
-const ConfirmModal = ({ showConfirmModal, setShowConfirmModal, handleSubmitConfirmed, isLoading, formData }) => (
-  <Modal
-    visible={showConfirmModal}
-    transparent={true}
-    animationType="slide"
-    onRequestClose={() => setShowConfirmModal(false)}
-  >
-    <View style={styles.modalOverlay}>
-      <View style={styles.confirmModalContent}>
-        <View style={styles.confirmModalHeader}>
-          <Ionicons name="information-circle" size={32} color="#3498db" />
-          <Text style={styles.confirmModalTitle}>Confirmar Envío</Text>
-        </View>
-        
-        <Text style={styles.confirmModalMessage}>
-          ¿Estás seguro de que deseas crear este evento? Una vez enviado, no podrás modificarlo.
-        </Text>
-        
-        <View style={styles.confirmModalDetails}>
-          <Text style={styles.confirmModalDetailTitle}>Resumen del Evento:</Text>
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Nombre: </Text>{formData.nombreevento}
-          </Text>
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Fecha: </Text>
-            {dayjs(formData.fechaHoraSeleccionada).format('DD/MM/YYYY')}
-          </Text>
-          {/*
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Hora: </Text>
-            {dayjs(formData.fechaHoraSeleccionada).format('HH:mm')}
-          </Text>*/}
-          
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Responsable: </Text>{formData.nombreResponsable}
-          </Text>
-        </View>
-        
-        <View style={styles.confirmModalButtons}>
-          <TouchableOpacity 
-            style={[styles.confirmModalButton, styles.confirmModalButtonCancel]} 
-            onPress={() => setShowConfirmModal(false)}
-          >
-            <Text style={styles.confirmModalButtonTextCancel}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.confirmModalButton, styles.confirmModalButtonConfirm]} 
-            onPress={handleSubmitConfirmed}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.confirmModalButtonTextConfirm}>Sí, Crear Evento</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  </Modal>
-);
-
 const ProyectoEvento = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // Estados principales
   const [isLoading, setIsLoading] = useState(false);
   const [authToken, setAuthToken] = useState(null);
-  const [userRole, setUserRole] = useState(null); // ✅ Agregado estado faltante
   const [errors, setErrors] = useState({});
   const [eventos, setEventos] = useState([]);
   const [eventosDelDia, setEventosDelDia] = useState([]);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictoDetectado, setConflictoDetectado] = useState(null);
 
-  // Estados del formulario
   const [nombreevento, setNombreevento] = useState('');
   const [lugarevento, setLugarevento] = useState('');
   const [nombreResponsable, setNombreResponsable] = useState('');
@@ -899,17 +939,50 @@ const ProyectoEvento = () => {
   const [recursos, setRecursos] = useState(['']);
   const [segmentosTextoPersonalizado, setSegmentosTextoPersonalizado] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-  // Estados de notificaciones
   const [notifications, setNotifications] = useState([]);
-  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  
 
-  // Estados de fecha y objetivos
+  const sendAdminNotification = async (eventData) => {
+    try {
+      const notificationPayload = {
+        type: 'nuevo_evento',
+        message: `El usuario ha creado un nuevo evento: ${eventData.nombreevento}`,
+        eventData: {
+          id: eventData.id,
+          nombre: eventData.nombreevento,
+          fecha: eventData.fechaevento,
+          hora: eventData.horaevento,
+          lugar: eventData.lugarevento
+        },
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+       await axios.post(`${API_BASE_URL}/notifications`, notificationPayload, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('Notificación enviada al admin');
+    } catch (error) {
+      console.error('Error al enviar notificación:', error);
+    }
+  };
+const fetchNotifications = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/notifications`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      setNotifications(response.data);
+    } catch (error) {
+      console.error('Error al obtener notificaciones:', error);
+    }
+  };
   const [fechaHoraSeleccionada, setFechaHoraSeleccionada] = useState(() => {
-    let initialDate = dayjs();
     if (params.selectedDate) {
-      initialDate= dayjs(params.selectedDate);
+      let initialDate = dayjs(params.selectedDate);
       if (params.selectedHour) {
         initialDate = initialDate.hour(parseInt(params.selectedHour, 10)).minute(0).second(0);
       }
@@ -958,116 +1031,21 @@ const ProyectoEvento = () => {
   );
   const balance = useMemo(() => totalIngresos - totalEgresos, [totalIngresos, totalEgresos]);
 
-  const sendAdminNotification = async (eventData) => {
-    try {
-      const notificationPayload = {
-        type: 'nuevo_evento',
-        title: 'Nuevo Evento Creado',
-        message: `El director ha creado un nuevo evento: "${eventData.nombreevento}" para el ${dayjs(eventData.fechaevento).format('DD/MM/YYYY')} a las ${eventData.horaevento}`,
-        eventData: {
-          id: eventData.id,
-          nombre: eventData.nombreevento,
-          fecha: eventData.fechaevento,
-         // hora: eventData.horaevento,
-          lugar: eventData.lugarevento,
-          responsable: eventData.responsable_evento
-        },
-        recipient_role: 'admin',
-        idevento: eventData.id,
-      };
-
-      const response = await axios.post(`${API_BASE_URL}/notifications`, notificationPayload, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Notificación enviada al admin:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error al enviar notificación:', error);
-      throw error;
-    }
-  };
-
-  // ✅ Función corregida para obtener notificaciones
-  const fetchNotifications = async () => {
-    if (!authToken) return; // ✅ Verificación adicional
-    
-    try {
-      const response = await axios.get(`${API_BASE_URL}/notifications/user`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      
-      setNotifications(response.data || []);
-      setUnreadCount((response.data || []).filter(n => !n.read && n.estado !== 'leida').length);
-    } catch (error) {
-      console.error('Error al obtener notificaciones:', error);
-    }
-  };
-
-  const markNotificationAsRead = async (notificationId) => {
-    if (!authToken || !notificationId) return;
-    
-    try {
-      await axios.patch(`${API_BASE_URL}/notifications/${notificationId}/read`, {}, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true, estado: 'leida' } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Error al marcar notificación como leída:', error);
-    }
-  };
-
-  const fetchUserInfo = async () => {
-    if (!authToken) return null;
-    
-    try {
-      const response = await axios.get(`${API_BASE_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      
-      setUserRole(response.data.role || response.data.rol);
-      return response.data;
-    } catch (error) {
-      console.error('Error al obtener información del usuario:', error);
-      return null;
-    }
-  };
-
   const verificarConflictoHorario = (fechaHora) => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
     const horaFormateada = dayjs(fechaHora).format('HH:mm');
+    
     const eventosEnMismaFecha = eventos.filter(evento => 
       dayjs(evento.fechaevento).format('YYYY-MM-DD') === fechaFormateada
     );
     
     const conflictos = eventosEnMismaFecha.filter(evento => {
-      const horaEventoString = (evento.horaevento || '').split('+')[0].trim();
-      const horaEvento = dayjs(horaEventoString, 'HH:mm:ss');
-      if(!horaEvento.isValid()){
-        return false;
-      }
+      const horaEvento = dayjs(evento.horaevento, 'HH:mm:ss');
       const horaSeleccionada = dayjs(horaFormateada, 'HH:mm');
       const diferencia = Math.abs(horaEvento.diff(horaSeleccionada, 'minutes'));
       return diferencia < 120;
     });
     
-   /* if(!dayjs(fechaHora).isValid()){
-      console.warn("Fefcha invalida", fechaHora);
-      return[];
-    }*/
     return conflictos;
   };
 
@@ -1080,32 +1058,23 @@ const ProyectoEvento = () => {
       setFechaHoraSeleccionada(newDate);
     }
   };
-
-  // ✅ useEffect corregido para cargar notificaciones
-  useEffect(() => {
+useEffect(() => {
     if (authToken) {
-      fetchUserInfo();
-      fetchNotifications();
-      
+      fetchNotifications(); // Cargar notificaciones al inicio
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
   }, [authToken]);
-
-  // ✅ useEffect corregido para inicialización - SIN llamar sendAdminNotification
   useEffect(() => {
     const initialize = async () => {
       setIsLoading(true);
       const token = await getTokenAsync();
       setAuthToken(token);
-      
       if (!token) {
-        console.log("Token Utillizado ",authToken);
         Alert.alert("Error", "No se encontró un token de autenticación. Por favor, inicia sesión.");
         router.push("/login");
         return;
       }
-      
       try {
         const responseRecursos = await axios.get(`${API_BASE_URL}/recursos`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -1114,13 +1083,17 @@ const ProyectoEvento = () => {
         setRecursosDisponibles(validResources);
 
         const responseEventos = await axios.get(`${API_BASE_URL}/eventos`, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+          headers: { Authorization: `Bearer ${token}`,
+          'Content-Type':'application/json',
           }
         });
-        setEventos(responseEventos.data || []);
-        
+         await sendAdminNotification({
+        id: response.data.id,
+        ...eventoPayload
+      });
+        setEventos(responseEventos.data);
+        Alert.alert('Éxito', 'El evento ha sido creado correctamente.');
+        router.back();
       } catch (error) {
         console.error("Error al cargar datos:", error);
         Alert.alert("Error", "No se pudieron cargar los datos necesarios.");
@@ -1129,7 +1102,7 @@ const ProyectoEvento = () => {
       }
     };
     initialize();
-  }, []); // ✅ Array de dependencias vacío correcto
+  }, []);
 
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
@@ -1172,18 +1145,12 @@ const ProyectoEvento = () => {
   const onChangeTimeEventoPrincipal = (event, selectedDate) => {
     setShowTimePicker(Platform.OS === 'ios');
     if (selectedDate) {
-      const newHour = selectedDate.getHours();
-      const newMinute = selectedDate.getMinutes();
-
-      const updateDate = new Date(fechaHoraSeleccionada);
-      updateDate.setHours(newHour, newMinute, 0, 0);
-      
-      const conflictos = verificarConflictoHorario(updateDate);
+      const conflictos = verificarConflictoHorario(selectedDate);
       if (conflictos.length > 0) {
         setConflictoDetectado(conflictos[0]);
         setShowConflictModal(true);
       } else {
-        setFechaHoraSeleccionada(updateDate);
+        setFechaHoraSeleccionada(selectedDate);
       }
     }
   };
@@ -1247,6 +1214,7 @@ const ProyectoEvento = () => {
   const validateForm = () => {
     const newErrors = {};
     if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es obligatorio.';
+    if (!lugarevento.trim()) newErrors.lugarevento = 'El lugar del evento es obligatorio.';
     if (!nombreResponsable.trim()) newErrors.nombreResponsable = 'El nombre del responsable es obligatorio.';
     if (Object.values(tiposSeleccionados).every(v => !v)) newErrors.tipos = 'Selecciona al menos un tipo de evento.';
     if (Object.values(objetivos).every(v => !v)) newErrors.objetivos = 'Selecciona al menos un objetivo.';
@@ -1262,40 +1230,25 @@ const ProyectoEvento = () => {
     }
     setShowConfirmModal(true);
   };
+   
 
-  // ✅ Función corregida handleSubmitConfirmed
-  const handleSubmitConfirmed = async () => {
-    setShowConfirmModal(false);
-    setIsLoading(true);
-    
-    if (!authToken) {
+    const handleSubmitConfirmed= async()=>{
+      setShowConfirmModal(false);
+      setIsLoading(true);
+      
+      if (!authToken) {
       Alert.alert("Error de Autenticación", "No se puede enviar el formulario. Intenta iniciar sesión de nuevo.");
       setIsLoading(false);
       return;
-    }
-    
+      }
     try {
-      if(!nombreevento.trim()){
-        throw new Error('El nombre del evento es obligatorio');
-      }
-      if(!nombreResponsable.trim()){
-        throw new Error('El responsable del evento es obligatorio');
-      }
       const tiposParaEnviar = Object.keys(tiposSeleccionados)
         .filter(id => tiposSeleccionados[id])
         .map(id => {
           const tipoObjeto = TIPOS_DE_EVENTO.find(tipo => tipo.id === id);
-          return tipoObjeto ?{
-            id: parseInt(id,10),
-            //nombre:tipoObjeto.label,
-            texto_personalizado:id === '5'&& textoOtroTipo.trim() !== ''? textoOtroTipo.trim() : undefined
-          }: null;
+          return tipoObjeto ? { id: parseInt(id, 10), texto_personalizado: id === '5' && textoOtroTipo.trim() !== '' ? textoOtroTipo.trim() : undefined } : null;
         })
         .filter(item => item !== null);
-
-        if(tiposParaEnviar.length === 0){
-          throw new Error ('Debes seleccionar al menos un tipo de evento');
-        }
 
       const objetivoParaEnviar = Object.keys(objetivos)
         .filter(key => objetivos[key] === true && key !== 'otroTexto')
@@ -1307,9 +1260,6 @@ const ProyectoEvento = () => {
           return obj;
         });
 
-        if(objetivoParaEnviar.length ===0){
-          throw new Error('debes seleccionar al menos un objetivo ');
-        }
       const segmentosParaEnviar = [];
       const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
       Object.keys(segmentoObjetivo)
@@ -1343,42 +1293,20 @@ const ProyectoEvento = () => {
           recurso_tipo: 'Material/Técnico/Tercero'
         }));
 
-         const presupuestoData = {
-        egresos: egresos
-          .filter(item => item.descripcion.trim() !== '')
-          .map(item => ({
-            descripcion: item.descripcion,
-            cantidad: parseFloat(item.cantidad) || 0,
-            precio_unitario: parseFloat(item.precio) || 0,
-            total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0)
-          })),
-        ingresos: ingresos
-          .filter(item => item.descripcion.trim() !== '')
-          .map(item => ({
-            descripcion: item.descripcion,
-            cantidad: parseFloat(item.cantidad) || 0,
-            precio_unitario: parseFloat(item.precio) || 0,
-            total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0)
-          })),
-        total_egresos: totalEgresos,
-        total_ingresos: totalIngresos,
-        balance: balance
-      };    
-
       const eventoPayload = {
-        nombreevento: nombreevento.trim(),
-        lugarevento: lugarevento.trim() || 'Por definir',
-        responsable_evento: nombreResponsable.trim(),
+        nombreevento,
+        lugarevento,
+        responsable_evento: nombreResponsable,
         fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
-        horaevento: '00:00:00',
-        argumentacion: argumentacion.trim() || null,
-        objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 
-        ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) : null,
+        horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'),
+        argumentacion: argumentacion || null,
+        objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) : null,
         resultados_esperados: JSON.stringify(resultadosEsperados),
         tipos_de_evento: tiposParaEnviar,
         objetivos: objetivoParaEnviar,
-        segmentos_objetivo: segmentosParaEnviar.length >0 ? recursosParaEnviar: null,
-        recursos_nuevos: nuevosRecursos.length>0 ? nuevosRecursos:null
+        segmentos_objetivo: segmentosParaEnviar,
+        recursos: recursosParaEnviar,
+        recursos_nuevos: nuevosRecursos
       };
 
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
@@ -1388,27 +1316,8 @@ const ProyectoEvento = () => {
         },
       });
 
-      try {
-        await sendAdminNotification({
-          id: response.data.id || response.data.data?.id,
-          ...eventoPayload
-        });
-        console.log('Notificación enviada exitosamente al administrador');
-      } catch (notificationError) {
-        console.warn('El evento se creó correctamente, pero hubo un error al enviar la notificación:', notificationError);
-      }
-
-      Alert.alert(
-        'Éxito', 
-        'El evento ha sido creado correctamente y se ha notificado al administrador.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
-        ]
-      );
-      
+      Alert.alert('Éxito', 'El evento ha sido creado correctamente.');
+      router.back();
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
       if (error.response) {
@@ -1422,18 +1331,97 @@ const ProyectoEvento = () => {
     } finally {
       setIsLoading(false);
     }
+   
   };
+
+const ConfirmModal = ({ showConfirmModal, setShowConfirmModal, handleSubmitConfirmed, isLoading, formData }) => (
+  <Modal
+    visible={showConfirmModal}
+    transparent={true}
+    animationType="slide"
+    onRequestClose={() => setShowConfirmModal(false)}
+  >
+    <View style={styles.modalOverlay}>
+      <View style={styles.confirmModalContent}>
+        <View style={styles.confirmModalHeader}>
+          <Ionicons name="information-circle" size={32} color="#3498db" />
+          <Text style={styles.confirmModalTitle}>Confirmar Envío</Text>
+        </View>
+        
+        <Text style={styles.confirmModalMessage}>
+          ¿Estás seguro de que deseas crear este evento? Una vez enviado, no podrás modificarlo.
+        </Text>
+        
+        <View style={styles.confirmModalDetails}>
+          <Text style={styles.confirmModalDetailTitle}>Resumen del Evento:</Text>
+          <Text style={styles.confirmModalDetail}>
+            <Text style={styles.detailLabel}>Nombre: </Text>{formData.nombreevento}
+          </Text>
+          <Text style={styles.confirmModalDetail}>
+            <Text style={styles.detailLabel}>Fecha: </Text>
+            {dayjs(formData.fechaHoraSeleccionada).format('DD/MM/YYYY')}
+          </Text>
+          <Text style={styles.confirmModalDetail}>
+            <Text style={styles.detailLabel}>Hora: </Text>
+            {dayjs(formData.fechaHoraSeleccionada).format('HH:mm')}
+          </Text>
+          <Text style={styles.confirmModalDetail}>
+            <Text style={styles.detailLabel}>Lugar: </Text>{formData.lugarevento}
+          </Text>
+          <Text style={styles.confirmModalDetail}>
+            <Text style={styles.detailLabel}>Responsable: </Text>{formData.nombreResponsable}
+          </Text>
+        </View>
+        
+        <View style={styles.confirmModalButtons}>
+          <TouchableOpacity 
+            style={[styles.confirmModalButton, styles.confirmModalButtonCancel]} 
+            onPress={() => setShowConfirmModal(false)}
+          >
+            <Text style={styles.confirmModalButtonTextCancel}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.confirmModalButton, styles.confirmModalButtonConfirm]} 
+            onPress={handleSubmitConfirmed}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.confirmModalButtonTextConfirm}>Sí, Crear Evento</Text>
+            )}
+          </TouchableOpacity>
+           <NotificationsModal
+        visible={NotificationsModal}
+        onClose={() => NotificationsModal(false)}
+        notifications={notifications}
+      />
+      <ConfirmModal 
+        showConfirmModal={showConfirmModal}
+        setShowConfirmModal={setShowConfirmModal}
+        handleSubmitConfirmed={handleSubmitConfirmed}
+        isLoading={isLoading}
+        formData={{
+          nombreevento,
+          lugarevento,
+          nombreResponsable,
+          fechaHoraSeleccionada
+        }}
+      />
+      <ConflictModal
+        showConflictModal={showConflictModal}
+        setShowConflictModal={setShowConflictModal}
+        conflictoDetectado={conflictoDetectado}
+        setConflictoDetectado={setConflictoDetectado}
+      />
+        </View>
+      </View>
+    </View>
+  </Modal>
+);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingContainer}>
-      {/* ✅ Header con campana de notificaciones correctamente posicionado */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Crear Evento</Text>
-        <NotificationBell 
-          notificationCount={unreadCount} 
-          onPress={() => setShowNotificationsModal(true)} 
-        />
-      </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentContainer} keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
         <View style={styles.formSection}>
@@ -1449,7 +1437,7 @@ const ProyectoEvento = () => {
             />
           </View>
           {errors.nombreevento && <Text style={styles.errorText}>{errors.nombreevento}</Text>}
-{/*
+
           <Text style={styles.label}>Lugar del Evento</Text>
           <View style={[styles.inputGroup, errors.lugarevento && styles.inputError]}>
             <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
@@ -1461,7 +1449,7 @@ const ProyectoEvento = () => {
             />
           </View>
           {errors.lugarevento && <Text style={styles.errorText}>{errors.lugarevento}</Text>}
-*/}
+
           <Text style={styles.label}>Responsable del Evento</Text>
           <View style={[styles.inputGroup, errors.nombreResponsable && styles.inputError]}>
             <Ionicons name="person-outline" size={20} style={styles.inputIcon} />
@@ -1474,7 +1462,20 @@ const ProyectoEvento = () => {
           </View>
           {errors.nombreResponsable && <Text style={styles.errorText}>{errors.nombreResponsable}</Text>}
 
-          {/*<Text style={styles.label}>Hora de Realización</Text>
+          <Text style={styles.label}>Fecha de Realización</Text>
+          <GoogleStyleCalendarView
+            fechaHoraSeleccionada={fechaHoraSeleccionada}
+            setFechaHoraSeleccionada={setFechaHoraSeleccionada}
+            eventos={eventos}
+          />
+
+          <EventosDelDiaMejorado
+            eventosDelDia={eventosDelDia}
+            fechaHoraSeleccionada={fechaHoraSeleccionada}
+            verificarConflictoHorario={verificarConflictoHorario}
+          />
+
+          <Text style={styles.label}>Hora de Realización</Text>
           {Platform.OS === 'web' ? (
             <InteractiveClockPicker
               value={fechaHoraSeleccionada}
@@ -1497,21 +1498,7 @@ const ProyectoEvento = () => {
               display="clock"
               onChange={onChangeTimeEventoPrincipal}
             />
-          )}*/}
-          <Text style={styles.label}>Fecha de Realización</Text>
-          <GoogleStyleCalendarView
-            fechaHoraSeleccionada={fechaHoraSeleccionada}
-            setFechaHoraSeleccionada={setFechaHoraSeleccionada}
-            eventos={eventos}
-          />
-
-          <EventosDelDiaMejorado
-            eventosDelDia={eventosDelDia}
-            fechaHoraSeleccionada={fechaHoraSeleccionada}
-            verificarConflictoHorario={verificarConflictoHorario}
-          />
-
-          
+          )}
 
           <Text style={styles.label}>Tipo de Evento (puede seleccionar más de un tipo)</Text>
           {TIPOS_DE_EVENTO.map((item) => (
@@ -1713,13 +1700,10 @@ const ProyectoEvento = () => {
           </View>
         </View>
       </ScrollView>
-
       <TouchableOpacity onPress={confirmSubmit} disabled={isLoading} style={[styles.submitButton, isLoading && styles.buttonDisabled]}>
         {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Crear Proyecto de Evento</Text>}
       </TouchableOpacity>
-
-      {/* ✅ Modales correctamente estructurados */}
-      <ConfirmModal 
+     <ConfirmModal 
         showConfirmModal={showConfirmModal}
         setShowConfirmModal={setShowConfirmModal}
         handleSubmitConfirmed={handleSubmitConfirmed}
@@ -1730,21 +1714,7 @@ const ProyectoEvento = () => {
           nombreResponsable,
           fechaHoraSeleccionada
         }}
-      />
-
-      <NotificationsModal
-        visible={showNotificationsModal}
-        onClose={() => setShowNotificationsModal(false)}
-        notifications={notifications}
-        markAsRead={markNotificationAsRead}
-      />
-
-      <ConflictModal
-        showConflictModal={showConflictModal}
-        setShowConflictModal={setShowConflictModal}
-        conflictoDetectado={conflictoDetectado}
-        setConflictoDetectado={setConflictoDetectado}
-      />
+/>
     </KeyboardAvoidingView>
   );
 };
@@ -1763,185 +1733,6 @@ confirmModalContent: {
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-  },
-  notificationMessage: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 5,
-    lineHeight: 18,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingBottom: 15,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-
-  // Campana de notificaciones
-  notificationBell: {
-    position: 'relative',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#ff4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  notificationBadgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-
-  // Modal de notificaciones
-  notificationsModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationsModalContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 10,
-  },
-  notificationsModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  notificationsModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-
-  // Lista de notificaciones
-  notificationsList: {
-    flex: 1,
-  },
-  noNotificationsText: {
-    textAlign: 'center',
-    color: '#666',
-    marginTop: 50,
-    fontSize: 16,
-    fontStyle: 'italic',
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    borderRadius: 8,
-    marginBottom: 5,
-    backgroundColor: '#ffffff',
-  },
-  notificationItemUnread: {
-    backgroundColor: '#f8f9ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#e95a0c',
-    shadowColor: '#e95a0c',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  
-  // Iconos y contenido de notificaciones
-  notificationIconContainer: {
-    position: 'relative',
-    marginRight: 15,
-    paddingTop: 2,
-  },
-  notificationIcon: {
-    marginRight: 0,
-  },
-  unreadDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ff4444',
-  },
-  notificationContentContainer: {
-    flex: 1,
-  },
-  notificationText: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 5,
-    lineHeight: 20,
-  },
-  notificationTextUnread: {
-    fontWeight: '600',
-  },
-  notificationMessage: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 5,
-    lineHeight: 18,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  
-  // Información del evento en notificaciones
-  eventDataContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 5,
-    borderLeftWidth: 3,
-    borderLeftColor: '#e95a0c',
-  },
-  eventDataText: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 2,
-    lineHeight: 16,
   },
   confirmModalHeader: {
     flexDirection: 'row',

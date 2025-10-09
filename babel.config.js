@@ -6,7 +6,6 @@ module.exports = function (api) {
     presets: ['babel-preset-expo'],
     plugins: [
       // Otros plugins que puedas tener (como expo-router/babel)
-      'expo-router/babel', // Si usas Expo Router v2+
       // ...
 
       // ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ PRESENTE:
