@@ -359,8 +359,47 @@ const HomeAdministradorScreen = () => {
     return { columns: cols, cardWidth: width };
   }, [windowWidth]);
 
-  // ... (el resto de tu lógica: fetchNotifications, handleActionPress, etc. permanece igual)
 
+
+  useEffect(() => {
+    fetchNotifications();
+    fetchDashboardStats();
+  }, [fetchNotifications, fetchDashboardStats]);
+
+
+  // Estados para alertas críticas (ya no se usan directamente en la UI, pero se mantienen por si la lógica de fondo los necesita)
+  const [systemAlerts, setSystemAlerts] = useState([
+    {
+      id: 'alert-3',
+      title: 'Respaldo automático',
+      description: 'Último respaldo hace 25 horas',
+      priority: 'medium',
+      color: COLORS.info,
+      icon: 'cloud-upload',
+      timestamp: new Date(Date.now() - 90000000).toISOString(),
+      action: '/admin/respaldos'
+    },
+    {
+      id: 'alert-4',
+      title: 'Usuarios inactivos',
+      description: '23 cuentas sin actividad por 30+ días',
+      priority: 'low',
+      color: COLORS.purple,
+      icon: 'people',
+      timestamp: new Date(Date.now() - 172800000).toISOString(),
+      action: '/admin/UsuariosVista.js'
+    }
+  ]);
+
+  // Estados para datos dinámicos (mantenemos solo para referencia)
+  const [quickStats] = useState([
+    { icon: 'people-outline', value: activeUsersCount, label: 'Usuarios', color: COLORS.info },
+    { icon: 'calendar-outline', value: '24', label: 'Eventos', color: COLORS.success },
+    { icon: 'document-text-outline', value: pendingContentCount, label: 'Contenidos', color: COLORS.warning },
+    { icon: 'trending-up-outline', value: '95%', label: 'Sistema', color: COLORS.purple },
+  ]);
+
+  // Función para obtener notificaciones
   const fetchNotifications = useCallback(async () => {
     setLoadingNotifications(true);
     try {
@@ -371,143 +410,195 @@ const HomeAdministradorScreen = () => {
         router.replace('/LoginAdmin');
         return;
       }
-      console.log('Fetching notifications with REAL events from database...');
-      let realEventNotifications = [];
-      try {
-        console.log('Fetching pending events from API...');
-        const eventsResponse = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        console.log('Events API response:', eventsResponse.data);
-        if (eventsResponse.data?.success && eventsResponse.data.events?.length > 0) {
-          realEventNotifications = eventsResponse.data.events.slice(0, 3).map((event, index) => ({
-            id: `event-${event.id}`,
-            title: 'Evento pendiente de aprobación',
-            message: `El evento "${event.title}" necesita tu revisión`,
-            timestamp: new Date(Date.now() - (index + 1) * 1800000).toISOString(),
-            read: false,
-            type: 'event',
-            eventId: event.id,
-            priority: event.priority,
-            organizer: event.organizer,
-            date: event.date
-          }));
-          console.log('Created event notifications:', realEventNotifications);
-        } else {
-          console.log('No pending events found in API response');
-        }
-      } catch (eventError) {
-        console.error('Error fetching real events for notifications:', eventError);
-        console.error('Error details:', eventError.response?.data);
-        realEventNotifications = [
-          {
-            id: 'event-606',
-            title: 'Evento pendiente de aprobación',
-            message: 'El evento "evento primero" necesita tu revisión',
-            timestamp: new Date().toISOString(),
-            read: false,
-            type: 'event',
-            eventId: 606
-          }
-        ];
-      }
 
-      const systemNotifications = [
-        {
-          id: 'sys-1',
-          title: 'Usuario registrado',
-          message: 'Un nuevo usuario se ha registrado en la plataforma',
-          timestamp: new Date(Date.now() - 30000).toISOString(),
-          read: false,
-          type: 'user'
-        },
-        {
-          id: 'sys-2',
-          title: 'Sistema actualizado',
-          message: 'El sistema se ha actualizado correctamente',
-          timestamp: new Date(Date.now() - 60000).toISOString(),
-          read: true,
-          type: 'system'
-        },
-        {
-          id: 'content-1',
-          title: 'Contenido pendiente de aprobación',
-          message: 'Hay 3 nuevas publicaciones esperando tu revisión',
-          timestamp: new Date(Date.now() - 7200000).toISOString(),
-          read: false,
-          type: 'content',
-        },
-        {
-          id: 'error-1',
-          title: 'Mantenimiento programado',
-          message: 'El sistema tendrá mantenimiento el próximo domingo',
-          timestamp: new Date(Date.now() - 86400000).toISOString(),
-          read: true,
-          type: 'system',
-        },
-      ];
+        console.log('Fetching notifications with REAL events from database...');
 
-      const allNotifications = [...realEventNotifications, ...systemNotifications];
-      const sortedNotifications = allNotifications.sort((a, b) => {
-        if (a.read === b.read) {
-          return new Date(b.timestamp) - new Date(a.timestamp);
-        }
-        return a.read ? 1 : -1;
+    // 🔧 NUEVA IMPLEMENTACIÓN: Obtener eventos reales pendientes
+    let realEventNotifications = [];
+    try {
+      console.log('Fetching pending events from API...');
+      const eventsResponse = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      setNotifications(sortedNotifications);
-    } catch (error) {
-      console.error('Error al cargar notificaciones:', error);
-      Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        await deleteTokenAsync();
-        router.replace('/LoginAdmin');
+      
+      console.log('Events API response:', eventsResponse.data);
+      
+      // Crear notificaciones basadas en eventos reales pendientes
+      if (eventsResponse.data?.success && eventsResponse.data.events?.length > 0) {
+        realEventNotifications = eventsResponse.data.events.slice(0, 3).map((event, index) => ({
+          id: `event-${event.id}`,
+          title: 'Evento pendiente de aprobación',
+          message: `El evento "${event.title}" necesita tu revisión`,
+          timestamp: new Date(Date.now() - (index + 1) * 1800000).toISOString(),
+          read: false,
+          type: 'event',
+          eventId: event.id, // ID REAL del evento (606, etc.)
+          priority: event.priority,
+          organizer: event.organizer,
+          date: event.date
+        }));
+        
+        console.log('Created event notifications:', realEventNotifications);
+      } else {
+        console.log('No pending events found in API response');
       }
-    } finally {
-      setLoadingNotifications(false);
+    } catch (eventError) {
+      console.error('Error fetching real events for notifications:', eventError);
+      console.error('Error details:', eventError.response?.data);
+      
+      // Fallback: usar datos mock con el evento 606 que sí existe
+      realEventNotifications = [
+        {
+          id: 'event-606',
+          title: 'Evento pendiente de aprobación',
+          message: 'El evento "evento primero" necesita tu revisión',
+          timestamp: new Date().toISOString(),
+          read: false,
+          type: 'event',
+          eventId: 606 // ID REAL de tu base de datos
+        }
+      ];
     }
-  }, [router]);
+
+    // Combinar con otras notificaciones del sistema
+    const systemNotifications = [
+      {
+        id: 'sys-1',
+        title: 'Usuario registrado',
+        message: 'Un nuevo usuario se ha registrado en la plataforma',
+        timestamp: new Date(Date.now() - 30000).toISOString(),
+        read: false,
+        type: 'user'
+      },
+      {
+        id: 'sys-2',
+        title: 'Sistema actualizado',
+        message: 'El sistema se ha actualizado correctamente',
+        timestamp: new Date(Date.now() - 60000).toISOString(),
+        read: true,
+        type: 'system'
+      },
+      {
+        id: 'content-1',
+        title: 'Contenido pendiente de aprobación',
+        message: 'Hay 3 nuevas publicaciones esperando tu revisión',
+        timestamp: new Date(Date.now() - 7200000).toISOString(),
+        read: false,
+        type: 'content',
+      },
+      {
+        id: 'error-1',
+        title: 'Mantenimiento programado',
+        message: 'El sistema tendrá mantenimiento el próximo domingo',
+        timestamp: new Date(Date.now() - 86400000).toISOString(),
+        read: true,
+        type: 'system',
+      },
+    ];
+
+    // Combinar todas las notificaciones
+    const allNotifications = [
+      ...realEventNotifications,
+      ...systemNotifications
+    ];
+
+    const sortedNotifications = allNotifications.sort((a, b) => {
+      if (a.read === b.read) {
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      }
+      return a.read ? 1 : -1;
+    });
+
+    console.log(`Final notifications created: ${sortedNotifications.length}`);
+    console.log(`Event notifications: ${realEventNotifications.length}`);
+    
+    setNotifications(sortedNotifications);
+
+  } catch (error) {
+    console.error('Error al cargar notificaciones:', error);
+    Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      await deleteTokenAsync();
+      router.replace('/LoginAdmin');
+    }
+  } finally {
+    setLoadingNotifications(false);
+  }
+}, [router]);
 
   const fetchDashboardStats = useCallback(async () => {
     try {
       const token = await getTokenAsync();
       if (!token) return;
+
+      setActiveUsersCount('1,245');
       setPendingContentCount('12');
+      
     } catch (error) {
       console.error('Error al cargar estadísticas del dashboard:', error);
     }
   }, []);
 
-  useEffect(() => {
-    fetchNotifications();
-    fetchDashboardStats();
-  }, [fetchNotifications, fetchDashboardStats]);
-
   const handleNotificationPress = useCallback(async (notificationItem) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === notificationItem.id ? { ...notif, read: true } : notif
-      ).sort((a, b) => {
-        if (a.read === b.read) return new Date(b.timestamp) - new Date(a.timestamp);
-        return a.read ? 1 : -1;
-      })
-    );
+  console.log('=== NOTIFICATION PRESSED ===');
+  console.log('Notification item:', notificationItem);
+  console.log('Event ID from notification:', notificationItem.eventId);
+  
+  // 1. Marcar como leída
+  setNotifications(prev =>
+    prev.map(notif =>
+      notif.id === notificationItem.id
+        ? { ...notif, read: true }
+        : notif
+    ).sort((a, b) => {
+      if (a.read === b.read) {
+        return new Date(b.timestamp) - new Date(a.timestamp);
+      }
+      return a.read ? 1 : -1;
+    })
+  );
 
-    if (notificationItem.type === 'event') {
-      setShowNotifications(false);
-      router.push({ pathname: '/admin/EventosPendientes' });
-    } else if (notificationItem.type === 'content') {
-      setShowNotifications(false);
-      router.push('/admin/EventDetailScreen');
-    }
-  }, [router]);
+  try {
+    const token = await getTokenAsync();
+    console.log(`Notificación ${notificationItem.id} marcada como leída.`);
+  } catch (error) {
+    console.error(`Error al marcar notificación ${notificationItem.id} como leída:`, error);
+  }
+
+  // 2. Navegar si es un evento
+  if (notificationItem.type === 'event' ) {
+    setShowNotifications(false);
+    
+    router.push({
+      pathname: '/admin/EventosPendientes',  // Cambio aquí: EventDetailScreen en lugar de EventoDetalle
+      //params: { eventId: notificationItem.eventId.toString() }
+    });
+    
+  } else if (notificationItem.type === 'content') {
+    setShowNotifications(false);
+    router.push('/admin/EventDetailScreen');
+  }
+}, [router]);
 
   const markAllAsRead = useCallback(async () => {
     setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
+    try {
+      const token = await getTokenAsync();
+      console.log('Todas las notificaciones marcadas como leídas.');
+      // Aquí podrías hacer una llamada a tu API para marcar todas como leídas en el backend
+    } catch (error) {
+      console.error('Error al marcar todas las notificaciones como leídas:', error);
+    }
   }, []);
 
   const unreadCount = notifications.filter(notif => !notif.read).length;
 
+  // Cálculo responsivo de columnas
+  let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
+  numColumns = Math.min(numColumns, MAX_COLUMNS);
+  cardWidth = Math.min(cardWidth, MAX_CARD_WIDTH);
+
+  // Acciones de administración
   const adminActions = [
     {
       id: '0',
@@ -752,6 +843,7 @@ const HomeAdministradorScreen = () => {
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -762,10 +854,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
-    // ✅ REMOVIDO: minHeight: '100%'
-    // Ahora solo usamos paddingBottom dinámico
   },
-  // ... (el resto de los estilos permanece igual)
   headerContainer: {
     width: '100%',
     height: 220,
