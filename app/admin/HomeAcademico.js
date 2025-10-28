@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,9 +12,53 @@ import {
   useWindowDimensions,
   ScrollView,
   Platform,
+  Modal,
+  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+
+let determinedApiBaseUrl;
+if (Platform.OS === 'android') {
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+} else if (Platform.OS === 'ios') {
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+} else {
+  determinedApiBaseUrl = 'http://localhost:3001/api';
+}
+const API_BASE_URL = determinedApiBaseUrl;
+const TOKEN_KEY = 'adminAuthToken';
+
+const getTokenAsync = async () => {
+  if (Platform.OS === 'web') {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      return (token && token !== 'null' && token !== '') ? token : null;
+    } catch (e) {
+      console.error("Error al acceder a localStorage en web:", e);
+      return null;
+    }
+  } else {
+    try {
+      const token = await SecureStore.getItemAsync(TOKEN_KEY);
+      return (token && token !== 'null' && token !== '') ? token : null;
+    } catch (e) {
+      console.error("Error al obtener token de SecureStore en nativo:", e);
+      return null;
+    }
+  }
+};
+
+const deleteTokenAsync = async () => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem(TOKEN_KEY);
+  } else {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+  }
+};
 
 const COLORS = {
   primary: '#219ebc',
@@ -31,8 +75,8 @@ const COLORS = {
   grayLight: '#ecf0f1',
   grayText: '#64748b',
   res: '#67c1eaff',
-  sis:'#FFCC00',
-  opo:'#755E00',
+  sis: '#FFCC00',
+  opo: '#755E00',
   darkText: '#1e293b',
   overlay: 'rgba(15, 23, 42, 0.7)',
   cardShadow: '#000000',
@@ -62,13 +106,11 @@ const QuickStatsCard = ({ stats }) => {
   );
 };
 
-// Componente de tarjeta de acción mejorado
 const ActionCard = ({ action, onPress, cardWidth, index }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animación de entrada escalonada
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 600,
@@ -107,10 +149,10 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
       <Animated.View
         style={[
           styles.actionCard,
-          { 
-            width: cardWidth, 
+          {
+            width: cardWidth,
             transform: [{ scale: scaleAnim }],
-            opacity: fadeAnim 
+            opacity: fadeAnim,
           },
         ]}
       >
@@ -120,7 +162,7 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
           </View>
           <View style={styles.headerOverlayEffect} />
         </View>
-        
+
         <View style={styles.actionContent}>
           <Text style={styles.actionTitle}>{action.title}</Text>
           {action.description && (
@@ -132,7 +174,7 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
             </View>
           )}
         </View>
-        
+
         <View style={styles.actionArrow}>
           <Ionicons name="chevron-forward" size={20} color={COLORS.grayText} />
         </View>
@@ -141,7 +183,7 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
   );
 };
 
-const HeaderSection = ({ nombreUsuario }) => {
+const HeaderSection = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
   const getCurrentGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -162,12 +204,27 @@ const HeaderSection = ({ nombreUsuario }) => {
           <Text style={styles.headerTitle}>Panel Académico</Text>
           <Text style={styles.headerSubtitle}>Gestiona tu institución de manera inteligente</Text>
         </View>
-        
-        <View style={styles.userInfo}>
-          <View style={styles.userAvatar}>
-            <Text style={styles.userInitial}>{nombreUsuario.charAt(0).toUpperCase()}</Text>
+
+        <View style={styles.headerBottom}>
+          <View style={styles.userInfo}>
+            <View style={styles.userAvatar}>
+              <Text style={styles.userInitial}>{nombreUsuario.charAt(0).toUpperCase()}</Text>
+            </View>
+            <Text style={styles.userName}>{nombreUsuario}</Text>
           </View>
-          <Text style={styles.userName}>{nombreUsuario}</Text>
+          <TouchableOpacity
+            style={styles.headerNotificationButton}
+            onPress={onNotificationPress}
+          >
+            <Ionicons name="notifications" size={24} color={COLORS.white} />
+            {unreadCount > 0 && (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -176,11 +233,16 @@ const HeaderSection = ({ nombreUsuario }) => {
 
 const HomeAcademicoScreen = () => {
   const params = useLocalSearchParams();
-  const nombreUsuario = params.nombre || 'Administrador';
+  const nombreUsuario = params.nombre || 'Usuario';
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
 
-  // Estados para datos dinámicos
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [authToken, setAuthToken] = useState(null);
+
   const [quickStats] = useState([
     { icon: 'people-outline', value: '1,245', label: 'Estudiantes', color: COLORS.info },
     { icon: 'calendar-outline', value: '24', label: 'Eventos', color: COLORS.info },
@@ -191,10 +253,9 @@ const HomeAcademicoScreen = () => {
   let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
   numColumns = Math.min(numColumns, MAX_COLUMNS);
   const columns = numColumns > 0 ? numColumns : 1;
-  
-    const containerPadding = CARD_MARGIN; // Asumimos que el contenedor tiene padding horizontal de CARD_MARGIN/2 * 2 = CARD_MARGIN
-    let cardWidth = (windowWidth - containerPadding - CARD_MARGIN * (columns + 1)) / columns;
-    cardWidth = Math.min(cardWidth, MAX_CARD_WIDTH);
+  let cardWidth = (windowWidth - CARD_MARGIN * (columns + 1)) / columns;
+  cardWidth = Math.min(cardWidth, MAX_CARD_WIDTH);
+
   const adminActions = [
     {
       id: '0',
@@ -250,15 +311,133 @@ const HomeAcademicoScreen = () => {
     },
   ];
 
+  const fetchNotifications = useCallback(async () => {
+   
+    setLoadingNotifications(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      const notifs = Array.isArray(response.data) ? response.data : [];
+      setNotifications(notifs);
+      setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
+    } catch (error) {
+      console.error('Error al cargar notificaciones:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
+        await deleteTokenAsync();
+        router.replace('/Login');
+      } else {
+        Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
+      }
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, [authToken, router]);
+
+  // Efecto para inicializar y obtener el token
+ /* useEffect(() => {
+    const initialize = async () => {
+      const token = await getTokenAsync();
+      console.log('🔑 Token obtenido:', token ? `${token.substring(0, 20)}...` : 'NO HAY TOKEN');
+      
+      if (!token || token === 'null' || token === '') {
+        console.warn('⚠️ Token inválido o ausente en initialize');
+        await deleteTokenAsync();
+        router.replace('/Login');
+        return;
+      }
+      
+      
+      console.log('✅ Token válido, estableciendo en estado');
+      setAuthToken(token);
+      //loadNotifications();
+       try {
+         const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+           headers: { Authorization: `Bearer ${token}` },
+         });
+        // const notifs = Array.isArray(response.data) ? response.data : [];
+         //setNotifications(notifs);
+         //setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
+       } catch (error) {
+         console.error('Error al cargar notificaciones:', error);
+         if (error.response?.status === 401 || error.response?.status === 403) {
+           Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
+           await deleteTokenAsync();
+           router.replace('/Login');
+         }
+       }
+    };
+    
+    initialize();
+  }, [router]);
+
+  const loadNotifications = async () => {
+       try {
+         const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+           headers: { Authorization: `Bearer ${token}` },
+         });
+        // const notifs = Array.isArray(response.data) ? response.data : [];
+         //setNotifications(notifs);
+         //setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
+       } catch (error) {
+         console.error('Error al cargar notificaciones:', error);
+         if (error.response?.status === 401 || error.response?.status === 403) {
+           Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
+           await deleteTokenAsync();
+           router.replace('/Login');
+         }
+       }
+     };*/
+
+ useEffect(() => {
+  if (!authToken) return;
+
+  const loadNotifications = async () => {
+    const token = await getTokenAsync();
+    if (!token) {
+      router.replace('/Login');
+      return;
+    }
+    setLoadingNotifications(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const notifs = Array.isArray(response.data) ? response.data : [];
+      setNotifications(notifs);
+      setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
+    } catch (error) {
+      console.error('Error al cargar notificaciones:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
+        await deleteTokenAsync();
+        router.replace('/Login');
+      } else {
+        Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
+      }
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Cargar inmediatamente
+  loadNotifications();
+
+  // Polling cada 30 segundos
+  const interval = setInterval(loadNotifications, 30000);
+
+  return () => clearInterval(interval);
+}, [authToken, router]);
+
   const handleActionPress = (route) => {
     if (route) {
       router.push(route);
     } else {
-      Alert.alert(
-        'Próximamente',
-        'Esta funcionalidad estará disponible en la próxima actualización.',
-        [{ text: 'Entendido', style: 'default' }]
-      );
+      Alert.alert('Próximamente', 'Esta funcionalidad estará disponible pronto.', [
+        { text: 'Entendido' },
+      ]);
     }
   };
 
@@ -271,7 +450,8 @@ const HomeAcademicoScreen = () => {
         {
           text: 'Cerrar Sesión',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
+            await deleteTokenAsync();
             router.replace('/');
           },
         },
@@ -280,52 +460,110 @@ const HomeAcademicoScreen = () => {
     );
   };
 
+  const formatTime = (timestamp) => {
+    const now = new Date();
+    const notifTime = new Date(timestamp);
+    const diff = Math.floor((now - notifTime) / 1000);
+    if (diff < 60) return 'Hace unos segundos';
+    if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
+    if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
+    return `Hace ${Math.floor(diff / 86400)} días`;
+  };
+
+  const renderNotification = ({ item }) => (
+    <View style={styles.notificationItem}>
+      <View style={styles.notificationContent}>
+        <Text style={styles.notificationTitle}>{item.title}</Text>
+        <Text style={styles.notificationMessage}>{item.message}</Text>
+        <Text style={styles.notificationTime}>{formatTime(item.createdAt)}</Text>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <HeaderSection nombreUsuario={nombreUsuario} />
-        
+        <HeaderSection
+          nombreUsuario={nombreUsuario}
+          unreadCount={unreadCount}
+          onNotificationPress={() => setShowNotifications(true)}
+        />
+
         <QuickStatsCard stats={quickStats} />
 
-        {/* Título de sección */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Herramientas de Gestión</Text>
           <Text style={styles.sectionSubtitle}>Accede a todas las funcionalidades</Text>
         </View>
 
-      
-      <View style={styles.actionsGrid}>
-        <FlatList
-          data={adminActions}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <ActionCard
-              action={item}
-              onPress={() => handleActionPress(item.route)}
-              cardWidth={cardWidth}
-              index={index}
-            />
-          )}
-          numColumns={columns}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={false}
-          key={columns}
-          contentContainerStyle={{
-            justifyContent: 'center', 
-            paddingHorizontal: CARD_MARGIN / 2, 
-          }}
-        />
-      </View>
-       
+        <View style={styles.actionsGrid}>
+          <FlatList
+            data={adminActions}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item, index }) => (
+              <ActionCard
+                action={item}
+                onPress={() => handleActionPress(item.route)}
+                cardWidth={cardWidth}
+                index={index}
+              />
+            )}
+            numColumns={columns}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={false}
+            key={columns}
+            contentContainerStyle={{
+              justifyContent: 'center',
+              paddingHorizontal: CARD_MARGIN / 2,
+            }}
+          />
+        </View>
       </ScrollView>
 
-      {/* Botón de logout mejorado */}
+      {/* Modal de Notificaciones */}
+      <Modal
+        visible={showNotifications}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Notificaciones</Text>
+            <TouchableOpacity onPress={() => setShowNotifications(false)}>
+              <Ionicons name="close" size={24} color={COLORS.darkText} />
+            </TouchableOpacity>
+          </View>
+
+          {loadingNotifications ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Cargando...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={notifications}
+              renderItem={renderNotification}
+              keyExtractor={(item) => item.id.toString()}
+              style={styles.notificationsList}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="notifications-off" size={60} color="#ccc" />
+                  <Text style={styles.emptyText}>No tienes notificaciones</Text>
+                </View>
+              }
+            />
+          )}
+        </View>
+      </Modal>
+
+      {/* Botón de logout */}
       <View style={styles.bottomBar}>
         <Pressable
           onPress={handleLogout}
@@ -346,7 +584,6 @@ const HomeAcademicoScreen = () => {
   );
 };
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -359,7 +596,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 100,
   },
-  
   headerContainer: {
     width: '100%',
     height: 220,
@@ -399,6 +635,11 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     opacity: 0.9,
   },
+  headerBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,8 +652,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-    borderWidth:2,
-    borderColor:COLORS.warning,
+    borderWidth: 2,
+    borderColor: COLORS.warning,
   },
   userInitial: {
     fontSize: 20,
@@ -424,7 +665,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.white,
   },
-
+  headerNotificationButton: {
+    position: 'relative',
+    padding: 8,
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: COLORS.accent,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerBadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   statsContainer: {
     width: '90%',
     backgroundColor: COLORS.surface,
@@ -470,8 +730,6 @@ const styles = StyleSheet.create({
     color: COLORS.grayText,
     textAlign: 'center',
   },
-
-  // Section headers
   sectionHeader: {
     width: '90%',
     marginBottom: 28,
@@ -486,7 +744,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.grayText,
   },
-
   actionsGrid: {
     paddingHorizontal: CARD_MARGIN / 2,
     paddingBottom: 20,
@@ -494,12 +751,12 @@ const styles = StyleSheet.create({
   actionCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 16,
-    borderWidth:1,
+    borderWidth: 1,
     borderColor: '#e2e8f0',
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor:'#000',
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 16,
@@ -566,81 +823,6 @@ const styles = StyleSheet.create({
     top: '50%',
     marginTop: -10,
   },
-
-  quickAccessSection: {
-    width: '90%',
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  quickAccessTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginBottom: 16,
-  },
-  quickAccessButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  quickButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  // En el componente ExpandableBottomBanner
-quickActionItem: {
-  width: '30%',
-  aspectRatio: 1,
-  borderRadius: 8,
-  justifyContent: 'center',
-  alignItems: 'center',
-  marginBottom: 10,
-  padding: 16,
-  backgroundColor: '#f8fafc', // Fondo claro
-  borderWidth: 1,
-  borderColor: '#e2e8f0', // Borde sutil
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.05,
-  shadowRadius: 4,
-},
-quickActionText: {
-  fontSize: 14,
-  fontWeight: '600',
-  marginTop: 6,
-  textAlign: 'center',
-  lineHeight: 18,
-  color: '#1e293b', // Texto oscuro
-},
-expandedLogoutButton: {
-  flexDirection: 'row',
-  backgroundColor: '#e74c3c', // Solo este botón en rojo
-  paddingVertical: 14,
-  paddingHorizontal: 20,
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: 8,
-  marginBottom: 10,
-  width: '100%',
-},
-expandedLogoutText: {
-  color: '#fff',
-  fontSize: 16,
-  fontWeight: 'bold',
-  marginLeft: 8,
-},
-
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -678,6 +860,72 @@ expandedLogoutText: {
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  // Modal de notificaciones
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+  },
+  notificationsList: {
+    flex: 1,
+    padding: 16,
+  },
+  notificationItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+    marginBottom: 4,
+  },
+  notificationMessage: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    marginBottom: 6,
+  },
+  notificationTime: {
+    fontSize: 12,
+    color: COLORS.grayText,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: COLORS.grayText,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: COLORS.grayText,
+    textAlign: 'center',
   },
 });
 

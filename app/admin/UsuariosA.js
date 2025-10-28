@@ -59,7 +59,6 @@ const deleteTokenAsync = async () => {
   }
 };
 
-// --- Componente principal UsuariosA ---
 const UsuariosA = () => {
   console.log("UsuariosA: Renderizando componente");
   const router = useRouter();
@@ -68,11 +67,9 @@ const UsuariosA = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const params = useLocalSearchParams();
-
-  // Animación para los elementos de la lista (opcional, para un efecto de "fade in")
   const animatedValues = useRef({});
 
-  // Resetear y iniciar animación cuando filteredUsers cambia
+  // Animación al cargar lista
   useEffect(() => {
     filteredUsers.forEach((item, index) => {
       if (!animatedValues.current[item.id]) {
@@ -80,12 +77,11 @@ const UsuariosA = () => {
       }
       Animated.timing(animatedValues.current[item.id], {
         toValue: 1,
-        duration: 300 + index * 50, // Pequeño retraso para cada ítem
+        duration: 250 + index * 30,
         useNativeDriver: true,
       }).start();
     });
   }, [filteredUsers]);
-
 
   const fetchUsers = useCallback(async () => {
     console.log("UsuariosA: Ejecutando fetchUsers...");
@@ -114,11 +110,11 @@ const UsuariosA = () => {
       const usersData = Array.isArray(response.data) ? response.data : (response.data.data || []);
       const processedUsers = usersData.map(user => ({
         ...user,
-        id: user.idusuario || user.id || Math.random().toString() // Fallback para ID si no existe
+        id: user.idusuario || user.id || Math.random().toString()
       }));
 
       setUsers(processedUsers);
-      setFilteredUsers(processedUsers); // Inicialmente, todos los usuarios son filtrados
+      setFilteredUsers(processedUsers);
     } catch (error) {
       console.error("UsuariosA: Error fetching users from API:", error);
       let errorMessage = 'No se pudieron cargar los usuarios. Inténtalo de nuevo.';
@@ -132,61 +128,48 @@ const UsuariosA = () => {
         }
       } else if (error.request) {
         errorMessage = 'No se pudo conectar al servidor. Revisa tu conexión o que el backend esté activo.';
-      } else {
-        errorMessage = `Error inesperado: ${error.message}`;
       }
       Alert.alert('Error de Carga', errorMessage);
       setUsers([]);
       setFilteredUsers([]);
     } finally {
       setLoading(false);
-      console.log("UsuariosA: fetchUsers finalizado.");
     }
-  }, [router]); // `router` es una dependencia estable
+  }, [router]);
 
   useEffect(() => {
-    console.log("UsuariosA: Montaje inicial, llamando a fetchUsers.");
     fetchUsers();
-  }, [fetchUsers]); // `fetchUsers` ahora es una dependencia estable gracias a useCallback
+  }, [fetchUsers]);
 
   useFocusEffect(
     useCallback(() => {
       if (params.refresh === 'true' || users.length === 0) {
-        console.log("UsuariosA: Refresh triggered by params or empty users. Calling fetchUsers.");
         fetchUsers();
       }
     }, [params.refresh, fetchUsers, users.length])
   );
 
-  // --- Efecto para filtrar usuarios ---
   useEffect(() => {
-    console.log("UsuariosA: useEffect para filtrar. Termino:", searchTerm, "Users count:", users.length);
-    if (!users) {
-      setFilteredUsers([]);
-      return;
-    }
     if (searchTerm === '') {
       setFilteredUsers(users);
     } else {
+      const term = searchTerm.toLowerCase();
       setFilteredUsers(
         users.filter(user =>
-          (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) || // Si tienes un campo 'name'
-          (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
+          (user.username?.toLowerCase().includes(term)) ||
+          (user.name?.toLowerCase().includes(term)) ||
+          (user.email?.toLowerCase().includes(term))
         )
       );
     }
   }, [searchTerm, users]);
 
-  // --- Handlers de acciones ---
   const handleAddUser = () => {
     router.push('/admin/CrearUsuarioA');
   };
 
   const handleViewUser = (userId) => {
-    Alert.alert("Ver Usuario", `Funcionalidad para ver detalles del ID: ${userId} aún no implementada.`);
-    // Implementar navegación a una pantalla de detalles de usuario
-    // router.push(`/admin/viewUser/${userId}`);
+    router.push(`/admin/viewUser/${userId}`);
   };
 
   const handleDeleteUser = async (userId) => {
@@ -198,125 +181,90 @@ const UsuariosA = () => {
         {
           text: "Sí, Eliminar",
           onPress: async () => {
-            console.log(`UsuariosA: Intentando eliminar usuario con ID: ${userId}`);
             let localTokenForDelete = await getTokenAsync();
             if (!localTokenForDelete) {
-              Alert.alert('Error de Autenticación', 'Token no disponible para eliminar. Inicia sesión de nuevo.');
+              Alert.alert('Error de Autenticación', 'Token no disponible.');
               router.replace('/LoginAdmin');
               return;
             }
             try {
-              // Muestra un indicador de carga temporalmente para esta acción
               setLoading(true);
               await axios.delete(`${API_BASE_URL}/users/${userId}`, {
                 headers: { 'Authorization': `Bearer ${localTokenForDelete}` }
               });
               Alert.alert("Éxito", "El usuario ha sido eliminado correctamente.");
-              fetchUsers(); // Recargar la lista después de eliminar
+              fetchUsers();
             } catch (error) {
-              console.error(`UsuariosA: Error deleting user ${userId}:`, error);
-              let errorMessage = 'No se pudo eliminar el usuario. Inténtalo de nuevo.';
-              if (error.response) {
-                if (error.response.status === 401 || error.response.status === 403) {
-                  errorMessage = 'No tienes permisos para eliminar este usuario o tu sesión expiró.';
-                  await deleteTokenAsync();
-                  router.replace('/LoginAdmin');
-                } else {
-                  errorMessage = `Error del servidor (${error.response.status}): ${error.response.data?.message || 'Algo salió mal.'}`;
-                }
-              } else if (error.request) {
-                errorMessage = 'No se pudo conectar al servidor para eliminar.';
+              console.error(`Error deleting user ${userId}:`, error);
+              let errorMessage = 'No se pudo eliminar el usuario.';
+              if (error.response?.status === 401 || error.response?.status === 403) {
+                errorMessage = 'Sesión expirada o sin permisos.';
+                await deleteTokenAsync();
+                router.replace('/LoginAdmin');
               }
               Alert.alert('Error al Eliminar', errorMessage);
             } finally {
               setLoading(false);
             }
           },
-          style: "destructive", // Color rojo para acción destructiva
+          style: "destructive",
         },
       ]
     );
   };
 
-  // --- Componente para renderizar cada ítem de la lista ---
   const renderUserItem = ({ item }) => {
-    const opacity = animatedValues.current[item.id] || new Animated.Value(1); // Fallback si no hay animación
+    const opacity = animatedValues.current[item.id] || new Animated.Value(1);
     return (
-      <Animated.View style={[styles.userItemContainer, { opacity }]}>
+      <Animated.View style={[styles.userCard, { opacity }]}>
         <View style={styles.userInfo}>
-          <Text style={styles.username} numberOfLines={1} ellipsizeMode="tail">
-            {item.username || 'Usuario sin nombre'}
-          </Text>
-          <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
-            {item.email || 'Email no disponible'}
-          </Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.userRoleText}>{item.role ? item.role.toUpperCase() : 'ROL DESCONOCIDO'}</Text>
+          <Text style={styles.username}>{item.username || 'Sin nombre'}</Text>
+          <Text style={styles.email}>{item.email || 'Sin email'}</Text>
+          <View style={[
+            styles.roleBadge,
+            { backgroundColor: getRoleColor(item.role) }
+          ]}>
+            <Text style={styles.roleText}>
+              {item.role ? item.role.toUpperCase() : 'ROL'}
+            </Text>
           </View>
         </View>
-        <View style={styles.userActions}>
-          <TouchableOpacity
-            onPress={() => handleViewUser(item.id)}
-            style={styles.actionButton}
-            accessibilityLabel="Ver detalles del usuario"
-          >
-            <Ionicons name="eye-outline" size={24} color={Colors.primary} />
+        <View style={styles.actions}>
+          <TouchableOpacity onPress={() => handleViewUser(item.id)} style={styles.iconButton}>
+            <Ionicons name="eye-outline" size={20} color={Colors.info} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => router.push(`/admin/editUser/${item.id}`)}
-            style={styles.actionButton}
-            accessibilityLabel="Editar usuario"
-          >
-            <Ionicons name="pencil-outline" size={24} color={Colors.accent} />
+          <TouchableOpacity onPress={() => router.push(`/admin/editUser/${item.id}`)} style={styles.iconButton}>
+            <Ionicons name="pencil-outline" size={20} color={Colors.accent} />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleDeleteUser(item.id)}
-            style={styles.actionButton}
-            accessibilityLabel="Eliminar usuario"
-          >
-            <Ionicons name="trash-outline" size={24} color={Colors.danger} />
+          <TouchableOpacity onPress={() => handleDeleteUser(item.id)} style={styles.iconButton}>
+            <Ionicons name="trash-outline" size={20} color={Colors.danger} />
           </TouchableOpacity>
         </View>
       </Animated.View>
     );
   };
 
-  // --- Renderizado de carga inicial o principal ---
-  if (loading && users.length === 0) { // Solo muestra esta pantalla de carga si no hay datos aún
-    return (
-      <SafeAreaView style={styles.container}>
-        <Stack.Screen options={{ title: 'Gestionar Usuarios', headerRight: () => null }} />
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Cargando usuarios...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Función para asignar colores según el rol
+  const getRoleColor = (role) => {
+    switch (role?.toLowerCase()) {
+      case 'admin': return Colors.primary;
+      case 'user': return Colors.accent;
+      case 'moderator': return Colors.info;
+      default: return Colors.textSecondary;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen
         options={{
-          title: 'Gestionar Usuarios',
-          headerLargeTitle: true, // Para iOS, un título grande y moderno
+          title: 'Usuarios',
+          headerLargeTitle: true,
           headerRight: () => (
-            <TouchableOpacity
-              onPress={handleAddUser}
-              style={{ marginRight: Platform.OS === 'ios' ? 0 : 15 }} // Ajuste para iOS si usa headerLargeTitle
-              accessibilityLabel="Añadir nuevo usuario"
-            >
-              <Ionicons
-                name="person-add-outline" // Icono más específico para añadir usuario
-                size={Platform.OS === 'ios' ? 30 : 28}
-                color={Platform.OS === 'ios' ? Colors.primary : '#e48406ff'}
-              />
+            <TouchableOpacity onPress={handleAddUser} accessibilityLabel="Añadir usuario">
+              <Ionicons name="person-add-outline" size={28} color={Colors.primary} />
             </TouchableOpacity>
           ),
-          headerStyle: {
-            backgroundColor: Platform.OS === 'android' ? Colors.primary : 'transparent', // Color para Android header
-          },
-          headerTintColor: Platform.OS === 'android' ? '#fff' : Colors.primaryText, // Color del texto del header
         }}
       />
 
@@ -324,44 +272,47 @@ const UsuariosA = () => {
         <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar por usuario o email..."
+          placeholder="Buscar por nombre, usuario o email..."
           value={searchTerm}
           onChangeText={setSearchTerm}
           placeholderTextColor={Colors.textSecondary}
         />
       </View>
 
-      {/* Indicador de carga secundario (al recargar con datos existentes) */}
-      {loading && users.length > 0 && (
-        <View style={styles.reloadingIndicator}>
-          <ActivityIndicator size="small" color={Colors.primary} />
-          <Text style={styles.reloadingText}>Actualizando lista...</Text>
-        </View>
-      )}
-
-      {/* Mensaje de no usuarios o lista de usuarios */}
-      {!loading && filteredUsers.length === 0 ? (
+      {loading && users.length === 0 ? (
         <View style={styles.centered}>
-          <Ionicons name="people-outline" size={60} color={Colors.textSecondary} style={{ marginBottom: 15 }} />
-          <Text style={styles.noUsersText}>
-            {searchTerm ? 'No se encontraron usuarios que coincidan con la búsqueda.' : 'No hay usuarios registrados aún.'}
-          </Text>
-          {!searchTerm && (
-            <TouchableOpacity onPress={handleAddUser} style={styles.addButtonEmptyState}>
-              <Ionicons name="add-circle-outline" size={20} color="#fff" />
-              <Text style={styles.addButtonEmptyStateText}>Añadir Usuario</Text>
-            </TouchableOpacity>
-          )}
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Cargando usuarios...</Text>
         </View>
       ) : (
-        <FlatList
-          data={filteredUsers}
-          renderItem={renderUserItem}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContentContainer}
-          onRefresh={fetchUsers} 
-          refreshing={loading} 
-        />
+        <>
+          {filteredUsers.length === 0 && !loading ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="people-outline" size={70} color={Colors.textSecondary} />
+              <Text style={styles.emptyText}>
+                {searchTerm ? 'No hay resultados.' : 'No hay usuarios registrados.'}
+              </Text>
+              <TouchableOpacity style={styles.fab} onPress={handleAddUser}>
+                <Ionicons name="add" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredUsers}
+              renderItem={renderUserItem}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+              onRefresh={fetchUsers}
+              refreshing={loading && users.length > 0}
+            />
+          )}
+
+          {/* Botón flotante (FAB) - siempre visible */}
+          <TouchableOpacity style={styles.fab} onPress={handleAddUser} accessibilityLabel="Añadir nuevo usuario">
+            <Ionicons name="add" size={28} color="#fff" />
+          </TouchableOpacity>
+        </>
       )}
     </SafeAreaView>
   );
@@ -369,18 +320,18 @@ const UsuariosA = () => {
 
 // --- Paleta de colores mejorada ---
 const Colors = {
-  primary: '#E95A0C', // Azul para acciones principales y elementos interactivos
-  primaryDark: '#0056b3', // Azul más oscuro
-  accent: '#FF9500', // Naranja para acciones secundarias o de edición
-  danger: '#FF3B30', // Rojo para acciones destructivas
-  background: '#F0F2F5', // Fondo general más suave
-  cardBackground: '#FFFFFF', // Fondo de las tarjetas de usuario
-  textPrimary: '#1C1C1E', // Texto principal, oscuro
-  textSecondary: '#8E8E93', // Texto secundario, gris
-  lightGray: '#EFEFF4', // Para bordes o separadores
-  success: '#34C759', // Verde para éxito
-  info: '#5AC8FA', // Azul claro para información
-};
+ primary: '#E95A0C',     // Naranja principal
+  primaryDark: '#C24A0A',
+  accent: '#FF9500',      // Naranja claro
+  danger: '#FF3B30',      // Rojo
+  info: '#5AC8FA',        // Azul claro
+  background: '#F8F9FA',
+  card: '#FFFFFF',
+  textPrimary: '#1C1C1E',
+  textSecondary: '#6E6E73',
+  border: '#E0E0E0',
+  success: '#34C759',
+}
 
 // --- Estilos mejorados ---
 const styles = StyleSheet.create({
@@ -520,6 +471,129 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: Colors.textSecondary,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    height: 50,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.textPrimary,
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  userCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  userInfo: {
+    flex: 1,
+  },
+  username: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  email: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    backgroundColor: '#F0F0F0',
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 17,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
 });
+
 
 export default UsuariosA;

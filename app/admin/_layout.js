@@ -21,7 +21,9 @@ export default function AdminLayout() {
       name="HomeAcademico"
       options={{headerShown:false}}
       />
-      <Stack.Screen name="admin/ProyectoEvento" options={{header:true}}/>
+      <Stack.Screen 
+      name="admin/ProyectoEvento" 
+      options={{headerShown:false}}/>
     </Stack>
   );
 }

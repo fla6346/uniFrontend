@@ -68,7 +68,6 @@ const ContenidoScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Función para cargar eventos no aprobados desde la base de datos
   const fetchEventosNoAprobados = useCallback(async () => {
     setLoading(true);
     try {
@@ -79,28 +78,28 @@ const ContenidoScreen = () => {
         return;
       }
 
-      // Llamada a tu API para obtener eventos no aprobados
       const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setEventos(response.data.data.eventos); // Adjust based on your actual API response structure
+      
+      // Ajusta según la estructura real de tu API
+      // Si tu API devuelve { eventos: [...] }, usa response.data.eventos
+      // Si devuelve directamente el array, usa response.data
+      setEventos(response.data.eventos || response.data);
     } catch (err) {
       console.error('Error al cargar eventos pendientes:', err);
-      setError('No se pudieron cargar los eventos pendientes. Inténtalo de nuevo.');
       if (err.response?.status === 401 || err.response?.status === 403) {
-        Alert.alert('Acceso Denegado', 'No tienes permiso para ver este recurso o tu sesión ha expirado.');
-        await deleteTokenAsync();
+        Alert.alert('Acceso Denegado', 'No tienes permiso o tu sesión expiró.');
         router.replace('/LoginAdmin');
       } else {
-        setError(`Error de red o servidor: ${err.message}`);
+        Alert.alert('Error', 'No se pudieron cargar los eventos pendientes.');
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [router]);
-
-
+  
   useEffect(() => {
     fetchEventosNoAprobados();
   }, [fetchEventosNoAprobados]);
@@ -110,71 +109,99 @@ const ContenidoScreen = () => {
     fetchEventosNoAprobados();
   }, [fetchEventosNoAprobados]);
 
-  // Función para aprobar evento
-  const aprobarEvento = async (eventoId) => {
-    Alert.alert(
-      'Aprobar Evento',
-      '¿Estás seguro de que deseas aprobar este evento?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Aprobar',
-          onPress: async () => {
-            try {
-              const token = await getTokenAsync();
-              
-              await axios.put(`${API_BASE_URL}/eventos/${eventoId}/aprobar`, {}, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
 
-              Alert.alert('Éxito', 'Evento aprobado correctamente');
-              
-              // Actualizar la lista removiendo el evento aprobado
-              setEventos(prev => prev.filter(evento => evento.id !== eventoId));
-              
-            } catch (error) {
-              console.error('Error al aprobar evento:', error);
-              Alert.alert('Error', 'No se pudo aprobar el evento');
-            }
+// Función para crear notificación
+const crearNotificacion = async (token, datosNotificacion) => {
+  try {
+    await axios.post(`${API_BASE_URL}/notificaciones`, datosNotificacion, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch (error) {
+    console.error('Error al crear notificación:', error);
+    // No bloqueamos la aprobación si falla la notificación
+  }
+};
+
+// Función para aprobar evento
+const aprobarEvento = async (eventoId, organizadorId, tituloEvento) => {
+  Alert.alert(
+    'Aprobar Evento',
+    '¿Estás seguro de que deseas aprobar este evento?',
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Aprobar',
+        onPress: async () => {
+          try {
+            const token = await getTokenAsync();
+            
+            // 1. Aprobar el evento
+            await axios.put(`${API_BASE_URL}/eventos/${eventoId}/aprobar`, {}, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            // 2. Crear notificación PARA EL ORGANIZADOR
+            await crearNotificacion(token, {
+              userId: organizadorId,
+              userRole: 'estudiante', // Ajusta según tu lógica
+              title: '🎉 Evento aprobado',
+              message: `Tu evento "${tituloEvento}" ha sido aprobado por el administrador.`,
+              type: 'aprobacion'
+            });
+
+            Alert.alert('Éxito', 'Evento aprobado correctamente');
+            setEventos(prev => prev.filter(evento => evento.id !== eventoId));
+            
+          } catch (error) {
+            console.error('Error al aprobar evento:', error);
+            Alert.alert('Error', 'No se pudo aprobar el evento');
           }
         }
-      ]
-    );
-  };
+      }
+    ]
+  );
+};
 
-  // Función para rechazar evento
-  const rechazarEvento = async (eventoId) => {
-    Alert.alert(
-      'Rechazar Evento',
-      '¿Estás seguro de que deseas rechazar este evento?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Rechazar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const token = await getTokenAsync();
-              
-              await axios.put(`${API_BASE_URL}/eventos/${eventoId}/rechazar`, {}, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
+// Función para rechazar evento
+const rechazarEvento = async (eventoId, organizadorId, tituloEvento) => {
+  Alert.alert(
+    'Rechazar Evento',
+    '¿Estás seguro de que deseas rechazar este evento?',
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Rechazar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await getTokenAsync();
+            
+            // 1. Rechazar el evento
+            await axios.put(`${API_BASE_URL}/eventos/${eventoId}/rechazar`, {}, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-              Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
-              
-              // Actualizar la lista removiendo el evento rechazado
-              setEventos(prev => prev.filter(evento => evento.id !== eventoId));
-              
-            } catch (error) {
-              console.error('Error al rechazar evento:', error);
-              Alert.alert('Error', 'No se pudo rechazar el evento');
-            }
+            // 2. Crear notificación PARA EL ORGANIZADOR
+            await crearNotificacion(token, {
+              userId: organizadorId,
+              userRole: 'estudiante', // Ajusta según tu lógica
+              title: '❌ Evento rechazado',
+              message: `Tu evento "${tituloEvento}" ha sido rechazado por el administrador.`,
+              type: 'rechazo'
+            });
+
+            Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
+            setEventos(prev => prev.filter(evento => evento.id !== eventoId));
+            
+          } catch (error) {
+            console.error('Error al rechazar evento:', error);
+            Alert.alert('Error', 'No se pudo rechazar el evento');
           }
         }
-      ]
-    );
-  };
-
+      }
+    ]
+  );
+};
   // Función para ver detalles del evento
   const verDetalles = (evento) => {
     router.push({
@@ -199,7 +226,6 @@ const ContenidoScreen = () => {
 
   const renderEventoItem = ({ item }) => (
     <View style={styles.eventoCard}>
-      {/* Header del evento */}
       <View style={styles.eventoHeader}>
         <View style={styles.eventoTitleContainer}>
           <Text style={styles.eventoTitle}>{item.titulo || item.title}</Text>
@@ -211,13 +237,21 @@ const ContenidoScreen = () => {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={[styles.actionButton, styles.approveButton]}
-            onPress={() => aprobarEvento(item.id)}
+            onPress={() => aprobarEvento(
+              item.id, 
+              item.idorganizador || item.organizadorId || 1, 
+              item.titulo || item.title
+            )}
           >
             <Ionicons name="checkmark" size={16} color={COLORS.white} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.rejectButton]}
-            onPress={() => rechazarEvento(item.id)}
+            onPress={() => rechazarEvento(
+              item.id, 
+              item.idorganizador || item.organizadorId || 1, 
+              item.titulo || item.title  
+            )}
           >
             <Ionicons name="close" size={16} color={COLORS.white} />
           </TouchableOpacity>

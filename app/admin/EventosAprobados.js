@@ -132,14 +132,26 @@ const EventosAprobados = () => {
     fetchApprovedEvents();
   }, [fetchApprovedEvents]);
 
-  // ✅ CAMBIO 1: Navegar a EventDetailUpdateScreen
   const handleEventPress = (event) => {
     router.push({
       pathname: '/admin/EventDetailUpdateScreen', // <-- Ruta actualizada
       params: { eventId: event.id }
     });
   };
-
+const reenviarNotificacion = async (eventoId, userId) => {
+  try {
+    const token = await getTokenAsync();
+    await axios.post(
+      `${API_BASE_URL}/notificaciones/reenviar`,
+      { eventoId, userId },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    alert('Notificación reenviada');
+  } catch (error) {
+    console.error('Error al reenviar notificación:', error);
+    alert('No se pudo reenviar la notificación');
+  }
+};
   const formatSubmittedDate = (date) => {
     const now = new Date();
     const submittedDate = new Date(date);

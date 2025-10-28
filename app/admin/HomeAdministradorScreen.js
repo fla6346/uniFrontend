@@ -33,7 +33,6 @@ if (Platform.OS === 'android') {
 const API_BASE_URL = determinedApiBaseUrl;
 const TOKEN_KEY = 'adminAuthToken';
 
-// Funciones para manejo de tokens
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
     try {
@@ -348,26 +347,18 @@ const HomeAdministradorScreen = () => {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [pendingContentCount, setPendingContentCount] = useState('0');
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
+  const [activeUsersCount, setActiveUsersCount] = useState('0');
 
-  // ✅ Cálculo estable de columnas y ancho de tarjeta
   const { columns, cardWidth } = useMemo(() => {
-    let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
-    numColumns = Math.min(numColumns, MAX_COLUMNS);
-    const cols = numColumns > 0 ? numColumns : 1;
-    let width = (windowWidth - CARD_MARGIN * cols * 2) / cols;
-    width = Math.min(width, MAX_CARD_WIDTH);
-    return { columns: cols, cardWidth: width };
-  }, [windowWidth]);
+  let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
+  numColumns = Math.min(numColumns, MAX_COLUMNS);
+  const cols = numColumns > 0 ? numColumns : 1;
+  let width = (windowWidth - CARD_MARGIN * cols * 2) / cols;
+  width = Math.min(width, MAX_CARD_WIDTH);
+  return { columns: cols, cardWidth: width };
+}, [windowWidth]);
 
 
-
-  useEffect(() => {
-    fetchNotifications();
-    fetchDashboardStats();
-  }, [fetchNotifications, fetchDashboardStats]);
-
-
-  // Estados para alertas críticas (ya no se usan directamente en la UI, pero se mantienen por si la lógica de fondo los necesita)
   const [systemAlerts, setSystemAlerts] = useState([
     {
       id: 'alert-3',
@@ -593,12 +584,6 @@ const HomeAdministradorScreen = () => {
 
   const unreadCount = notifications.filter(notif => !notif.read).length;
 
-  // Cálculo responsivo de columnas
-  let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
-  numColumns = Math.min(numColumns, MAX_COLUMNS);
-  cardWidth = Math.min(cardWidth, MAX_CARD_WIDTH);
-
-  // Acciones de administración
   const adminActions = [
     {
       id: '0',

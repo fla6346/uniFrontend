@@ -143,48 +143,204 @@ const CrearEvento = () => {
     '1': '#e95a0c', '2': '#3498db', '3': '#2ecc71',
     '4': '#9b59b6', '5': '#f1c40f', '6': '#7f8c8d',
   };
+const { idevento } = params; // string o undefined
+const isEditing = !!idevento;
+  
 
-  useEffect(() => {
-    const initializeAndFetch = async () => {
-      const token = await getTokenAsync();
-      setAuthToken(token);
-      if (token) {
-        fetchEventosRegistrados(token);
-      }
-      if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') Alert.alert('Permiso Necesario', 'Se necesita permiso para acceder a la galería.');
-      }
-    };
-    initializeAndFetch();
-  }, []);
+useEffect(() => {
+  const initializeAndFetch = async () => {
+    const token = await getTokenAsync();
+    setAuthToken(token);
 
-  useEffect(() => {
-    const datesToMark = {};
-    eventosRegistrados.forEach(evento => {
-      if (evento.fechaevento) {
-        const fecha = evento.fechaevento.split('T')[0];
-        const tipoId = String(evento.idtipoevento);
-        const colorDelEvento = eventTypeColors[tipoId] || '#bdc3c7';
-        datesToMark[fecha] = {
-          color: colorDelEvento,
-          textColor: 'white',
-          startingDay: true,
-          endingDay: true,
-        };
+    // Solicitar permisos de imagen solo una vez (si no es web)
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso Necesario', 'Se necesita permiso para acceder a la galería.');
       }
-    });
-    
-    const selectedDateStr = formatToISODate(fechaHoraSeleccionada);
-    const existingMarking = datesToMark[selectedDateStr] || {};
-    datesToMark[selectedDateStr] = {
-      ...existingMarking,
-      selected: true,
-      color: existingMarking.color || '#27ae60',
-      textColor: 'white',
-    };
-    setMarkedDates(datesToMark);
-  }, [eventosRegistrados, fechaHoraSeleccionada]);
+    }
+
+    if (token) {
+      // Siempre cargamos los eventos registrados para el calendario
+      fetchEventosRegistrados(token);
+
+      // Si estamos editando, cargamos el evento específico
+      if (isEditing) {
+        setIsLoadingEventos(true); // <-- Usa este estado para mostrar loading
+        try {
+          const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const evento = response.data;
+
+          // Rellenar todos los estados con los datos del evento
+          setNombreevento(evento.nombreevento || '');
+          setLugarevento(evento.lugarevento || '');
+
+          // Fecha y hora del evento principal
+          const fechaEvento = new Date(evento.fechaevento + 'T' + (evento.horaevento || '00:00'));
+          setFechaHoraSeleccionada(fechaEvento);
+
+          setIdtipoevento(String(evento.idtipoevento) || '');
+
+          // Actividades
+          setActividadesPrevias(
+            (evento.actividadesPrevias || []).map((act, i) => ({
+              key: `act-prev-${i}-${Date.now()}`,
+              nombreActividad: act.nombreActividad || '',
+              responsable: act.responsable || '',
+              fechaInicio: new Date(act.fechaInicio),
+              fechaFin: new Date(act.fechaFin),
+              showDatePickerInicio: false,
+              showDatePickerFin: false,
+            }))
+          );
+          setActividadesDurante(
+            (evento.actividadesDurante || []).map((act, i) => ({
+              key: `act-dur-${i}-${Date.now()}`,
+              ...act,
+              fechaInicio: new Date(act.fechaInicio),
+              fechaFin: new Date(act.fechaFin),
+              showDatePickerInicio: false,
+              showDatePickerFin: false,
+            }))
+          );
+          setActividadesPost(
+            (evento.actividadesPost || []).map((act, i) => ({
+              key: `act-post-${i}-${Date.now()}`,
+              ...act,
+              fechaInicio: new Date(act.fechaInicio),
+              fechaFin: new Date(act.fechaFin),
+              showDatePickerInicio: false,
+              showDatePickerFin: false,
+            }))
+          );
+
+          // Servicios
+          setServiciosContratados(
+            (evento.serviciosContratados || []).map((serv, i) => ({
+              key: `servicio_${i}_${Date.now()}`,
+              ...serv,
+              fechaInicio: new Date(serv.fechaInicio),
+              showDatePickerInicio: false,
+            }))
+          );
+
+          // Ambientes
+          setAmbientes(
+            (evento.ambientes || []).map((amb, i) => ({
+              key: `ambiente_${i}_${Date.now()}`,
+              ...amb,
+            }))
+          );
+
+        } catch (error) {
+          console.error("Error al cargar el evento para edición:", error);
+          Alert.alert("Error", "No se pudo cargar el evento.");
+          router.back();
+        } finally {
+          setIsLoadingEventos(false);
+        }
+      }
+    }
+  };
+
+  initializeAndFetch();
+}, [idevento]); // <-- Solo depende de idevento
+
+useEffect(() => {
+  const initializeAndFetch = async () => {
+    const token = await getTokenAsync();
+    setAuthToken(token);
+    if (token) {
+      if (isEditing) {
+        setIsLoadingEventos(true);
+        try {
+          const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const evento = response.data;
+
+          // Rellenar todos los estados con los datos del evento
+          setNombreevento(evento.nombreevento || '');
+          setLugarevento(evento.lugarevento || '');
+          
+          // Fecha y hora del evento principal
+          const fechaEvento = new Date(evento.fechaevento + 'T' + (evento.horaevento || '00:00'));
+          setFechaHoraSeleccionada(fechaEvento);
+
+          setIdtipoevento(String(evento.idtipoevento) || '');
+
+          // Actividades
+          setActividadesPrevias(
+            (evento.actividadesPrevias || []).map((act, i) => ({
+              key: `act-prev-${i}-${Date.now()}`,
+              nombreActividad: act.nombreActividad || '',
+              responsable: act.responsable || '',
+              fechaInicio: new Date(act.fechaInicio),
+              fechaFin: new Date(act.fechaFin),
+              showDatePickerInicio: false,
+              showDatePickerFin: false,
+            }))
+          );
+          setActividadesDurante(
+            (evento.actividadesDurante || []).map((act, i) => ({
+              key: `act-dur-${i}-${Date.now()}`,
+              ...act,
+              fechaInicio: new Date(act.fechaInicio),
+              fechaFin: new Date(act.fechaFin),
+              showDatePickerInicio: false,
+              showDatePickerFin: false,
+            }))
+          );
+          setActividadesPost(
+            (evento.actividadesPost || []).map((act, i) => ({
+              key: `act-post-${i}-${Date.now()}`,
+              ...act,
+              fechaInicio: new Date(act.fechaInicio),
+              fechaFin: new Date(act.fechaFin),
+              showDatePickerInicio: false,
+              showDatePickerFin: false,
+            }))
+          );
+
+          // Servicios
+          setServiciosContratados(
+            (evento.serviciosContratados || []).map((serv, i) => ({
+              key: `servicio_${i}_${Date.now()}`,
+              ...serv,
+              fechaInicio: new Date(serv.fechaInicio),
+              showDatePickerInicio: false,
+            }))
+          );
+
+          // Ambientes
+          setAmbientes(
+            (evento.ambientes || []).map((amb, i) => ({
+              key: `ambiente_${i}_${Date.now()}`,
+              ...amb,
+            }))
+          );
+
+        } catch (error) {
+          console.error("Error al cargar el evento para edición:", error);
+          Alert.alert("Error", "No se pudo cargar el evento.");
+          router.back();
+        } finally {
+          setIsLoadingEventos(false);
+        }
+      }
+    }
+
+    // Permisos de imagen (solo si no es edición o no importa)
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') Alert.alert('Permiso Necesario', 'Se necesita permiso para acceder a la galería.');
+    }
+  };
+
+  initializeAndFetch();
+}, [idevento]); // <-- Añadir `idevento` como dependencia
 
   const fetchEventosRegistrados = async (token) => {
     setIsLoadingEventos(true);
@@ -225,39 +381,59 @@ const CrearEvento = () => {
   const actualizarServicio = (index, campo, valor) => { const nuevosServicios = [...serviciosContratados]; nuevosServicios[index][campo] = valor;
      setServiciosContratados(nuevosServicios); };
   const handleServicioDateChange = (index, field, event, selectedDate) => { actualizarServicio(index, 'showDatePickerInicio', false); if (event.type === 'set' && selectedDate) { actualizarServicio(index, field, selectedDate); } };
-  const handleCrearEvento = async () => { 
-    console.log('[DEBUG] Se ha hecho clic en "Crear Evento"');
-    if (!validateForm()) {
-       Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo."); 
-       return; 
+ const handleCrearEvento = async () => {
+  if (!validateForm()) {
+    Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo.");
+    return;
+  }
+  if (!authToken) {
+    Alert.alert("Error de Autenticación", "No estás autenticado.");
+    return;
+  }
+
+  setIsLoading(true);
+
+  const payload = {
+    nombreevento: nombreevento.trim(),
+    lugarevento: lugarevento.trim(),
+    fechaevento: formatToISODate(fechaHoraSeleccionada),
+    horaevento: formatToISOTime(fechaHoraSeleccionada),
+    idtipoevento: idtipoevento ? parseInt(idtipoevento, 10) : null,
+    actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
+    actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
+    actividadesPost: actividadesPost.map(formatActivityForSubmit),
+    serviciosContratados: serviciosContratados,
+    ambientes: ambientes,
+  };
+
+  try {
+    let response;
+    if (isEditing) {
+      response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.status === 200) {
+        Alert.alert('Éxito', 'Evento actualizado correctamente.');
+        router.back();
       }
-      console.log(`[DEBUG] Valor del authToken: ${authToken}`); 
-        if (!authToken) {
-           Alert.alert("Error de Autenticación", "No estás autenticado.");
-            return;
-           } 
-            console.log('[DEBUG] Todo validado, iniciando proceso de carga...');
-           setIsLoading(true);
-           const formData = new FormData();
-           formData.append('nombreevento', nombreevento.trim()); formData.append('lugarevento', lugarevento.trim()); formData.append('fechaevento', formatToISODate(fechaHoraSeleccionada)); 
-           formData.append('horaevento', formatToISOTime(fechaHoraSeleccionada));
-            if (idtipoevento) formData.append('idtipoevento', idtipoevento); 
-            
-                   const formatActivityForSubmit = act => ({ nombreActividad: act.nombreActividad, responsable: act.responsable, fechaInicio: formatToISODate(act.fechaInicio), fechaFin: formatToISODate(act.fechaFin), }); 
-                   if (actividadesPrevias.length > 0) formData.append('actividadesPrevias', JSON.stringify(actividadesPrevias.map(formatActivityForSubmit)));
-                    if (actividadesDurante.length > 0) formData.append('actividadesDurante', JSON.stringify(actividadesDurante.map(formatActivityForSubmit))); 
-                    if (actividadesPost.length > 0) formData.append('actividadesPost', JSON.stringify(actividadesPost.map(formatActivityForSubmit))); 
-                    if (serviciosContratados.length > 0) formData.append('serviciosContratados', JSON.stringify(serviciosContratados));
-                     if (ambientes.length > 0) formData.append('ambientes', JSON.stringify(ambientes)); try { const response = await axios.post(`${API_BASE_URL}/eventos`, formData, { headers: { 'Authorization': `Bearer ${authToken}`, } });
-                      if (response.status === 201) { Alert.alert('Éxito', 'Evento creado correctamente.'); router.back(); 
-
-                      } else { Alert.alert('Aviso', response.data.message || 'Respuesta inesperada del servidor.');
-
-                       } } catch (error) { console.error("Error al crear evento:", error.response ? JSON.stringify(error.response.data) : error.message);
-                         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Ocurrió un error al conectar con el servidor.'; 
-                         Alert.alert('Error al crear evento', errorMessage);
-
-            } finally { setIsLoading(false); } };
+    } else {
+      // Crear nuevo
+      response = await axios.post(`${API_BASE_URL}/eventos`, payload, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (response.status === 201) {
+        Alert.alert('Éxito', 'Evento creado correctamente.');
+        router.back();
+      }
+    }
+  } catch (error) {
+    console.error("Error al guardar evento:", error.response?.data || error.message);
+    const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Ocurrió un error al conectar con el servidor.';
+    Alert.alert('Error', errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView 
@@ -269,7 +445,7 @@ const CrearEvento = () => {
         contentContainerStyle={styles.scrollContentContainer} 
         keyboardShouldPersistTaps="handled"
       >
-        <Stack.Screen options={{ title: 'Crear Nuevo Evento' }} />
+        <Stack.Screen options={{ title:isEditing ? 'Editar Evento':'Crear Nuevo Evento' }} />
 
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Información Principal</Text>

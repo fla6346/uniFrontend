@@ -11,8 +11,6 @@ import {
   Platform, // Asegúrate de que esté importado
 } from 'react-native';
 import axios from 'axios';
-// QUITA AsyncStorage si ya no lo usas para nada más aquí, o mantenlo si guardas 'userData' con él.
-// import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store'; // <--- IMPORTA SecureStore
 import { useRouter, Stack } from 'expo-router';
 
@@ -108,8 +106,8 @@ const LoginScreen = () => {
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
               case 'academico':
-            targetRoute = '../admin/HomeAcademico'; // Necesitarás crear esta pantalla
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            targetRoute = '../admin/HomeAcademico'; 
+            routeParams = { nombre: user.nombre };
             break;
             
           case 'TI':

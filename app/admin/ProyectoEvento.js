@@ -1,11 +1,9 @@
-
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder,Dimensions
+  Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder, Dimensions
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -15,13 +13,15 @@ import dayjs from 'dayjs';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
+const { width } = Dimensions.get('window');
+const isMobile = width < 768;
 
 const TIPOS_DE_EVENTO = [
   { id: '1', label: 'Curricular' },
   { id: '2', label: 'Extracurricular' },
   { id: '3', label: 'Marketing' },
-  { id: '4', label: 'Internacionalización' },
-  { id: '5', label: 'Otro' }
+  { id: '4', label: 'Internacionalización/Marketing' },
+  { id: '5', label: 'Marketing/Extracurricular ' }
 ];
 
 const SEGMENTO_OBJETIVO = [
@@ -31,6 +31,68 @@ const SEGMENTO_OBJETIVO = [
   { id: '4', label: 'Influencers' },
   { id: '5', label: 'Otro' }
 ];
+
+const CLASIFICACION_ESTRATEGICA = {
+  '1': { label: 'Academica y Cientifica', subcategorias: [
+    { id: '1a', label: 'Congresos' },
+    { id: '1b', label: 'Seminarios' },
+    { id: '1c', label: 'Simposios' },
+    { id: '1d', label: 'Conferencias' },
+    { id: '1e', label: 'Charlas Especializadas' },
+    { id: '1f', label: 'Master Class' },
+    { id: '1g', label: 'Conversatorio' },
+    { id: '1h', label: 'Coloquios' },
+    { id: '1i', label: 'Mesas Redondas' },
+    { id: '1j', label: 'Paneles' },
+    { id: '1k', label: 'Ferias Academicas' },
+    { id: '1l', label: 'Defenzas de Proyecto de grado' },
+    { id: '1m', label: 'evaluaciones Integrales' },
+    { id: '1n', label: 'Jornada de actualizacion estudiantil y docente' },
+  ] },
+  '2': { label: 'Institucionales y Ceremoniales', subcategorias: [
+    { id: '2a', label: 'Actos de colacion ' },
+    { id: '2b', label: 'Aniversarios institucionales' },
+    { id: '2c', label: 'Inauguraciones de infraestructura o programas' },
+    { id: '2d', label: 'Reconocimientos y premiaciones' },
+    { id: '2e', label: 'Lanzamientos oficiales institucionales' },
+    { id: '2f', label: 'Firma de convenios y alianzas' },
+    { id: '2g', label: 'Tertulias' },
+    { id: '2h', label: 'Ceremonias protocolares' },
+  ] },
+  '3': { label: 'Culturales, Deportivos y Sociales', subcategorias: [
+    { id: '3a', label: 'Ferias culturales y artísticas' },
+    { id: '3b', label: 'Campeonatos deportivos' },
+    { id: '3c', label: 'Actividades recreativas o festivas (Día del Estudiante, Día de la Mujer, Día del Maestro)' },
+    { id: '3d', label: 'Talleres de bienestar físico o mental' },
+    { id: '3e', label: 'Jornadas de voluntariado interno' },
+    { id: '3f', label: 'Eventos culturales' },
+  ] },
+  '4': { label: 'Extension Universitaria, Vinculacion Profesional y Atraccion Estudiantil', subcategorias: [
+    { id: '4a', label: 'Visita de colegios ' },
+    { id: '4b', label: 'Visita a ferias en colegios' },
+    { id: '4c', label: 'Auspicios actividades intercolegiales (Ej: El y Ella, torneos deportivos) ' },
+    { id: '4d', label: 'Torneo de Padel Intercolegial' },
+    { id: '4e', label: 'Ferias de innovación y emprendimiento' },
+    { id: '4f', label: 'Ferias de empleabilidad' },
+    { id: '4g', label: 'Hackathons, bootcamps, pitch days ' },
+    { id: '4h', label: 'Charlas y talleres con empresas' },
+    { id: '4i', label: 'Proyectos de responsabilidad universitaria' },
+    { id: '4j', label: 'Campañas solidarias' },
+    { id: '4k', label: 'Voluntariados' },
+    { id: '4l', label: 'Encuentros de egresados y networking' },
+    { id: '4m', label: 'Lanzamientos de proyectos estratégicos o colaborativos' },
+  ] },
+  '5': { label: 'Internacionalizacion y Posicionamiento', subcategorias: [
+    { id: '5a', label: 'Programas internacionales y de intercambio' },
+    { id: '5b', label: 'Semana Nomads' },
+    { id: '5c', label: 'Actividades con consulados y embajadas' },
+    { id: '5d', label: 'TEDx UNIFRANZ' },
+    { id: '5e', label: 'Foro Internacional de Economía Creativa' },
+    { id: '5f', label: 'Cartel Bienal BICEBE' },
+    { id: '5g', label: 'Eventos internacionales de visibilidad y alianzas' },
+    { id: '5h', label: 'Lanzamientos estratégicos o de marca universitaria' },
+  ] }
+};
 
 const OBJETIVOS_EVENTO_MAP = {
   modeloPedagogico: 1,
@@ -44,16 +106,11 @@ const OBJETIVOS_EVENTO_MAP = {
 // Función para obtener el icono según el tipo de notificación
 const getNotificationIcon = (type) => {
   switch (type) {
-    case 'nuevo_evento':
-      return 'calendar';
-    case 'evento_aprobado':
-      return 'checkmark-circle';
-    case 'evento_rechazado':
-      return 'close-circle';
-    case 'recordatorio':
-      return 'alarm';
-    default:
-      return 'notifications';
+    case 'nuevo_evento': return 'calendar';
+    case 'evento_aprobado': return 'checkmark-circle';
+    case 'evento_rechazado': return 'close-circle';
+    case 'recordatorio': return 'alarm';
+    default: return 'notifications';
   }
 };
 
@@ -94,7 +151,7 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
                 key={notification.id || notification.idnotification}
                 style={[
                   styles.notificationItem,
-                  (!notification.read && notification.estado !== 'leida') && styles.notificationItemUnread
+                  (!notification.read && notification.estado !== 'leido') && styles.notificationItemUnread
                 ]}
                 onPress={() => markAsRead(notification.id || notification.idnotification)}
               >
@@ -105,14 +162,14 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
                     color="#e95a0c" 
                     style={styles.notificationIcon} 
                   />
-                  {(!notification.read && notification.estado !== 'leida') && (
+                  {(!notification.read && notification.estado !== 'leido') && (
                     <View style={styles.unreadDot} />
                   )}
                 </View>
                 <View style={styles.notificationContentContainer}>
                   <Text style={[
                     styles.notificationText,
-                    (!notification.read && notification.estado !== 'leida') && styles.notificationTextUnread
+                    (!notification.read && notification.estado !== 'leido') && styles.notificationTextUnread
                   ]}>
                     {notification.title || notification.titulo}
                   </Text>
@@ -122,17 +179,6 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
                   <Text style={styles.notificationTime}>
                     {dayjs(notification.timestamp || notification.created_at).format('DD/MM/YYYY HH:mm')}
                   </Text>
-                  {/*notification.eventData && (
-                    <View style={styles.eventDataContainer}>
-                      <Text style={styles.eventDataText}>
-                        📅 {dayjs(notification.eventData.fecha).format('DD/MM/YYYY')} - {notification.eventData.hora}
-                      </Text>
-                    
-                      <Text style={styles.eventDataText}>
-                        👤 {notification.eventData.responsable}
-                      </Text>
-                    </View>
-                  )*/}
                 </View>
               </TouchableOpacity>
             ))
@@ -142,324 +188,17 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
     </View>
   </Modal>
 );
-{/*
-const InteractiveClockPicker = ({ value, onChange }) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragType, setDragType] = useState(null);
-  const [hourText, setHourText] = useState('');
-  const [minuteText, setMinuteText] = useState('');
-  const [isEditingTime, setIsEditingTime] = useState(false);
-
-  const svgWidth = 240;
-  const svgHeight = 240;
-  const centerX = svgWidth / 2;
-  const centerY = svgHeight / 2;
-  const radius = 90;
-
-  const currentHour24 = value.getHours();
-  const currentMinute = value.getMinutes();
-  const currentHour12 = currentHour24 % 12 || 12;
-  const period = currentHour24 < 12 ? 'AM' : 'PM';
-
-  useEffect(() => {
-    if (!isEditingTime) {
-      setHourText(String(currentHour12).padStart(2, '0'));
-      setMinuteText(String(currentMinute).padStart(2, '0'));
-    }
-  }, [currentHour12, currentMinute, isEditingTime]);
-
-  const hourAngle = ((currentHour12 % 12) * 30) + (currentMinute * 0.5) - 90;
-  const minuteAngle = (currentMinute * 6) - 90;
-
-  const updateTimeFromText = () => {
-    const hour = parseInt(hourText, 10);
-    const minute = parseInt(minuteText, 10);
-
-    if (isNaN(hour) || isNaN(minute) || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
-      setHourText(String(currentHour12).padStart(2, '0'));
-      setMinuteText(String(currentMinute).padStart(2, '0'));
-      return;
-    }
-
-    const newDate = new Date(value);
-    let finalHour24 = hour;
-
-    if (period === 'PM' && hour !== 12) {
-      finalHour24 += 12;
-    } else if (period === 'AM' && hour === 12) {
-      finalHour24 = 0;
-    }
-
-    newDate.setHours(finalHour24);
-    newDate.setMinutes(minute);
-    onChange(newDate);
-    setIsEditingTime(false);
-  };
-
-  const getAngleFromCoordinates = (x, y) => {
-    const deltaX = x - centerX;
-    const deltaY = y - centerY;
-    let angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI) + 90;
-    return angle < 0 ? angle + 360 : angle;
-  };
-
-  const updateTimeFromAngle = (angle, type) => {
-    const newDate = new Date(value);
-
-    if (type === 'hour') {
-      let newHour12 = Math.round(angle / 30);
-      if (newHour12 === 0) newHour12 = 12;
-      if (newHour12 > 12) newHour12 = newHour12 % 12;
-
-      let finalHour24 = newHour12;
-      if (period === 'PM' && newHour12 !== 12) {
-        finalHour24 += 12;
-      } else if (period === 'AM' && newHour12 === 12) {
-        finalHour24 = 0;
-      }
-      newDate.setHours(finalHour24);
-    } else if (type === 'minute') {
-      const newMinute = Math.round(angle / 6) % 60;
-      newDate.setMinutes(newMinute);
-    }
-
-    onChange(newDate);
-  };
-
-  const getHandType = (x, y) => {
-    const deltaX = x - centerX;
-    const deltaY = y - centerY;
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    return distance < 60 ? 'hour' : 'minute';
-  };
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        const { locationX, locationY } = evt.nativeEvent;
-        const handType = getHandType(locationX, locationY);
-        setDragType(handType);
-        setIsDragging(true);
-
-        const angle = getAngleFromCoordinates(locationX, locationY);
-        updateTimeFromAngle(angle, handType);
-      },
-      onPanResponderMove: (evt) => {
-        if (!isDragging || !dragType) return;
-
-        const { locationX, locationY } = evt.nativeEvent;
-        const angle = getAngleFromCoordinates(locationX, locationY);
-        updateTimeFromAngle(angle, dragType);
-      },
-      onPanResponderRelease: () => {
-        setIsDragging(false);
-        setDragType(null);
-      },
-    })
-  ).current;
-
-  const handlePeriodChange = (newPeriod) => {
-    if (period === newPeriod) return;
-
-    const newDate = new Date(value);
-    let newHour = newDate.getHours();
-
-    if (newPeriod === 'PM' && newHour < 12) {
-      newHour += 12;
-    } else if (newPeriod === 'AM' && newHour >= 12) {
-      newHour -= 12;
-    }
-
-    newDate.setHours(newHour);
-    onChange(newDate);
-  };
-
-
-  
-  const hourHandX = centerX + 50 * Math.cos(hourAngle * Math.PI / 180);
-  const hourHandY = centerY + 50 * Math.sin(hourAngle * Math.PI / 180);
-  const minuteHandX = centerX + 70 * Math.cos(minuteAngle * Math.PI / 180);
-  const minuteHandY = centerY + 70 * Math.sin(minuteAngle * Math.PI / 180);
-
-  return (
-    <View style={styles.clockContainer}>
-      <TouchableOpacity
-        style={styles.digitalDisplay}
-        onPress={() => setIsEditingTime(!isEditingTime)}
-        activeOpacity={0.8}
-      >
-        {isEditingTime ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TextInput
-              style={[styles.digitalTime, styles.timeInput]}
-              value={hourText}
-              onChangeText={setHourText}
-              keyboardType="numeric"
-              maxLength={2}
-              selectTextOnFocus
-              autoFocus
-            />
-            <Text style={[styles.digitalTime, { color: '#ffffff' }]}>:</Text>
-            <TextInput
-              style={[styles.digitalTime, styles.timeInput]}
-              value={minuteText}
-              onChangeText={setMinuteText}
-              keyboardType="numeric"
-              maxLength={2}
-              selectTextOnFocus
-            />
-            <TouchableOpacity
-              onPress={updateTimeFromText}
-              style={styles.confirmButton}
-            >
-              <Ionicons name="checkmark" size={20} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Text style={styles.digitalTime}>
-            {String(currentHour12).padStart(2, '0')}:{String(currentMinute).padStart(2, '0')}
-          </Text>
-        )}
-
-        <View style={styles.periodContainer}>
-          <TouchableOpacity
-            style={[
-              styles.periodButton,
-              period === 'AM' && styles.periodButtonActive
-            ]}
-            onPress={() => handlePeriodChange('AM')}
-          >
-            <Text style={[
-              styles.periodText,
-              period === 'AM' && styles.periodTextActive
-            ]}>AM</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.periodButton,
-              period === 'PM' && styles.periodButtonActive
-            ]}
-            onPress={() => handlePeriodChange('PM')}
-          >
-            <Text style={[
-              styles.periodText,
-              period === 'PM' && styles.periodTextActive
-            ]}>PM</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-
-      <View {...panResponder.panHandlers} style={{ marginVertical: 20 }}>
-        <Svg width={svgWidth} height={svgHeight}>
-          <Circle
-            cx={centerX}
-            cy={centerY}
-            r={95}
-            fill="#ffffff"
-            stroke="#e2e8f0"
-            strokeWidth={3}
-          />
-          <Circle
-            cx={centerX}
-            cy={centerY}
-            r={radius}
-            fill="white"
-            stroke="#e95a0c"
-            strokeWidth={2}
-          />
-          {Array.from({ length: 12 }, (_, i) => {
-            const angle = (i * 30) - 90;
-            const isMainHour = i % 3 === 0;
-            const outerRadius = isMainHour ? 85 : 82;
-            const innerRadius = isMainHour ? 70 : 75;
-            const x1 = centerX + outerRadius * Math.cos((angle * Math.PI) / 180);
-            const y1 = centerY + outerRadius * Math.sin((angle * Math.PI) / 180);
-            const x2 = centerX + innerRadius * Math.cos((angle * Math.PI) / 180);
-            const y2 = centerY + innerRadius * Math.sin((angle * Math.PI) / 180);
-
-            return (
-              <Line
-                key={`hour-mark-${i}`}
-                x1={x1} y1={y1} x2={x2} y2={y2}
-                stroke={isMainHour ? "#e95a0c" : "#cbd5e0"}
-                strokeWidth={isMainHour ? 3 : 2}
-                strokeLinecap="round"
-              />
-            );
-          })}
-          {Array.from({ length: 12 }, (_, i) => {
-            const hour = i + 1;
-            const angle = (hour * 30) - 90;
-            const x = centerX + 60 * Math.cos((angle * Math.PI) / 180);
-            const y = centerY + 60 * Math.sin((angle * Math.PI) / 180);
-            const isCurrentHour = hour === currentHour12;
-
-            return (
-              <SvgText
-                key={`number-${hour}`}
-                x={x} y={y}
-                textAnchor="middle"
-                alignmentBaseline="central"
-                fontSize={isCurrentHour ? 18 : 16}
-                fontWeight={isCurrentHour ? "700" : "600"}
-                fill={isCurrentHour ? "#e95a0c" : "#2d3748"}
-              >
-                {hour}
-              </SvgText>
-            );
-          })}
-          <Line
-            x1={centerX} y1={centerY}
-            x2={minuteHandX} y2={minuteHandY}
-            stroke="#e95a0c"
-            strokeWidth={dragType === 'minute' ? 4 : 3}
-            strokeLinecap="round"
-          />
-          <Line
-            x1={centerX} y1={centerY}
-            x2={hourHandX} y2={hourHandY}
-            stroke="#2d3748"
-            strokeWidth={dragType === 'hour' ? 5 : 4}
-            strokeLinecap="round"
-          />
-          <Circle
-            cx={centerX}
-            cy={centerY}
-            r={8}
-            fill="#e95a0c"
-            stroke="#ffffff"
-            strokeWidth={3}
-          />
-        </Svg>
-      </View>
-
-      <View style={styles.instructionsContainer}>
-        <View style={styles.instructionRow}>
-          <Ionicons name="time-outline" size={16} color="#e95a0c" />
-          <Text style={styles.instructionText}>
-            Toca la hora naranja para escribir directamente
-          </Text>
-        </View>
-        <View style={styles.instructionRow}>
-          <View style={[styles.colorIndicator, { backgroundColor: '#2d3748' }]} />
-          <Text style={styles.instructionText}>
-            O arrastra las manecillas del reloj
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-};*/}
 
 const getTokenAsync = async () => {
   const TOKEN_KEY = 'adminAuthToken';
   try {
+    let token;
     if (Platform.OS === 'web') {
-      return localStorage.getItem(TOKEN_KEY);
+      token = localStorage.getItem(TOKEN_KEY);
+    } else {
+      token = await SecureStore.getItemAsync(TOKEN_KEY);
     }
-    return await SecureStore.getItemAsync(TOKEN_KEY);
+    return (token && token !== 'null' && token !== '') ? token : null;
   } catch (e) {
     console.error("Error al obtener el token:", e);
     return null;
@@ -529,7 +268,7 @@ const TablaPresupuesto = ({
   </View>
 );
 
-const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSeleccionada, eventos }) => {
+const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSeleccionada, eventos, title }) => {
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -537,27 +276,17 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-
     const days = [];
     for (let i = startingDayOfWeek - 1; i >= 0; i--) {
       const prevDate = new Date(year, month, -i);
-      days.push({
-        date: prevDate,
-        isCurrentMonth: false
-      });
+      days.push({ date: prevDate, isCurrentMonth: false });
     }
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push({
-        date: new Date(year, month, day),
-        isCurrentMonth: true
-      });
+      days.push({ date: new Date(year, month, day), isCurrentMonth: true });
     }
     const remainingDays = 42 - days.length;
     for (let day = 1; day <= remainingDays; day++) {
-      days.push({
-        date: new Date(year, month + 1, day),
-        isCurrentMonth: false
-      });
+      days.push({ date: new Date(year, month + 1, day), isCurrentMonth: false });
     }
     return days;
   };
@@ -566,7 +295,7 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
     const dateStr = dayjs(date).format('YYYY-MM-DD');
     return eventos.filter(evento => {
       const fechaEventoStr = evento.fechaevento.split('T')[0];
-      return fechaEventoStr === dateStr
+      return fechaEventoStr === dateStr;
     });
   };
 
@@ -581,20 +310,19 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
 
   return (
     <View style={styles.googleCalendarContainer}>
+      {title && (
+        <View style={styles.calendarTitleContainer}>
+          <Text style={styles.calendarTitle}>{title}</Text>
+        </View>
+      )}
       <View style={styles.calendarHeader}>
-        <TouchableOpacity 
-          onPress={() => navigateMonth(-1)}
-          style={styles.navButton}
-        >
+        <TouchableOpacity onPress={() => navigateMonth(-1)} style={styles.navButton}>
           <Ionicons name="chevron-back" size={24} color="#e95a0c" />
         </TouchableOpacity>
         <Text style={styles.monthYearText}>
           {dayjs(fechaHoraSeleccionada).format('MMMM YYYY').toUpperCase()}
         </Text>
-        <TouchableOpacity 
-          onPress={() => navigateMonth(1)}
-          style={styles.navButton}
-        >
+        <TouchableOpacity onPress={() => navigateMonth(1)} style={styles.navButton}>
           <Ionicons name="chevron-forward" size={24} color="#e95a0c" />
         </TouchableOpacity>
       </View>
@@ -608,11 +336,8 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
       <View style={styles.daysGrid}>
         {days.map((day, index) => {
           const dayEvents = getEventsForDay(day.date);
-          const isSelected = dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD') === 
-                           dayjs(day.date).format('YYYY-MM-DD');
-          const isToday = dayjs().format('YYYY-MM-DD') === 
-                         dayjs(day.date).format('YYYY-MM-DD');
-
+          const isSelected = dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD') === dayjs(day.date).format('YYYY-MM-DD');
+          const isToday = dayjs().format('YYYY-MM-DD') === dayjs(day.date).format('YYYY-MM-DD');
           return (
             <TouchableOpacity
               key={index}
@@ -640,13 +365,8 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
                 </Text>
                 {dayEvents.length > 0 && (
                   <View style={styles.eventIndicators}>
-                    <View style={[
-                      styles.eventDot,
-                      { backgroundColor: dayEvents.length > 1 ? '#ff6b6b' : '#e95a0c' }
-                    ]} />
-                    {dayEvents.length > 1 && (
-                      <Text style={styles.eventCount}>+{dayEvents.length - 1}</Text>
-                    )}
+                    <View style={[styles.eventDot, { backgroundColor: dayEvents.length > 1 ? '#ff6b6b' : '#e95a0c' }]} />
+                    {dayEvents.length > 1 && <Text style={styles.eventCount}>+{dayEvents.length - 1}</Text>}
                   </View>
                 )}
                 {dayEvents.length > 0 && isSelected && (
@@ -656,11 +376,7 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
                         {dayjs(evento.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
                       </Text>
                     ))}
-                    {dayEvents.length > 2 && (
-                      <Text style={styles.eventPreviewMore}>
-                        +{dayEvents.length - 2} más
-                      </Text>
-                    )}
+                    {dayEvents.length > 2 && <Text style={styles.eventPreviewMore}>+{dayEvents.length - 2} más</Text>}
                   </View>
                 )}
               </View>
@@ -687,44 +403,26 @@ const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetec
         </View>
         {conflictoDetectado && (
           <View>
-            <Text style={styles.modalMessage}>
-              Se detectó un conflicto con el siguiente evento:
-            </Text>
+            <Text style={styles.modalMessage}>Se detectó un conflicto con el siguiente evento:</Text>
             <View style={styles.conflictEventCard}>
-              <Text style={styles.conflictEventTitle}>
-                {conflictoDetectado.nombreevento}
-              </Text>
+              <Text style={styles.conflictEventTitle}>{conflictoDetectado.nombreevento}</Text>
               <Text style={styles.conflictEventDetails}>
                 {dayjs(conflictoDetectado.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} - {conflictoDetectado.lugarevento}
               </Text>
-              <Text style={styles.conflictEventResponsible}>
-                Responsable: {conflictoDetectado.responsable_evento}
-              </Text>
+              <Text style={styles.conflictEventResponsible}>Responsable: {conflictoDetectado.responsable_evento}</Text>
             </View>
-            <Text style={styles.modalWarning}>
-              Se recomienda mantener al menos 2 horas de separación entre eventos.
-            </Text>
+            <Text style={styles.modalWarning}>Se recomienda mantener al menos 2 horas de separación entre eventos.</Text>
           </View>
         )}
         <View style={styles.modalButtons}>
-          <TouchableOpacity 
-            style={styles.modalButtonSecondary} 
-            onPress={() => setShowConflictModal(false)}
-          >
-            <Text style={styles.modalButtonSecondaryText}>
-              Elegir otra hora
-            </Text>
+          <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowConflictModal(false)}>
+            <Text style={styles.modalButtonSecondaryText}>Elegir otra hora</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.modalButtonPrimary} 
-            onPress={() => {
-              setShowConflictModal(false);
-              setConflictoDetectado(null);
-            }}
-          >
-            <Text style={styles.modalButtonPrimaryText}>
-              Continuar
-            </Text>
+          <TouchableOpacity style={styles.modalButtonPrimary} onPress={() => {
+            setShowConflictModal(false);
+            setConflictoDetectado(null);
+          }}>
+            <Text style={styles.modalButtonPrimaryText}>Continuar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -734,47 +432,29 @@ const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetec
 
 const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificarConflictoHorario }) => {
   if (eventosDelDia.length === 0) return null;
-
   return (
     <View style={styles.eventosDelDiaContainer}>
       <View style={styles.eventosDelDiaHeader}>
         <Ionicons name="calendar-outline" size={20} color="#e95a0c" />
-        <Text style={styles.eventosDelDiaTitle}>
-          Eventos en {dayjs(fechaHoraSeleccionada).format('DD/MM/YYYY')}
-        </Text>
+        <Text style={styles.eventosDelDiaTitle}>Eventos en {dayjs(fechaHoraSeleccionada).format('DD/MM/YYYY')}</Text>
         <View style={styles.eventCountBadge}>
           <Text style={styles.eventCountText}>{eventosDelDia.length}</Text>
         </View>
       </View>
-      <ScrollView 
-        style={styles.eventsList} 
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.eventsList} showsVerticalScrollIndicator={false}>
         {eventosDelDia.map((evento, index) => {
           const horaEventoString = (evento.horaevento || '').split('+')[0].trim();
           const horaEvento = dayjs(`2000-01-01 ${horaEventoString}`, 'YYYY-MM-DD HH:mm:ss');
           const isHoraValida = horaEvento.isValid();
           const isConflict = verificarConflictoHorario(
-            dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD') + 'T' + 
-            dayjs(fechaHoraSeleccionada).format('HH:mm:ss')
+            dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD') + 'T' + dayjs(fechaHoraSeleccionada).format('HH:mm:ss')
           ).some(e => e.id === evento.id || e.idevento === evento.idevento);
-
           return (
-            <View key={index} style={[
-              styles.eventoCard,
-              isConflict && styles.eventoCardConflict
-            ]}>
+            <View key={index} style={[styles.eventoCard, isConflict && styles.eventoCardConflict]}>
               <View style={styles.eventoCardHeader}>
                 <View style={styles.eventoTimeContainer}>
-                  <Ionicons 
-                    name="time-outline" 
-                    size={16} 
-                    color={isConflict ? "#ff6b6b" : "#e95a0c"} 
-                  />
-                  <Text style={[
-                    styles.eventoTime,
-                    isConflict && styles.eventoTimeConflict
-                  ]}>
+                  <Ionicons name="time-outline" size={16} color={isConflict ? "#ff6b6b" : "#e95a0c"} />
+                  <Text style={[styles.eventoTime, isConflict && styles.eventoTimeConflict]}>
                     {isHoraValida ? horaEvento.format('HH:mm') : 'Hora no disponible'}
                   </Text>
                 </View>
@@ -793,9 +473,7 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
                 </View>
                 <View style={styles.eventoDetailRow}>
                   <Ionicons name="person-outline" size={14} color="#666" />
-                  <Text style={styles.eventoDetailText}>
-                    {evento.responsable_evento}
-                  </Text>
+                  <Text style={styles.eventoDetailText}>{evento.responsable_evento}</Text>
                 </View>
               </View>
             </View>
@@ -803,9 +481,7 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
         })}
       </ScrollView>
       <View style={styles.eventosDelDiaFooter}>
-        <Text style={styles.eventosDelDiaNote}>
-          Verifica que tu nuevo evento no genere conflictos de horario
-        </Text>
+        <Text style={styles.eventosDelDiaNote}>Verifica que tu nuevo evento no genere conflictos de horario</Text>
       </View>
     </View>
   );
@@ -824,48 +500,23 @@ const ConfirmModal = ({ showConfirmModal, setShowConfirmModal, handleSubmitConfi
           <Ionicons name="information-circle" size={32} color="#3498db" />
           <Text style={styles.confirmModalTitle}>Confirmar Envío</Text>
         </View>
-        
         <Text style={styles.confirmModalMessage}>
           ¿Estás seguro de que deseas crear este evento? Una vez enviado, no podrás modificarlo.
         </Text>
-        
         <View style={styles.confirmModalDetails}>
           <Text style={styles.confirmModalDetailTitle}>Resumen del Evento:</Text>
+          <Text style={styles.confirmModalDetail}><Text style={styles.detailLabel}>Nombre: </Text>{formData.nombreevento}</Text>
           <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Nombre: </Text>{formData.nombreevento}
+            <Text style={styles.detailLabel}>Fecha: </Text>{dayjs(formData.fechaHoraSeleccionada).format('DD/MM/YYYY')}
           </Text>
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Fecha: </Text>
-            {dayjs(formData.fechaHoraSeleccionada).format('DD/MM/YYYY')}
-          </Text>
-          {/*
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Hora: </Text>
-            {dayjs(formData.fechaHoraSeleccionada).format('HH:mm')}
-          </Text>*/}
-          
-          <Text style={styles.confirmModalDetail}>
-            <Text style={styles.detailLabel}>Responsable: </Text>{formData.nombreResponsable}
-          </Text>
+          <Text style={styles.confirmModalDetail}><Text style={styles.detailLabel}>Responsable: </Text>{formData.nombreResponsable}</Text>
         </View>
-        
         <View style={styles.confirmModalButtons}>
-          <TouchableOpacity 
-            style={[styles.confirmModalButton, styles.confirmModalButtonCancel]} 
-            onPress={() => setShowConfirmModal(false)}
-          >
+          <TouchableOpacity style={[styles.confirmModalButton, styles.confirmModalButtonCancel]} onPress={() => setShowConfirmModal(false)}>
             <Text style={styles.confirmModalButtonTextCancel}>Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.confirmModalButton, styles.confirmModalButtonConfirm]} 
-            onPress={handleSubmitConfirmed}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.confirmModalButtonTextConfirm}>Sí, Crear Evento</Text>
-            )}
+          <TouchableOpacity style={[styles.confirmModalButton, styles.confirmModalButtonConfirm]} onPress={handleSubmitConfirmed} disabled={isLoading}>
+            {isLoading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.confirmModalButtonTextConfirm}>Sí, Crear Evento</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -877,17 +528,18 @@ const ProyectoEvento = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // Estados principales
   const [isLoading, setIsLoading] = useState(false);
   const [authToken, setAuthToken] = useState(null);
-  const [userRole, setUserRole] = useState(null); // ✅ Agregado estado faltante
+  const [userRole, setUserRole] = useState(null);
   const [errors, setErrors] = useState({});
   const [eventos, setEventos] = useState([]);
   const [eventosDelDia, setEventosDelDia] = useState([]);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictoDetectado, setConflictoDetectado] = useState(null);
-
-  // Estados del formulario
+  const scrollViewRef = useRef(null);
+  const objetivosSectionRef = useRef(null);
+  const [objetivosSectionY, setObjetivosSectionY] = useState(0); // ✅ Nueva variable para guardar posición
+const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   const [nombreevento, setNombreevento] = useState('');
   const [lugarevento, setLugarevento] = useState('');
   const [nombreResponsable, setNombreResponsable] = useState('');
@@ -899,17 +551,37 @@ const ProyectoEvento = () => {
   const [recursos, setRecursos] = useState(['']);
   const [segmentosTextoPersonalizado, setSegmentosTextoPersonalizado] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-  // Estados de notificaciones
+  const [clasificacionSeleccionada, setClasificacionSeleccionada] = useState('');
+  const [subcategoriaSeleccionada, setSubcategoriaSeleccionada] = useState('');
+  const [showClasificacionModal, setShowClasificacionModal] = useState(false);
+  const [showSubcategoriaModal, setShowSubcategoriaModal] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+ 
+  const [seccionObjetivosVisible, setSeccionObjetivosVisible] = useState(false);
+  const [seccionResultadosVisible, setSeccionResultadosVisible] = useState(false);
+  const [seccionComiteVisible, setSeccionComiteVisible] = useState(false);
+  const [seccionRecursosVisible, setSeccionRecursosVisible] = useState(false);
+  const [seccionPresupuestoVisible, setSeccionPresupuestoVisible] = useState(false);
+  const resultadosSectionRef = useRef(null);
+  const [isScrollingToResultados, setIsScrollingToResultados] = useState(false);
+  const comiteSectionRef = useRef(null);
+  const [isScrollingToComite, setisScrollingToComite] = useState(false);
 
-  // Estados de fecha y objetivos
+  const recursosSectionRef = useRef(null);
+  const [isScrollingToRecursos, setIsScrollingToRecursos] = useState(false);
+  
+  const presupuestoSectionRef = useRef(null);
+  const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
+  
+  const [usuariosComite,setUsuariosComite] = useState([]);
+  const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
+  
   const [fechaHoraSeleccionada, setFechaHoraSeleccionada] = useState(() => {
     let initialDate = dayjs();
     if (params.selectedDate) {
-      initialDate= dayjs(params.selectedDate);
+      initialDate = dayjs(params.selectedDate);
       if (params.selectedHour) {
         initialDate = initialDate.hour(parseInt(params.selectedHour, 10)).minute(0).second(0);
       }
@@ -918,7 +590,6 @@ const ProyectoEvento = () => {
     return new Date();
   });
   const [showTimePicker, setShowTimePicker] = useState(false);
-
   const [objetivos, setObjetivos] = useState({
     modeloPedagogico: false,
     posicionamiento: false,
@@ -938,51 +609,30 @@ const ProyectoEvento = () => {
     otro: false,
     otroTexto: ''
   });
-
   const [resultadosEsperados, setResultadosEsperados] = useState({
     participacion: '',
     satisfaccion: '',
     otro: ''
   });
-
   const [egresos, setEgresos] = useState([{ key: 'egreso-1', descripcion: '', cantidad: '', precio: '' }]);
   const [ingresos, setIngresos] = useState([{ key: 'ingreso-1', descripcion: '', cantidad: '', precio: '' }]);
 
-  const totalEgresos = useMemo(
-    () => egresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0),
-    [egresos]
-  );
-  const totalIngresos = useMemo(
-    () => ingresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0),
-    [ingresos]
-  );
+  const totalEgresos = useMemo(() => egresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0), [egresos]);
+  const totalIngresos = useMemo(() => ingresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0), [ingresos]);
   const balance = useMemo(() => totalIngresos - totalEgresos, [totalIngresos, totalEgresos]);
 
   const sendAdminNotification = async (eventData) => {
     try {
       const notificationPayload = {
-        type: 'nuevo_evento',
-        title: 'Nuevo Evento Creado',
-        message: `El director ha creado un nuevo evento: "${eventData.nombreevento}" para el ${dayjs(eventData.fechaevento).format('DD/MM/YYYY')} a las ${eventData.horaevento}`,
-        eventData: {
-          id: eventData.id,
-          nombre: eventData.nombreevento,
-          fecha: eventData.fechaevento,
-         // hora: eventData.horaevento,
-          lugar: eventData.lugarevento,
-          responsable: eventData.responsable_evento
-        },
-        recipient_role: 'admin',
+        tipo: 'nuevo_evento',
+        titulo: 'Nuevo Evento Creado',
+        mensaje: `El director ha creado un nuevo evento: "${eventData.nombreevento}" para el ${dayjs(eventData.fechaevento).format('DD/MM/YYYY')} a las ${eventData.horaevento}`,
         idevento: eventData.id,
+         // destinatarios: [1, 2, 3] // Opcional: IDs de usuarios específicos
       };
-
-      const response = await axios.post(`${API_BASE_URL}/notifications`, notificationPayload, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await axios.post(`${API_BASE_URL}/notificaciones`, notificationPayload, {
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
-
       console.log('Notificación enviada al admin:', response.data);
       return response.data;
     } catch (error) {
@@ -991,37 +641,23 @@ const ProyectoEvento = () => {
     }
   };
 
-  // ✅ Función corregida para obtener notificaciones
   const fetchNotifications = async () => {
-    if (!authToken) return; // ✅ Verificación adicional
-    
+    if (!authToken || authToken === 'null' || authToken === '') return;
     try {
-      const response = await axios.get(`${API_BASE_URL}/notifications/user`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      
+      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json'  } });
       setNotifications(response.data || []);
-      setUnreadCount((response.data || []).filter(n => !n.read && n.estado !== 'leida').length);
+      setUnreadCount((response.data || []).filter(n => !n.read && n.estado !== 'leido').length);
     } catch (error) {
       console.error('Error al obtener notificaciones:', error);
     }
   };
 
   const markNotificationAsRead = async (notificationId) => {
-    if (!authToken || !notificationId) return;
-    
+    if (!authToken || authToken === 'null' || authToken === '') return;
     try {
-      await axios.patch(`${API_BASE_URL}/notifications/${notificationId}/read`, {}, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true, estado: 'leida' } : n)
-      );
+      await axios.patch(`${API_BASE_URL}/notificaciones/${notificationId}/read`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+      setNotifications(prev => prev.map(n => n.idusuario === notificationId ? { ...n, read: true, estado: 'leido' } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error al marcar notificación como leída:', error);
@@ -1030,14 +666,8 @@ const ProyectoEvento = () => {
 
   const fetchUserInfo = async () => {
     if (!authToken) return null;
-    
     try {
-      const response = await axios.get(`${API_BASE_URL}/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      
+      const response = await axios.get(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${authToken}` } });
       setUserRole(response.data.role || response.data.rol);
       return response.data;
     } catch (error) {
@@ -1045,29 +675,40 @@ const ProyectoEvento = () => {
       return null;
     }
   };
+const fetchUsuariosComite = async () => {
+  try {
+     const token = await getTokenAsync();
+      console.log("Token obtenido:", token);
+     if (!token || token === 'null' || token === '') {
+    console.warn("Token inválido, redirigiendo al login");
+    router.replace('/login');
+    return;
+  }
+
+    const response = await axios.get(`${API_BASE_URL}/users/comite`, {
+      headers: { 'Authorization': `Bearer ${token}`}
+    });
+    setUsuariosComite(response.data);
+  } catch (error) {
+    console.error('Error al cargar usuarios para comité:', error);
+    Alert.alert("Error", "No se pudieron cargar los miembros del comité. Revisa la consola.");
+  }
+};
+
+
 
   const verificarConflictoHorario = (fechaHora) => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
     const horaFormateada = dayjs(fechaHora).format('HH:mm');
-    const eventosEnMismaFecha = eventos.filter(evento => 
-      dayjs(evento.fechaevento).format('YYYY-MM-DD') === fechaFormateada
-    );
-    
+    const eventosEnMismaFecha = eventos.filter(evento => dayjs(evento.fechaevento).format('YYYY-MM-DD') === fechaFormateada);
     const conflictos = eventosEnMismaFecha.filter(evento => {
       const horaEventoString = (evento.horaevento || '').split('+')[0].trim();
       const horaEvento = dayjs(horaEventoString, 'HH:mm:ss');
-      if(!horaEvento.isValid()){
-        return false;
-      }
+      if (!horaEvento.isValid()) return false;
       const horaSeleccionada = dayjs(horaFormateada, 'HH:mm');
       const diferencia = Math.abs(horaEvento.diff(horaSeleccionada, 'minutes'));
       return diferencia < 120;
     });
-    
-   /* if(!dayjs(fechaHora).isValid()){
-      console.warn("Fefcha invalida", fechaHora);
-      return[];
-    }*/
     return conflictos;
   };
 
@@ -1081,46 +722,36 @@ const ProyectoEvento = () => {
     }
   };
 
-  // ✅ useEffect corregido para cargar notificaciones
   useEffect(() => {
     if (authToken) {
       fetchUserInfo();
       fetchNotifications();
-      
+      fetchUsuariosComite();
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
   }, [authToken]);
 
-  // ✅ useEffect corregido para inicialización - SIN llamar sendAdminNotification
   useEffect(() => {
     const initialize = async () => {
       setIsLoading(true);
       const token = await getTokenAsync();
       setAuthToken(token);
-      
       if (!token) {
-        console.log("Token Utillizado ",authToken);
         Alert.alert("Error", "No se encontró un token de autenticación. Por favor, inicia sesión.");
         router.push("/login");
         return;
       }
-      
       try {
-        const responseRecursos = await axios.get(`${API_BASE_URL}/recursos`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const userInfo = await fetchUserInfo();
+        if (userInfo) setUserRole(userInfo.role || userInfo.rol);
+        const responseRecursos = await axios.get(`${API_BASE_URL}/recursos`, { headers: { Authorization: `Bearer ${token}` } });
         const validResources = responseRecursos.data.filter(recurso => recurso && recurso.id != null);
         setRecursosDisponibles(validResources);
-
         const responseEventos = await axios.get(`${API_BASE_URL}/eventos`, {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          }
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         setEventos(responseEventos.data || []);
-        
       } catch (error) {
         console.error("Error al cargar datos:", error);
         Alert.alert("Error", "No se pudieron cargar los datos necesarios.");
@@ -1129,7 +760,7 @@ const ProyectoEvento = () => {
       }
     };
     initialize();
-  }, []); // ✅ Array de dependencias vacío correcto
+  }, []);
 
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
@@ -1146,27 +777,15 @@ const ProyectoEvento = () => {
     setEventosDelDia(eventsDelDia);
   }, [eventos, fechaHoraSeleccionada]);
 
-  const addResource = () => {
-    setRecursos(prev => [...prev, '']);
-  };
-
-  const removeResource = (indexToRemove) => {
-    setRecursos(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
-
-  const updateResource = (text, indexToUpdate) => {
-    setRecursos(prev => prev.map((resource, index) =>
-      index === indexToUpdate ? text : resource
-    ));
-  };
+  const addResource = () => setRecursos(prev => [...prev, '']);
+  const removeResource = (indexToRemove) => setRecursos(prev => prev.filter((_, index) => index !== indexToRemove));
+  const updateResource = (text, indexToUpdate) => setRecursos(prev => prev.map((resource, index) => index === indexToUpdate ? text : resource));
 
   const handleInputChange = (field, value) => {
     if (field === 'nombreevento') setNombreevento(value);
     if (field === 'lugarevento') setLugarevento(value);
     if (field === 'nombreResponsable') setNombreResponsable(value);
-    if (errors[field]) {
-      setErrors(prevErrors => ({ ...prevErrors, [field]: null }));
-    }
+    if (errors[field]) setErrors(prevErrors => ({ ...prevErrors, [field]: null }));
   };
 
   const onChangeTimeEventoPrincipal = (event, selectedDate) => {
@@ -1174,10 +793,8 @@ const ProyectoEvento = () => {
     if (selectedDate) {
       const newHour = selectedDate.getHours();
       const newMinute = selectedDate.getMinutes();
-
       const updateDate = new Date(fechaHoraSeleccionada);
       updateDate.setHours(newHour, newMinute, 0, 0);
-      
       const conflictos = verificarConflictoHorario(updateDate);
       if (conflictos.length > 0) {
         setConflictoDetectado(conflictos[0]);
@@ -1188,61 +805,135 @@ const ProyectoEvento = () => {
     }
   };
 
-  const handleCheckboxChange = (setter, key) => {
-    setter(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleOtroTextChange = (setter, text) => {
-    setter(prev => ({ ...prev, otroTexto: text }));
-  };
-
-  const handleResultadoChange = (key, value) => {
-    setResultadosEsperados(prev => ({ ...prev, [key]: value }));
-  };
-
+  const handleCheckboxChange = (setter, key) => setter(prev => ({ ...prev, [key]: !prev[key] }));
+  const handleOtroTextChange = (setter, text) => setter(prev => ({ ...prev, otroTexto: text }));
+  const handleResultadoChange = (key, value) => setResultadosEsperados(prev => ({ ...prev, [key]: value }));
   const handlePresupuestoChange = (items, setItems, index, field, value) => {
     const nuevosItems = [...items];
     nuevosItems[index][field] = value;
     setItems(nuevosItems);
   };
-
-  const agregarFilaPresupuesto = (setItems) => {
-    setItems(prev => [...prev, { key: `item-${Date.now()}`, descripcion: '', cantidad: '', precio: '' }]);
-  };
-
+  const agregarFilaPresupuesto = (setItems) => setItems(prev => [...prev, { key: `item-${Date.now()}`, descripcion: '', cantidad: '', precio: '' }]);
   const eliminarFilaPresupuesto = (items, setItems, index) => {
-    if (items.length > 1) {
-      setItems(prev => prev.filter((_, i) => i !== index));
-    }
+    if (items.length > 1) setItems(prev => prev.filter((_, i) => i !== index));
   };
-
   const handleRecursoChange = (id) => {
-    if (id == null) {
-      console.warn("ID de recurso inválido:", id);
-      return;
-    }
-    setRecursosSeleccionados(prev =>
-      prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]
-    );
+    if (id == null) return;
+    setRecursosSeleccionados(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
   };
-
   const handleTipoEventoChange = (id) => {
     setTiposSeleccionados(prev => {
       const newState = { ...prev };
-      if (newState[id]) {
-        delete newState[id];
-      } else {
-        newState[id] = true;
-      }
+      if (newState[id]) delete newState[id];
+      else newState[id] = true;
       return newState;
     });
   };
-
   const handleObjetivoPDIChange = (index, value) => {
     const newObjetivos = [...objetivosPDI];
     newObjetivos[index] = value;
     setObjetivosPDI(newObjetivos);
   };
+
+const scrollToObjetivos = () => {
+  setSeccionObjetivosVisible(true);
+
+  setTimeout(() => {
+    if (objetivosSectionRef.current && scrollViewRef.current) {
+      setIsScrollingToObjetivos(true);
+      objetivosSectionRef.current.measureLayout(
+        scrollViewRef.current.getInnerViewNode(),
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+          setTimeout(() => setIsScrollingToObjetivos(false), 1000);
+        },
+        (error) => {
+          console.warn("Error al medir layout:", error);
+          setIsScrollingToObjetivos(false);
+        }
+      );
+    }
+  }, 0); 
+};
+const scrollToResultados = () => {
+  setSeccionResultadosVisible(true)
+  setTimeout(() => {
+    if (resultadosSectionRef.current && scrollViewRef.current) {
+      setIsScrollingToResultados(true);
+      resultadosSectionRef.current.measureLayout(
+        scrollViewRef.current.getInnerViewNode(),
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+          setTimeout(() => setIsScrollingToResultados(false), 1000);
+        },
+        (error) => {
+          console.warn("Error al medir layout para Resultados:", error);
+          setIsScrollingToResultados(false);
+        }
+      );
+    }
+  }, 0);
+};
+const scrollToComite = () => {
+  setSeccionComiteVisible(true);
+  setTimeout(() => {
+    if (comiteSectionRef.current && scrollViewRef.current) { 
+      setisScrollingToComite(true); 
+      comiteSectionRef.current.measureLayout(
+        scrollViewRef.current.getInnerViewNode(),
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+          setTimeout(() => setisScrollingToComite(false), 1000);
+        },
+        (error) => {
+          console.warn("Error al medir layout para Comité:", error);
+          setisScrollingToComite(false);
+        }
+      );
+    }
+  }, 0);
+};
+
+
+const scrollToRecursos = () => {
+  setSeccionRecursosVisible(true);
+  setTimeout(() => {
+    if (recursosSectionRef.current && scrollViewRef.current) { 
+      setIsScrollingToRecursos(true); 
+      recursosSectionRef.current.measureLayout(
+        scrollViewRef.current.getInnerViewNode(),
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+          setTimeout(() => setIsScrollingToRecursos(false), 1000);
+        },
+        (error) => {
+          console.warn("Error al medir layout para Recursos:", error);
+          setIsScrollingToRecursos(false);
+        }
+      );
+    }
+  }, 0);
+};
+
+const scrollToPresupuesto = () => {
+  setSeccionPresupuestoVisible(true);
+  setTimeout(() => {
+    if (presupuestoSectionRef.current && scrollViewRef.current) { // ✅ Referencia correcta
+      setIsScrollingToPresupuesto(true); // ✅ Estado correcto
+      presupuestoSectionRef.current.measureLayout(
+        scrollViewRef.current.getInnerViewNode(),
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+          setTimeout(() => setIsScrollingToPresupuesto(false), 1000);
+        },
+        (error) => {
+          console.warn("Error al medir layout para Presupuesto:", error);
+          setIsScrollingToPresupuesto(false);
+        }
+      );
+    }
+  }, 0);
+};
 
   const validateForm = () => {
     const newErrors = {};
@@ -1263,70 +954,50 @@ const ProyectoEvento = () => {
     setShowConfirmModal(true);
   };
 
-  // ✅ Función corregida handleSubmitConfirmed
   const handleSubmitConfirmed = async () => {
     setShowConfirmModal(false);
     setIsLoading(true);
-    
     if (!authToken) {
       Alert.alert("Error de Autenticación", "No se puede enviar el formulario. Intenta iniciar sesión de nuevo.");
       setIsLoading(false);
       return;
     }
-    
     try {
-      if(!nombreevento.trim()){
-        throw new Error('El nombre del evento es obligatorio');
-      }
-      if(!nombreResponsable.trim()){
-        throw new Error('El responsable del evento es obligatorio');
-      }
+      if (!nombreevento.trim()) throw new Error('El nombre del evento es obligatorio');
+      if (!nombreResponsable.trim()) throw new Error('El responsable del evento es obligatorio');
+
       const tiposParaEnviar = Object.keys(tiposSeleccionados)
         .filter(id => tiposSeleccionados[id])
         .map(id => {
           const tipoObjeto = TIPOS_DE_EVENTO.find(tipo => tipo.id === id);
-          return tipoObjeto ?{
-            id: parseInt(id,10),
-            //nombre:tipoObjeto.label,
-            texto_personalizado:id === '5'&& textoOtroTipo.trim() !== ''? textoOtroTipo.trim() : undefined
-          }: null;
+          return tipoObjeto ? {
+            id: parseInt(id, 10),
+            texto_personalizado: id === '5' && textoOtroTipo.trim() !== '' ? textoOtroTipo.trim() : undefined
+          } : null;
         })
         .filter(item => item !== null);
 
-        if(tiposParaEnviar.length === 0){
-          throw new Error ('Debes seleccionar al menos un tipo de evento');
-        }
+      if (tiposParaEnviar.length === 0) throw new Error('Debes seleccionar al menos un tipo de evento');
 
       const objetivoParaEnviar = Object.keys(objetivos)
         .filter(key => objetivos[key] === true && key !== 'otroTexto')
         .map(key => {
           const obj = { id: OBJETIVOS_EVENTO_MAP[key] };
-          if (key === 'otro' && objetivos.otroTexto.trim()) {
-            obj.texto_personalizado = objetivos.otroTexto.trim();
-          }
+          if (key === 'otro' && objetivos.otroTexto.trim()) obj.texto_personalizado = objetivos.otroTexto.trim();
           return obj;
         });
 
-        if(objetivoParaEnviar.length ===0){
-          throw new Error('debes seleccionar al menos un objetivo ');
-        }
+      if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo ');
+
       const segmentosParaEnviar = [];
       const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
       Object.keys(segmentoObjetivo)
         .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
         .forEach(key => {
-          const label = {
-            estudiantes: 'Estudiantes',
-            docentes: 'Docentes',
-            publicoExterno: 'Público Externo',
-            influencers: 'Influencers'
-          }[key];
+          const label = { estudiantes: 'Estudiantes', docentes: 'Docentes', publicoExterno: 'Público Externo', influencers: 'Influencers' }[key];
           const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
           if (segmentoData) {
-            segmentosParaEnviar.push({
-              id: parseInt(segmentoData.id, 10),
-              texto_personalizado: segmentosTextoPersonalizado[key] || null
-            });
+            segmentosParaEnviar.push({ id: parseInt(segmentoData.id, 10), texto_personalizado: segmentosTextoPersonalizado[key] || null });
           }
         });
 
@@ -1338,12 +1009,9 @@ const ProyectoEvento = () => {
       const nuevosRecursos = recursos
         .map(texto => texto.trim())
         .filter(texto => texto.length > 0)
-        .map(texto => ({
-          nombre_recurso: texto,
-          recurso_tipo: 'Material/Técnico/Tercero'
-        }));
+        .map(texto => ({ nombre_recurso: texto, recurso_tipo: 'Material/Técnico/Tercero' }));
 
-         const presupuestoData = {
+      const presupuestoData = {
         egresos: egresos
           .filter(item => item.descripcion.trim() !== '')
           .map(item => ({
@@ -1363,7 +1031,7 @@ const ProyectoEvento = () => {
         total_egresos: totalEgresos,
         total_ingresos: totalIngresos,
         balance: balance
-      };    
+      };
 
       const eventoPayload = {
         nombreevento: nombreevento.trim(),
@@ -1372,52 +1040,34 @@ const ProyectoEvento = () => {
         fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
         horaevento: '00:00:00',
         argumentacion: argumentacion.trim() || null,
-        objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 
-        ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) : null,
+        objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) : null,
         resultados_esperados: JSON.stringify(resultadosEsperados),
         tipos_de_evento: tiposParaEnviar,
         objetivos: objetivoParaEnviar,
-        segmentos_objetivo: segmentosParaEnviar.length >0 ? recursosParaEnviar: null,
-        recursos_nuevos: nuevosRecursos.length>0 ? nuevosRecursos:null
+        segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
+        recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
+        idclasificacion: parseInt(clasificacionSeleccionada, 10) || null,
+        idsubcategoria: parseInt(subcategoriaSeleccionada, 10) || null,
+        comite: comiteSeleccionado,
       };
 
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
 
       try {
-        await sendAdminNotification({
-          id: response.data.id || response.data.data?.id,
-          ...eventoPayload
-        });
+        await sendAdminNotification({ id: response.data.id || response.data.data?.id, ...eventoPayload });
         console.log('Notificación enviada exitosamente al administrador');
       } catch (notificationError) {
         console.warn('El evento se creó correctamente, pero hubo un error al enviar la notificación:', notificationError);
       }
 
-      Alert.alert(
-        'Éxito', 
-        'El evento ha sido creado correctamente y se ha notificado al administrador.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back()
-          }
-        ]
-      );
-      
+      Alert.alert('Éxito', 'El evento ha sido creado correctamente y se ha notificado al administrador.', [{ text: 'OK', onPress: () => router.back() }]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
-      if (error.response) {
-        errorMessage = error.response.data.message || error.response.data.error || `Error del servidor: ${error.response.status}.`;
-      } else if (error.request) {
-        errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión a internet y la URL de la API.";
-      } else {
-        errorMessage = `Error en la configuración de la petición: ${error.message}`;
-      }
+      if (error.response) errorMessage = error.response.data.message || error.response.data.error || `Error del servidor: ${error.response.status}`;
+      else if (error.request) errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión y la URL de la API.";
+      else errorMessage = `Error en la configuración: ${error.message}`;
       Alert.alert('Error al crear el evento', errorMessage);
     } finally {
       setIsLoading(false);
@@ -1426,319 +1076,504 @@ const ProyectoEvento = () => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingContainer}>
-      {/* ✅ Header con campana de notificaciones correctamente posicionado */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Crear Evento</Text>
-        <NotificationBell 
-          notificationCount={unreadCount} 
-          onPress={() => setShowNotificationsModal(true)} 
-        />
+        <NotificationBell notificationCount={unreadCount} onPress={() => setShowNotificationsModal(true)} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContentContainer} keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>I. DATOS GENERALES</Text>
-          <Text style={styles.label}>Nombre del Evento</Text>
-          <View style={[styles.inputGroup, errors.nombreevento && styles.inputError]}>
-            <Ionicons name="text-outline" size={20} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={nombreevento}
-              onChangeText={(text) => handleInputChange('nombreevento', text)}
-              placeholder="Nombre del evento"
-            />
+      <View style={styles.mainContainer}>
+        {width > 768 && (
+          <View style={styles.calendarColumn}>
+            <View style={styles.calendarSection}>
+              <GoogleStyleCalendarView
+                fechaHoraSeleccionada={fechaHoraSeleccionada}
+                setFechaHoraSeleccionada={setFechaHoraSeleccionada}
+                eventos={eventos}
+                title="Fecha de Realización"
+              />
+              <EventosDelDiaMejorado
+                eventosDelDia={eventosDelDia}
+                fechaHoraSeleccionada={fechaHoraSeleccionada}
+                verificarConflictoHorario={verificarConflictoHorario}
+              />
+            </View>
           </View>
-          {errors.nombreevento && <Text style={styles.errorText}>{errors.nombreevento}</Text>}
-{/*
-          <Text style={styles.label}>Lugar del Evento</Text>
-          <View style={[styles.inputGroup, errors.lugarevento && styles.inputError]}>
-            <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={lugarevento}
-              onChangeText={(text) => handleInputChange('lugarevento', text)}
-              placeholder="Lugar del evento"
-            />
-          </View>
-          {errors.lugarevento && <Text style={styles.errorText}>{errors.lugarevento}</Text>}
-*/}
-          <Text style={styles.label}>Responsable del Evento</Text>
-          <View style={[styles.inputGroup, errors.nombreResponsable && styles.inputError]}>
-            <Ionicons name="person-outline" size={20} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={nombreResponsable}
-              onChangeText={(text) => handleInputChange('nombreResponsable', text)}
-              placeholder="Nombre del responsable"
-            />
-          </View>
-          {errors.nombreResponsable && <Text style={styles.errorText}>{errors.nombreResponsable}</Text>}
+        )}
 
-          {/*<Text style={styles.label}>Hora de Realización</Text>
-          {Platform.OS === 'web' ? (
-            <InteractiveClockPicker
-              value={fechaHoraSeleccionada}
-              onChange={handleClockTimeChange}
-            />
-          ) : (
-            <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.datePickerButton}>
-              <Ionicons name="time-outline" size={20} color="#888" style={{ marginRight: 10 }} />
-              <Text style={styles.datePickerText}>
-                {dayjs(fechaHoraSeleccionada).format('HH:mm')}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.formColumn}
+          contentContainerStyle={styles.scrollContentContainer}
+          keyboardShouldPersistTaps="always"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>I. DATOS GENERALES</Text>
+            <Text style={styles.label}>Nombre del Evento</Text>
+            <View style={[styles.inputGroup, errors.nombreevento && styles.inputError]}>
+              <Ionicons name="text-outline" size={20} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={nombreevento}
+                onChangeText={(text) => handleInputChange('nombreevento', text)}
+                placeholder="Nombre del evento"
+              />
+            </View>
+            {errors.nombreevento && <Text style={styles.errorText}>{errors.nombreevento}</Text>}
+
+            <Text style={styles.label}>Responsable del Evento</Text>
+            <View style={[styles.inputGroup, errors.nombreResponsable && styles.inputError]}>
+              <Ionicons name="person-outline" size={20} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={nombreResponsable}
+                onChangeText={(text) => handleInputChange('nombreResponsable', text)}
+                placeholder="Nombre del responsable"
+              />
+            </View>
+            {errors.nombreResponsable && <Text style={styles.errorText}>{errors.nombreResponsable}</Text>}
+
+            <Text style={styles.label}>Clasificación Estratégica</Text>
+            <TouchableOpacity
+              style={[styles.inputGroup, errors.clasificacionSeleccionada && styles.inputError]}
+              onPress={() => setShowClasificacionModal(true)}
+            >
+              <Ionicons name="options-outline" size={20} style={styles.inputIcon} />
+              <Text style={styles.input}>
+                {clasificacionSeleccionada
+                  ? CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.label || 'Selecciona una categoría'
+                  : 'Selecciona una categoría'}
               </Text>
             </TouchableOpacity>
-          )}
+            {errors.clasificacionSeleccionada && <Text style={styles.errorText}>{errors.clasificacionSeleccionada}</Text>}
 
-          {Platform.OS !== 'web' && showTimePicker && (
-            <DateTimePicker
-              value={fechaHoraSeleccionada}
-              mode="time"
-              is24Hour={true}
-              display="clock"
-              onChange={onChangeTimeEventoPrincipal}
-            />
-          )}*/}
-          <Text style={styles.label}>Fecha de Realización</Text>
-          <GoogleStyleCalendarView
-            fechaHoraSeleccionada={fechaHoraSeleccionada}
-            setFechaHoraSeleccionada={setFechaHoraSeleccionada}
-            eventos={eventos}
-          />
+            {clasificacionSeleccionada && CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && (
+              <>
+                <Text style={styles.label}>Subcategoría</Text>
+                <TouchableOpacity
+                  style={[styles.inputGroup, errors.subcategoriaSeleccionada && styles.inputError]}
+                  onPress={() => setShowSubcategoriaModal(true)}
+                >
+                  <Ionicons name="list-outline" size={20} style={styles.inputIcon} />
+                  <Text style={styles.input}>
+                    {subcategoriaSeleccionada
+                      ? CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada].subcategorias.find(s => s.id === subcategoriaSeleccionada)?.label || 'Selecciona una subcategoría'
+                      : 'Selecciona una subcategoría'}
+                  </Text>
+                </TouchableOpacity>
+                {errors.subcategoriaSeleccionada && <Text style={styles.errorText}>{errors.subcategoriaSeleccionada}</Text>}
+              </>
+            )}
 
-          <EventosDelDiaMejorado
-            eventosDelDia={eventosDelDia}
-            fechaHoraSeleccionada={fechaHoraSeleccionada}
-            verificarConflictoHorario={verificarConflictoHorario}
-          />
+            {width <= 768 && (
+              <>
+                <Text style={styles.label}>Fecha de Realización</Text>
+                <GoogleStyleCalendarView
+                  fechaHoraSeleccionada={fechaHoraSeleccionada}
+                  setFechaHoraSeleccionada={setFechaHoraSeleccionada}
+                  eventos={eventos}
+                  title="Fecha de Realización"
+                />
+                <EventosDelDiaMejorado
+                  eventosDelDia={eventosDelDia}
+                  fechaHoraSeleccionada={fechaHoraSeleccionada}
+                  verificarConflictoHorario={verificarConflictoHorario}
+                />
+              </>
+            )}
 
-          
-
-          <Text style={styles.label}>Tipo de Evento (puede seleccionar más de un tipo)</Text>
-          {TIPOS_DE_EVENTO.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.checkboxRow} onPress={() => handleTipoEventoChange(item.id)}>
-              <Ionicons name={tiposSeleccionados[item.id] ? "checkbox" : "square-outline"} size={24} color={tiposSeleccionados[item.id] ? "#e95a0c" : "#888"} />
-              <Text style={styles.checkboxLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-          {errors.tipos && <Text style={styles.errorText}>{errors.tipos}</Text>}
-          {tiposSeleccionados['5'] && (
-            <View style={styles.otroInputContainer}>
-              <TextInput style={styles.input} value={textoOtroTipo} onChangeText={setTextoOtroTipo} placeholder="¿Cuál?" />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>II. OBJETIVOS</Text>
-          <Text style={styles.label}>Objetivos de Evento (puede seleccionar más de un objetivo):</Text>
-          {[
-            { key: 'modeloPedagogico', label: 'Modelo Pedagógico' },
-            { key: 'posicionamiento', label: 'Posicionamiento' },
-            { key: 'internacionalizacion', label: 'Internacionalización' },
-            { key: 'rsu', label: 'RSU' },
-            { key: 'fidelizacion', label: 'Fidelización' }
-          ].map((item) => (
-            <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
-              <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
-              <Text style={styles.checkboxLabel}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, 'otro')}>
-            <Ionicons name={objetivos.otro ? "checkbox" : "square-outline"} size={24} color={objetivos.otro ? "#e95a0c" : "#888"} />
-            <Text style={styles.checkboxLabel}>Otro</Text>
-          </TouchableOpacity>
-          {errors.objetivos && <Text style={styles.errorText}>{errors.objetivos}</Text>}
-          {objetivos.otro && (
-            <View style={styles.otroInputContainer}>
-              <TextInput
-                style={styles.input}
-                value={objetivos.otroTexto}
-                onChangeText={(text) => handleOtroTextChange(setObjetivos, text)}
-                placeholder="¿Cuál?"
-              />
-              {objetivos.otroTexto.trim() && (
-                <Text style={styles.selectedText}>Selección: {objetivos.otroTexto}</Text>
-              )}
-            </View>
-          )}
-
-          <Text style={styles.label}>Objetivo(s) del PDI Asociado(s):</Text>
-          {objetivosPDI.map((objetivo, index) => (
-            <View key={index} style={styles.objetivoPDIRow}>
-              <Text style={styles.objetivoPDINumber}>{index + 1}.</Text>
-              <TextInput
-                style={styles.objetivoPDIInput}
-                value={objetivo}
-                onChangeText={(text) => handleObjetivoPDIChange(index, text)}
-                placeholder={`Objetivo ${index + 1}`}
-                multiline
-              />
-            </View>
-          ))}
-
-          <Text style={styles.label}>Definición del Segmento Objetivo (puede seleccionar más de un público):</Text>
-          {SEGMENTO_OBJETIVO.map((item) => {
-            const stateKey = item.label.charAt(0).toLowerCase() + item.label.slice(1).replace(' ', '');
-            return (
-              <TouchableOpacity key={item.id} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, stateKey)}>
-                <Ionicons name={segmentoObjetivo[stateKey] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[stateKey] ? "#e95a0c" : "#888"} />
+            <Text style={styles.label}>Tipo de Evento (puede seleccionar más de un tipo)</Text>
+            {TIPOS_DE_EVENTO.map((item) => (
+              <TouchableOpacity key={item.id} style={styles.checkboxRow} onPress={() => handleTipoEventoChange(item.id)}>
+                <Ionicons name={tiposSeleccionados[item.id] ? "checkbox" : "square-outline"} size={24} color={tiposSeleccionados[item.id] ? "#e95a0c" : "#888"} />
                 <Text style={styles.checkboxLabel}>{item.label}</Text>
               </TouchableOpacity>
-            );
-          })}
-          {segmentoObjetivo.otro && (
-            <View style={styles.otroInputContainer}>
-              <TextInput
-                style={styles.input}
-                value={segmentoObjetivo.otroTexto}
-                onChangeText={(text) => handleOtroTextChange(setSegmentoObjetivo, text)}
-                placeholder="¿Cuál?"
-              />
-              {segmentoObjetivo.otroTexto.trim() && (
-                <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>
-              )}
-            </View>
-          )}
-
-          <Text style={styles.label}>Argumentación:</Text>
-          <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
-            <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              multiline
-              numberOfLines={4}
-              placeholder="Breve descripción sustentada de la congruencia del evento con los objetivos especificados"
-              value={argumentacion}
-              onChangeText={setArgumentacion}
-            />
-          </View>
-          {errors.argumentacion && <Text style={styles.errorText}>{errors.argumentacion}</Text>}
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>III. RESULTADOS ESPERADOS</Text>
-          <View style={styles.resultadoRow}>
-            <Text style={styles.resultadoLabel}>Participación Efectiva</Text>
-            <TextInput
-              style={styles.resultadoInput}
-              placeholder="Ej: 150"
-              value={resultadosEsperados.participacion}
-              onChangeText={(text) => handleResultadoChange('participacion', text)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={styles.resultadoRow}>
-            <Text style={styles.resultadoLabel}>Índice de Satisfacción</Text>
-            <TextInput
-              style={styles.resultadoInput}
-              placeholder="Ej: 90% de satisfacción"
-              value={resultadosEsperados.satisfaccion}
-              onChangeText={(text) => handleResultadoChange('satisfaccion', text)}
-            />
-          </View>
-          <View style={styles.resultadoRow}>
-            <Text style={styles.resultadoLabel}>Otro</Text>
-            <TextInput
-              style={styles.resultadoInput}
-              placeholder="Otro resultado medible"
-              value={resultadosEsperados.otro}
-              onChangeText={(text) => handleResultadoChange('otro', text)}
-            />
-          </View>
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>IV. COMITÉ DEL EVENTO</Text>
-          <Text style={styles.comiteDescription}>
-            Grupo de personas conformado por responsables de diferentes áreas de la Universidad cuya participación es fundamental para el éxito del evento, conformado básicamente por el Director Administrativo Financiero, el Director de Marketing y Admisiones y el Organizador.
-          </Text>
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
-          <View style={styles.subsection}>
-            <Text style={styles.subsectionTitle}>Recursos Adicionales Requeridos</Text>
-            <Text style={styles.subsectionDescription}>
-              Describe recursos que no están disponibles en la universidad y necesitas solicitar, comprar o contratar:
-            </Text>
-            {recursos.map((resource, index) => (
-              <View key={index} style={styles.resourceInputGroup}>
-                <Ionicons name="cube-outline" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.resourceInput}
-                  placeholder={`Recurso ${index + 1}`}
-                  placeholderTextColor="#999"
-                  value={resource}
-                  onChangeText={(text) => updateResource(text, index)}
-                />
-                {recursos.length > 1 && (
-                  <TouchableOpacity onPress={() => removeResource(index)} style={styles.removeButton}>
-                    <Ionicons name="remove-circle-outline" size={24} color="red" />
-                  </TouchableOpacity>
-                )}
-              </View>
             ))}
-            <TouchableOpacity onPress={addResource} style={styles.addButton}>
-              <Ionicons name="add-circle-outline" size={24} color="#007bff" />
-              <Text style={styles.addButtonText}>Agregar otro recurso</Text>
+            {errors.tipos && <Text style={styles.errorText}>{errors.tipos}</Text>}
+            {tiposSeleccionados['5'] && (
+              <View style={styles.otroInputContainer}>
+                <TextInput style={styles.input} value={textoOtroTipo} onChangeText={setTextoOtroTipo} placeholder="¿Cuál?" />
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.gotoButton} onPress={scrollToObjetivos}>
+              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Text style={styles.gotoButtonText}>Ir a Objetivos</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>VI. PRESUPUESTO</Text>
-          <TablaPresupuesto
-            titulo="EGRESOS"
-            items={egresos}
-            setItems={setEgresos}
-            totalGeneral={totalEgresos}
-            handlePresupuestoChange={handlePresupuestoChange}
-            eliminarFilaPresupuesto={eliminarFilaPresupuesto}
-            agregarFilaPresupuesto={agregarFilaPresupuesto}
-          />
-          <TablaPresupuesto
-            titulo="INGRESOS"
-            items={ingresos}
-            setItems={setIngresos}
-            totalGeneral={totalIngresos}
-            handlePresupuestoChange={handlePresupuestoChange}
-            eliminarFilaPresupuesto={eliminarFilaPresupuesto}
-            agregarFilaPresupuesto={agregarFilaPresupuesto}
-          />
-          <View style={styles.balanceContainer}>
-            <Text style={styles.balanceText}>BALANCE ECONÓMICO</Text>
-            <Text style={[styles.balanceAmount, { color: balance >= 0 ? '#27ae60' : '#c0392b' }]}>
-              {formatCurrency(balance)}
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-
-      <TouchableOpacity onPress={confirmSubmit} disabled={isLoading} style={[styles.submitButton, isLoading && styles.buttonDisabled]}>
-        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Crear Proyecto de Evento</Text>}
+          {seccionObjetivosVisible && (
+            <>
+          <View
+            style={[styles.formSection, isScrollingToObjetivos && styles.formSectionHighlighted]}
+            ref={objetivosSectionRef}
+            onLayout={(event) => {
+              const { y } = event.nativeEvent.layout;
+              setObjetivosSectionY(y);
+            }}
+          >
+            <Text style={styles.sectionTitle}>II. OBJETIVOS</Text>
+          <Text style={styles.label}>Objetivos de Evento (puede seleccionar más de un objetivo):</Text>
+<View style={styles.checkboxContainer}>
+  <View style={styles.checkboxColumn}>
+    {[
+      { key: 'modeloPedagogico', label: 'Modelo Pedagógico' },
+      { key: 'posicionamiento', label: 'Posicionamiento' },
+      { key: 'internacionalizacion', label: 'Internacionalización' }
+    ].map((item) => (
+      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
+        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
+        <Text style={styles.checkboxLabel}>{item.label}</Text>
       </TouchableOpacity>
+    ))}
+  </View>
+  <View style={styles.checkboxColumn}>
+    {[
+      { key: 'rsu', label: 'RSU' },
+      { key: 'fidelizacion', label: 'Fidelización' },
+      { key: 'otro', label: 'Otro' }
+    ].map((item) => (
+      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
+        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
+        <Text style={styles.checkboxLabel}>{item.label}</Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+</View>
+{errors.objetivos && <Text style={styles.errorText}>{errors.objetivos}</Text>}
+{objetivos.otro && (
+  <View style={styles.otroInputContainer}>
+    <TextInput
+      style={styles.input}
+      value={objetivos.otroTexto}
+      onChangeText={(text) => handleOtroTextChange(setObjetivos, text)}
+      placeholder="¿Cuál?"
+    />
+    {objetivos.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {objetivos.otroTexto}</Text>}
+  </View>
+)}
+   <Text style={styles.label}>Objetivo(s) del PDI Asociado(s):</Text>
+<View style={styles.objetivosPDIGrid}>
+  {objetivosPDI.map((objetivo, index) => (
+    <View key={index} style={[styles.objetivoPDIRow, styles.objetivoPDIColumn]}>
+      <Text style={styles.objetivoPDINumber}>{index + 1}.</Text>
+      <TextInput
+        style={styles.objetivoPDIInput}
+        value={objetivo}
+        onChangeText={(text) => handleObjetivoPDIChange(index, text)}
+        placeholder={`Objetivo ${index + 1}`}
+        multiline
+      />
+    </View>
+  ))}
+</View>
+           <Text style={styles.label}>Definición del Segmento Objetivo (puede seleccionar más de un público):</Text>
+<View style={styles.checkboxContainer}>
+  <View style={styles.checkboxColumn}>
+    {[
+      { key: 'estudiantes', label: 'Estudiantes' },
+      { key: 'docentes', label: 'Docentes' }
+    ].map((item) => {
+      const stateKey = item.key;
+      return (
+        <TouchableOpacity key={stateKey} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, stateKey)}>
+          <Ionicons name={segmentoObjetivo[stateKey] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[stateKey] ? "#e95a0c" : "#888"} />
+          <Text style={styles.checkboxLabel}>{item.label}</Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+  <View style={styles.checkboxColumn}>
+    {[
+      { key: 'publicoExterno', label: 'Público Externo' },
+      { key: 'influencers', label: 'Influencers' },
+      { key: 'otro', label: 'Otro' }
+    ].map((item) => {
+      const stateKey = item.key;
+      return (
+        <TouchableOpacity key={stateKey} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, stateKey)}>
+          <Ionicons name={segmentoObjetivo[stateKey] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[stateKey] ? "#e95a0c" : "#888"} />
+          <Text style={styles.checkboxLabel}>{item.label}</Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+</View>
 
-      {/* ✅ Modales correctamente estructurados */}
-      <ConfirmModal 
+            {segmentoObjetivo.otro && (
+              <View style={styles.otroInputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={segmentoObjetivo.otroTexto}
+                  onChangeText={(text) => handleOtroTextChange(setSegmentoObjetivo, text)}
+                  placeholder="¿Cuál?"
+                />
+                {segmentoObjetivo.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>}
+              </View>
+            )}
+
+            <Text style={styles.label}>Argumentación:</Text>
+            <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
+              <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                multiline
+                numberOfLines={4}
+                placeholder="Breve descripción sustentada de la congruencia del evento con los objetivos especificados"
+                value={argumentacion}
+                onChangeText={setArgumentacion}
+              />
+            </View>
+            {errors.argumentacion && <Text style={styles.errorText}>{errors.argumentacion}</Text>}
+            <TouchableOpacity style={styles.gotoButton} onPress={scrollToResultados}>
+              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Text style={styles.gotoButtonText}>Ir a Resultados Esperados y Comite</Text>
+            </TouchableOpacity>
+          
+          </View>
+           </>
+          )}
+            {seccionResultadosVisible && (
+              <>
+          <View 
+          style={[styles.formSection, isScrollingToResultados && styles.formSectionHighlighted]}
+            ref={resultadosSectionRef}
+            >
+            <Text style={styles.sectionTitle}>III. RESULTADOS ESPERADOS</Text>
+            <View style={styles.resultadoRow}>
+              <Text style={styles.resultadoLabel}>Participación Efectiva</Text>
+              <TextInput
+                style={styles.resultadoInput}
+                placeholder="Ej: 150"
+                value={resultadosEsperados.participacion}
+                onChangeText={(text) => handleResultadoChange('participacion', text)}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.resultadoRow}>
+              <Text style={styles.resultadoLabel}>Índice de Satisfacción</Text>
+              <TextInput
+                style={styles.resultadoInput}
+                placeholder="Ej: 90% de satisfacción"
+                value={resultadosEsperados.satisfaccion}
+                onChangeText={(text) => handleResultadoChange('satisfaccion', text)}
+              />
+            </View>
+            <View style={styles.resultadoRow}>
+              <Text style={styles.resultadoLabel}>Otro</Text>
+              <TextInput
+                style={styles.resultadoInput}
+                placeholder="Otro resultado medible"
+                value={resultadosEsperados.otro}
+                onChangeText={(text) => handleResultadoChange('otro', text)}
+              />
+            </View>
+           
+          </View>
+          
+          <View style={styles.formSection}>
+            <Text style={styles.sectionTitle}>IV. COMITÉ DEL EVENTO</Text>
+           <Text style={styles.comiteDescription}>
+  Selecciona a los miembros del comité del evento:
+</Text>
+
+{usuariosComite.length > 0 ? (
+  <View style={styles.comiteList}>
+    {usuariosComite.map(usuario => (
+      <TouchableOpacity
+        key={usuario.id}
+        style={styles.checkboxRow}
+        onPress={() => {
+          if (comiteSeleccionado.includes(usuario.id)) {
+            setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
+          } else {
+            setComiteSeleccionado(prev => [...prev, usuario.id]);
+          }
+        }}
+      >
+        <Ionicons
+          name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
+          size={24}
+          color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
+        />
+        <View style={styles.comiteUserText}>
+          <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
+          <Text style={styles.comiteUserRole}>{usuario.role}</Text>
+           {usuario.role === 'academico' && usuario.facultad && (
+        <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666' }]}>
+          ({usuario.facultad})
+        </Text>
+      )}
+        </View>
+      </TouchableOpacity>
+    ))}
+  </View>
+) : (
+  <Text style={styles.comitePlaceholder}>Cargando usuarios...</Text>
+)}
+            <TouchableOpacity style={styles.gotoButton} onPress={scrollToRecursos}>
+              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Text style={styles.gotoButtonText}>Ir a Recursos Necesarios</Text>
+            </TouchableOpacity>
+          </View>
+          </>
+            )}
+            {seccionRecursosVisible && (
+              <>
+           <View 
+              style={[styles.formSection, isScrollingToComite && styles.formSectionHighlighted]}
+              ref={recursosSectionRef}
+            >
+            <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
+            <View style={styles.subsection}>
+              <Text style={styles.subsectionTitle}>Recursos Adicionales Requeridos</Text>
+              <Text style={styles.subsectionDescription}>
+                Describe recursos que no están disponibles en la universidad y necesitas solicitar, comprar o contratar:
+              </Text>
+              {recursos.map((resource, index) => (
+                <View key={index} style={styles.resourceInputGroup}>
+                  <Ionicons name="cube-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.resourceInput}
+                    placeholder={`Recurso ${index + 1}`}
+                    placeholderTextColor="#999"
+                    value={resource}
+                    onChangeText={(text) => updateResource(text, index)}
+                  />
+                  {recursos.length > 1 && (
+                    <TouchableOpacity onPress={() => removeResource(index)} style={styles.removeButton}>
+                      <Ionicons name="remove-circle-outline" size={24} color="red" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              <TouchableOpacity onPress={addResource} style={styles.addButton}>
+                <Ionicons name="add-circle-outline" size={24} color="#007bff" />
+                <Text style={styles.addButtonText}>Agregar otro recurso</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
+              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Text style={styles.gotoButtonText}>Ir Presupuesto</Text>
+            </TouchableOpacity>
+          </View>
+          </>
+            )}
+            {seccionPresupuestoVisible && (
+              <>
+              <View 
+              style={[styles.formSection, isScrollingToPresupuesto && styles.formSectionHighlighted]}
+              ref={presupuestoSectionRef}
+            >
+            <Text style={styles.sectionTitle}>VI. PRESUPUESTO</Text>
+            <TablaPresupuesto
+              titulo="EGRESOS"
+              items={egresos}
+              setItems={setEgresos}
+              totalGeneral={totalEgresos}
+              handlePresupuestoChange={handlePresupuestoChange}
+              eliminarFilaPresupuesto={eliminarFilaPresupuesto}
+              agregarFilaPresupuesto={agregarFilaPresupuesto}
+            />
+            <TablaPresupuesto
+              titulo="INGRESOS"
+              items={ingresos}
+              setItems={setIngresos}
+              totalGeneral={totalIngresos}
+              handlePresupuestoChange={handlePresupuestoChange}
+              eliminarFilaPresupuesto={eliminarFilaPresupuesto}
+              agregarFilaPresupuesto={agregarFilaPresupuesto}
+            />
+            <View style={styles.balanceContainer}>
+              <Text style={styles.balanceText}>BALANCE ECONÓMICO</Text>
+              <Text style={[styles.balanceAmount, { color: balance >= 0 ? '#27ae60' : '#c0392b' }]}>
+                {formatCurrency(balance)}
+              </Text>
+            </View>
+           
+          </View>
+          </>
+        )}
+       
+          {/* Modales */}
+          <Modal visible={showClasificacionModal} transparent animationType="fade" onRequestClose={() => setShowClasificacionModal(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Selecciona Clasificación</Text>
+                <ScrollView>
+                  {Object.entries(CLASIFICACION_ESTRATEGICA).map(([id, data]) => (
+                    <TouchableOpacity
+                      key={id}
+                      style={styles.modalOption}
+                      onPress={() => {
+                        setClasificacionSeleccionada(id);
+                        setSubcategoriaSeleccionada('');
+                        setShowClasificacionModal(false);
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{data.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowClasificacionModal(false)}>
+                  <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          <Modal visible={showSubcategoriaModal} transparent animationType="fade" onRequestClose={() => setShowSubcategoriaModal(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Selecciona Subcategoría</Text>
+                <ScrollView>
+                  {CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias.map((sub) => (
+                    <TouchableOpacity
+                      key={sub.id}
+                      style={styles.modalOption}
+                      onPress={() => {
+                        setSubcategoriaSeleccionada(sub.id);
+                        setShowSubcategoriaModal(false);
+                      }}
+                    >
+                      <Text style={styles.modalOptionText}>{sub.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowSubcategoriaModal(false)}>
+                  <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        </ScrollView>
+      </View>
+
+      <View style={styles.fixedBottomContainer}>
+        <TouchableOpacity 
+          onPress={confirmSubmit} 
+          disabled={isLoading} 
+          style={[styles.floatingActionButton, isLoading && styles.buttonDisabled]}>
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Crear</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ConfirmModal
         showConfirmModal={showConfirmModal}
         setShowConfirmModal={setShowConfirmModal}
         handleSubmitConfirmed={handleSubmitConfirmed}
         isLoading={isLoading}
-        formData={{
-          nombreevento,
-          lugarevento,
-          nombreResponsable,
-          fechaHoraSeleccionada
-        }}
+        formData={{ nombreevento, lugarevento, nombreResponsable, fechaHoraSeleccionada }}
       />
-
       <NotificationsModal
         visible={showNotificationsModal}
         onClose={() => setShowNotificationsModal(false)}
         notifications={notifications}
         markAsRead={markNotificationAsRead}
       />
-
       <ConflictModal
         showConflictModal={showConflictModal}
         setShowConflictModal={setShowConflictModal}
@@ -1749,9 +1584,27 @@ const ProyectoEvento = () => {
   );
 };
 
-
 const styles = StyleSheet.create({
-confirmModalContent: {
+  gotoButton: {
+    backgroundColor: '#e95a0c',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 15,
+    alignSelf: 'flex-start',
+    marginBottom: 20,
+  },
+  gotoButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // ... resto de estilos originales
+  confirmModalContent: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 24,
@@ -1764,11 +1617,64 @@ confirmModalContent: {
     shadowRadius: 6,
     elevation: 8,
   },
+  mainContainer: {
+    flex: 1,
+    flexDirection: width > 768 ? 'row' : 'column',
+    paddingHorizontal: 20,
+  },
+  calendarColumn: {
+    marginTop: 10,
+    width: width > 768 ? '30%' : '100%',
+    marginRight: width > 768 ? 20 : 0,
+    marginBottom: width <= 768 ? 20 : 0,
+  },
+  formColumn: {
+    marginTop: 10,
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  scrollContentContainer: {
+    paddingBottom: 60,
+  },
+  calendarSection: {
+    marginBottom: 20,
+  },
   notificationMessage: {
     fontSize: 13,
     color: '#666',
     marginBottom: 5,
     lineHeight: 18,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  formSectionHighlighted: {
+  backgroundColor: '#fff5f0', // Fondo naranja muy claro
+  borderColor: '#e95a0c', // Borde naranja
+  borderWidth: 2,
+  shadowColor: '#e95a0c',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.2,
+  shadowRadius: 4,
+  elevation: 4,
+},
+  checkboxColumn: {
+    flex: 1,
+    marginRight: 10,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
   },
   header: {
     flexDirection: 'row',
@@ -1791,8 +1697,6 @@ confirmModalContent: {
     fontWeight: 'bold',
     color: '#333',
   },
-
-  // Campana de notificaciones
   notificationBell: {
     position: 'relative',
     padding: 8,
@@ -1817,8 +1721,19 @@ confirmModalContent: {
     fontSize: 12,
     fontWeight: 'bold',
   },
-
-  // Modal de notificaciones
+  calendarTitleContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0'
+  },
+  calendarTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#e95a0c',
+    textAlign: 'left'
+  },
   notificationsModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1838,6 +1753,23 @@ confirmModalContent: {
     shadowRadius: 6,
     elevation: 10,
   },
+  comiteList: {
+  marginTop: 10,
+},
+comiteUserText: {
+  marginLeft: 10,
+},
+comiteUserRole: {
+  fontSize: 12,
+  color: '#666',
+  fontStyle: 'italic',
+},
+comitePlaceholder: {
+  fontStyle: 'italic',
+  color: '#999',
+  textAlign: 'center',
+  marginTop: 10,
+},
   notificationsModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1852,8 +1784,6 @@ confirmModalContent: {
     fontWeight: 'bold',
     color: '#333',
   },
-
-  // Lista de notificaciones
   notificationsList: {
     flex: 1,
   },
@@ -1885,8 +1815,33 @@ confirmModalContent: {
     shadowRadius: 2,
     elevation: 2,
   },
-  
-  // Iconos y contenido de notificaciones
+  // ... dentro de StyleSheet.create({
+objetivoPDIRow: {
+  flexDirection: 'row',
+  alignItems: 'flex-start', // Alinea el número y el input desde la parte superior
+  marginBottom: 10,
+},
+objetivoPDINumber: {
+  fontSize: 16,
+  color: '#333',
+  marginRight: 10,
+  marginTop: 12,
+  fontWeight: '500'
+},
+objetivoPDIInput: {
+  flex: 1,
+  backgroundColor: '#F4F7F9',
+  borderWidth: 1,
+  borderColor: '#E0E0E0',
+  borderRadius: 8,
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  fontSize: 16,
+  color: '#333',
+  textAlignVertical: 'top',
+  minHeight: 50,
+  maxHeight: 100, 
+},
   notificationIconContainer: {
     position: 'relative',
     marginRight: 15,
@@ -1916,19 +1871,11 @@ confirmModalContent: {
   notificationTextUnread: {
     fontWeight: '600',
   },
-  notificationMessage: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 5,
-    lineHeight: 18,
-  },
   notificationTime: {
     fontSize: 12,
     color: '#666',
     marginBottom: 8,
   },
-  
-  // Información del evento en notificaciones
   eventDataContainer: {
     backgroundColor: '#f8f9fa',
     padding: 10,
@@ -1951,6 +1898,15 @@ confirmModalContent: {
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  objetivosPDIGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'space-between',
+},
+objetivoPDIColumn: {
+  width: '48%', // Aproximadamente la mitad del ancho, con un pequeño margen entre columnas
+  marginBottom: 10,
+},
   confirmModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -1976,7 +1932,7 @@ confirmModalContent: {
     color: '#2d3748',
     marginBottom: 12,
   },
-   confirmModalDetail: {
+  confirmModalDetail: {
     fontSize: 14,
     color: '#4a5568',
     marginBottom: 8,
@@ -2016,17 +1972,9 @@ confirmModalContent: {
     fontWeight: '600',
     color: '#ffffff',
   },
-   keyboardAvoidingContainer: {
+  keyboardAvoidingContainer: {
     flex: 1,
     backgroundColor: '#F4F7F9'
-  },
-  scrollView: {
-    flex: 1
-  },
-  scrollContentContainer: {
-    padding: 20,
-    paddingBottom: 60,
-    flexGrow: 1
   },
   formSection: {
     backgroundColor: '#FFFFFF',
@@ -2037,22 +1985,26 @@ confirmModalContent: {
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 5
+    elevation: 5,
+    paddingHorizontal: isMobile ? 15 : 20,
+    paddingTop: isMobile ? 15 : 20,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 20,
+    fontWeight: '700',
+    color: '#e95a0c',
+    marginBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    paddingBottom: 10,
-    textAlign: 'center',
-    backgroundColor: '#f0f0f0',
+    paddingBottom: 8,
+    textAlign: 'left',
+    backgroundColor: '#f8f9fa',
     marginHorizontal: -20,
-    marginTop: -20,
-    paddingTop: 15,
-    paddingHorizontal: 20
+    marginTop: -12,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   label: {
     fontSize: 14,
@@ -2067,7 +2019,7 @@ confirmModalContent: {
     borderWidth: 1,
     borderColor: '#E0E0E0',
     borderRadius: 8,
-    marginBottom: 15
+    marginBottom: 18
   },
   inputError: {
     borderColor: 'red'
@@ -2104,16 +2056,6 @@ confirmModalContent: {
     marginBottom: 15
   },
   datePickerText: {
-    fontSize: 16,
-    color: '#333'
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8
-  },
-  checkboxLabel: {
-    marginLeft: 12,
     fontSize: 16,
     color: '#333'
   },
@@ -2269,10 +2211,38 @@ confirmModalContent: {
   },
   submitButton: {
     backgroundColor: '#e95a0c',
-    padding: 15,
+    paddingVertical:16,
+    paddingHorizontal: 25,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor:"#000",
+      shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity:0.3,
+    elevation: 8,
     marginTop: 20
+  },
+    floatingActionButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    backgroundColor: '#e95a0c',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   buttonDisabled: {
     backgroundColor: '#f9bda3'
@@ -2281,101 +2251,6 @@ confirmModalContent: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold'
-  },
-  clockContainer: {
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingVertical: 10,
-  },
-  digitalDisplay: {
-    backgroundColor: '#e95a0c',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginBottom: 15,
-    borderWidth: 2,
-    borderColor: '#d35400',
-    shadowColor: '#d35400',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  digitalTime: {
-    fontSize: 20,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textAlign: 'center',
-    textShadowColor: '#efebe8ff',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 1,
-  },
-  timeInput: {
-    width: 40,
-    textAlign: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ffffff',
-    marginHorizontal: 5,
-  },
-  confirmButton: {
-    marginLeft: 10,
-  },
-  instructionsContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginTop: 10,
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  instructionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  colorIndicator: {
-    width: 12,
-    height: 3,
-    borderRadius: 2,
-    marginRight: 6,
-  },
-  instructionText: {
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '500',
-  },
-  periodContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    marginLeft: 10,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  periodButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  periodButtonActive: {
-    backgroundColor: '#e95a0c',
-  },
-  periodText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#374151',
-  },
-  periodTextActive: {
-    color: '#ffffff',
   },
   subsection: {
     backgroundColor: '#FFFFFF',
@@ -2501,7 +2376,11 @@ confirmModalContent: {
     backgroundColor: '#f8f9fa'
   },
   dayCellSelected: {
-    backgroundColor: '#fff5f0'
+    backgroundColor: '#fff5f0',
+    borderColor: '#e95a0c',
+    borderWidth: 2,
+    borderRadius: 6,
+    margin: -1
   },
   dayCellToday: {
     backgroundColor: '#e8f4fd'
@@ -2521,7 +2400,8 @@ confirmModalContent: {
   },
   dayNumberSelected: {
     color: '#e95a0c',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    fontSize: 18
   },
   dayNumberToday: {
     backgroundColor: '#2196f3',
@@ -2595,7 +2475,7 @@ confirmModalContent: {
     paddingHorizontal: 8,
     paddingVertical: 4
   },
-    eventCountText: {
+  eventCountText: {
     fontSize: 12,
     color: '#ffffff',
     fontWeight: 'bold',
@@ -2786,42 +2666,6 @@ confirmModalContent: {
     color: '#e95a0c',
     marginTop: 5,
     marginLeft: 10,
-  },
-    notificationsModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  notificationsList: {
-    flex: 1,
-  },
-  noNotificationsText: {
-    textAlign: 'center',
-    color: '#666',
-    marginTop: 20,
-    fontSize: 16,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  notificationIcon: {
-    marginRight: 15,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationText: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 5,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#666',
   },
 });
 
