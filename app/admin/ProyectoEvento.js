@@ -11,11 +11,9 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
-
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
-
 const TIPOS_DE_EVENTO = [
   { id: '1', label: 'Curricular' },
   { id: '2', label: 'Extracurricular' },
@@ -23,7 +21,6 @@ const TIPOS_DE_EVENTO = [
   { id: '4', label: 'Internacionalización/Marketing' },
   { id: '5', label: 'Marketing/Extracurricular ' }
 ];
-
 const SEGMENTO_OBJETIVO = [
   { id: '1', label: 'Estudiantes' },
   { id: '2', label: 'Docentes' },
@@ -31,7 +28,6 @@ const SEGMENTO_OBJETIVO = [
   { id: '4', label: 'Influencers' },
   { id: '5', label: 'Otro' }
 ];
-
 const CLASIFICACION_ESTRATEGICA = {
   '1': { label: 'Academica y Cientifica', subcategorias: [
     { id: '1a', label: 'Congresos' },
@@ -93,7 +89,34 @@ const CLASIFICACION_ESTRATEGICA = {
     { id: '5h', label: 'Lanzamientos estratégicos o de marca universitaria' },
   ] }
 };
-
+const LUGARES_CON_AREAS = {
+  'Cala-Cala': {
+    label: 'Campus CalaCala',
+    areas: [
+      { id: 'cn-1', nombre: 'Biblioteca' },
+      { id: 'cn-2', nombre: 'Hall' },
+      { id: 'cn-3', nombre: 'Boulevard' }
+    ]
+  },
+  'Central': {
+    label: 'Campus Central',
+    areas: [
+      { id: 'cs-1', nombre: 'Auditorio' },
+      { id: 'cs-2', nombre: 'Jardin 1' },
+      { id: 'cs-3', nombre: 'Jardín 2' },
+      { id: 'cs-4', nombre: 'Biblioteca' },
+      { id: 'cs-5', nombre: 'Aula 310' },
+      { id: 'cs-6', nombre: 'GAme Room' },
+    ]
+  },
+  'campus-centro': {
+    label: 'Campus Centro',
+    areas: [
+      { id: 'cc-1', nombre: 'Centro de Convenciones' },
+      { id: 'cc-2', nombre: 'Sala Polivalente' }
+    ]
+  }
+};
 const OBJETIVOS_EVENTO_MAP = {
   modeloPedagogico: 1,
   posicionamiento: 2,
@@ -102,7 +125,6 @@ const OBJETIVOS_EVENTO_MAP = {
   fidelizacion: 5,
   otro: 6
 };
-
 // Función para obtener el icono según el tipo de notificación
 const getNotificationIcon = (type) => {
   switch (type) {
@@ -113,7 +135,6 @@ const getNotificationIcon = (type) => {
     default: return 'notifications';
   }
 };
-
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
     <Ionicons name="notifications-outline" size={24} color="#333" />
@@ -126,7 +147,6 @@ const NotificationBell = ({ notificationCount, onPress }) => (
     )}
   </TouchableOpacity>
 );
-
 const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => (
   <Modal
     visible={visible}
@@ -188,7 +208,6 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
     </View>
   </Modal>
 );
-
 const getTokenAsync = async () => {
   const TOKEN_KEY = 'adminAuthToken';
   try {
@@ -204,9 +223,7 @@ const getTokenAsync = async () => {
     return null;
   }
 };
-
 const formatCurrency = (value) => `Bs ${Number(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}`;
-
 const TablaPresupuesto = ({
   titulo,
   items,
@@ -267,7 +284,6 @@ const TablaPresupuesto = ({
     </View>
   </View>
 );
-
 const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSeleccionada, eventos, title }) => {
   const getDaysInMonth = (date) => {
     const year = date.getFullYear();
@@ -290,7 +306,6 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
     }
     return days;
   };
-
   const getEventsForDay = (date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD');
     return eventos.filter(evento => {
@@ -298,16 +313,13 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
       return fechaEventoStr === dateStr;
     });
   };
-
   const navigateMonth = (direction) => {
     const newDate = new Date(fechaHoraSeleccionada);
     newDate.setMonth(newDate.getMonth() + direction);
     setFechaHoraSeleccionada(newDate);
   };
-
   const days = getDaysInMonth(fechaHoraSeleccionada);
   const weekDays = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
   return (
     <View style={styles.googleCalendarContainer}>
       {title && (
@@ -371,6 +383,7 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
                 )}
                 {dayEvents.length > 0 && isSelected && (
                   <View style={styles.eventPreview}>
+                    {dayjs(evento.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
                     {dayEvents.slice(0, 2).map((evento, idx) => (
                       <Text key={idx} style={styles.eventPreviewText}>
                         {dayjs(evento.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
@@ -387,7 +400,6 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
     </View>
   );
 };
-
 const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetectado, setConflictoDetectado }) => (
   <Modal
     visible={showConflictModal}
@@ -429,7 +441,6 @@ const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetec
     </View>
   </Modal>
 );
-
 const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificarConflictoHorario }) => {
   if (eventosDelDia.length === 0) return null;
   return (
@@ -486,7 +497,6 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
     </View>
   );
 };
-
 const ConfirmModal = ({ showConfirmModal, setShowConfirmModal, handleSubmitConfirmed, isLoading, formData }) => (
   <Modal
     visible={showConfirmModal}
@@ -509,7 +519,6 @@ const ConfirmModal = ({ showConfirmModal, setShowConfirmModal, handleSubmitConfi
           <Text style={styles.confirmModalDetail}>
             <Text style={styles.detailLabel}>Fecha: </Text>{dayjs(formData.fechaHoraSeleccionada).format('DD/MM/YYYY')}
           </Text>
-          <Text style={styles.confirmModalDetail}><Text style={styles.detailLabel}>Responsable: </Text>{formData.nombreResponsable}</Text>
         </View>
         <View style={styles.confirmModalButtons}>
           <TouchableOpacity style={[styles.confirmModalButton, styles.confirmModalButtonCancel]} onPress={() => setShowConfirmModal(false)}>
@@ -523,11 +532,9 @@ const ConfirmModal = ({ showConfirmModal, setShowConfirmModal, handleSubmitConfi
     </View>
   </Modal>
 );
-
 const ProyectoEvento = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-
   const [isLoading, setIsLoading] = useState(false);
   const [authToken, setAuthToken] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -539,7 +546,7 @@ const ProyectoEvento = () => {
   const scrollViewRef = useRef(null);
   const objetivosSectionRef = useRef(null);
   const [objetivosSectionY, setObjetivosSectionY] = useState(0); // ✅ Nueva variable para guardar posición
-const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
+  const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   const [nombreevento, setNombreevento] = useState('');
   const [lugarevento, setLugarevento] = useState('');
   const [nombreResponsable, setNombreResponsable] = useState('');
@@ -548,17 +555,21 @@ const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   const [textoTiposSeleccionados, setTextoTiposSeleccionados] = useState('');
   const [recursosDisponibles, setRecursosDisponibles] = useState([]);
   const [recursosSeleccionados, setRecursosSeleccionados] = useState([]);
-  const [recursos, setRecursos] = useState(['']);
+  const [recursosTecnologicos, setRecursosTecnologicos] = useState([{ nombre: '', cantidad: '' }]);
+  const [mobiliario, setMobiliario] = useState([{ nombre: '', cantidad: '' }]);
+  const [vajilla, setVajilla] = useState([{ nombre: '', cantidad: '' }]);
   const [segmentosTextoPersonalizado, setSegmentosTextoPersonalizado] = useState({});
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [clasificacionSeleccionada, setClasificacionSeleccionada] = useState('');
   const [subcategoriaSeleccionada, setSubcategoriaSeleccionada] = useState('');
   const [showClasificacionModal, setShowClasificacionModal] = useState(false);
   const [showSubcategoriaModal, setShowSubcategoriaModal] = useState(false);
+  const [showLugarModal, setShowLugarModal] = useState(false);
+const [campusSeleccionado, setCampusSeleccionado] = useState(null);
+const [areaSeleccionada, setAreaSeleccionada] = useState(null); 
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
- 
   const [seccionObjetivosVisible, setSeccionObjetivosVisible] = useState(false);
   const [seccionResultadosVisible, setSeccionResultadosVisible] = useState(false);
   const [seccionComiteVisible, setSeccionComiteVisible] = useState(false);
@@ -568,16 +579,36 @@ const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   const [isScrollingToResultados, setIsScrollingToResultados] = useState(false);
   const comiteSectionRef = useRef(null);
   const [isScrollingToComite, setisScrollingToComite] = useState(false);
-
   const recursosSectionRef = useRef(null);
   const [isScrollingToRecursos, setIsScrollingToRecursos] = useState(false);
-  
+  const [recursos, setRecursos] = useState([{ nombre_recurso: '', cantidad: '' }]);
   const presupuestoSectionRef = useRef(null);
   const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
-  
   const [usuariosComite,setUsuariosComite] = useState([]);
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
-  
+  const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
+  const removeRecursoTecnologico = (index) => setRecursosTecnologicos(prev => prev.filter((_, i) => i !== index));
+  const updateRecursoTecnologico = (value, index, field) => {
+    const nuevos = [...recursosTecnologicos];
+    nuevos[index][field] = value;
+    setRecursosTecnologicos(nuevos);
+  };
+  // Mobiliario
+  const addMobiliario = () => setMobiliario(prev => [...prev, { nombre: '', cantidad: '' }]);
+  const removeMobiliario = (index) => setMobiliario(prev => prev.filter((_, i) => i !== index));
+  const updateMobiliario = (value, index, field) => {
+    const nuevos = [...mobiliario];
+    nuevos[index][field] = value;
+    setMobiliario(nuevos);
+  };
+  // Vajilla
+  const addVajilla = () => setVajilla(prev => [...prev, { nombre: '', cantidad: '' }]);
+  const removeVajilla = (index) => setVajilla(prev => prev.filter((_, i) => i !== index));
+  const updateVajilla = (value, index, field) => {
+    const nuevos = [...vajilla];
+    nuevos[index][field] = value;
+    setVajilla(nuevos);
+  };
   const [fechaHoraSeleccionada, setFechaHoraSeleccionada] = useState(() => {
     let initialDate = dayjs();
     if (params.selectedDate) {
@@ -616,42 +647,41 @@ const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   });
   const [egresos, setEgresos] = useState([{ key: 'egreso-1', descripcion: '', cantidad: '', precio: '' }]);
   const [ingresos, setIngresos] = useState([{ key: 'ingreso-1', descripcion: '', cantidad: '', precio: '' }]);
-
   const totalEgresos = useMemo(() => egresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0), [egresos]);
   const totalIngresos = useMemo(() => ingresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0), [ingresos]);
   const balance = useMemo(() => totalIngresos - totalEgresos, [totalIngresos, totalEgresos]);
-
-  const sendAdminNotification = async (eventData) => {
-    try {
-      const notificationPayload = {
-        tipo: 'nuevo_evento',
-        titulo: 'Nuevo Evento Creado',
-        mensaje: `El director ha creado un nuevo evento: "${eventData.nombreevento}" para el ${dayjs(eventData.fechaevento).format('DD/MM/YYYY')} a las ${eventData.horaevento}`,
-        idevento: eventData.id,
-         // destinatarios: [1, 2, 3] // Opcional: IDs de usuarios específicos
-      };
-      const response = await axios.post(`${API_BASE_URL}/notificaciones`, notificationPayload, {
-        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-      });
-      console.log('Notificación enviada al admin:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error al enviar notificación:', error);
-      throw error;
-    }
-  };
-
+  
   const fetchNotifications = async () => {
-    if (!authToken || authToken === 'null' || authToken === '') return;
     try {
-      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json'  } });
-      setNotifications(response.data || []);
-      setUnreadCount((response.data || []).filter(n => !n.read && n.estado !== 'leido').length);
-    } catch (error) {
-      console.error('Error al obtener notificaciones:', error);
+    const token = await getTokenAsync();
+    console.log("Token obtenido:", token);
+    if (!token || token === 'null' || token === '') {
+      console.warn("Token inválido, redirigiendo al login");
+      router.replace('/login');
+      return;
     }
-  };
+      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+         headers: { 'Authorization': `Bearer ${token}` } 
+        });
+      console.log("Notificaciones:", response.data);
+   const mappedNotifications = (response.data || []).map(notif => ({
+      id: notif.id || notif.idnotification,           // ID único
+      idusuario: notif.idusuario,
+      title: notif.titulo || notif.title,             // Título
+      message: notif.mensaje || notif.message,         // Mensaje
+      type: notif.tipo || notif.type,                 // Tipo
+      estado: notif.estado,                           // Estado (leido/no_leido)
+      read: notif.estado === 'leido',                 // Convertir estado a booleano
+      created_at: notif.created_at || notif.timestamp // Fecha
+    }));
+
+    setNotifications(mappedNotifications);
+    setUnreadCount(mappedNotifications.filter(n => !n.read).length);
+
+  } catch (error) {
+    console.error('Error al obtener notificaciones:', error);
+  }
+};
 
   const markNotificationAsRead = async (notificationId) => {
     if (!authToken || authToken === 'null' || authToken === '') return;
@@ -663,7 +693,6 @@ const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
       console.error('Error al marcar notificación como leída:', error);
     }
   };
-
   const fetchUserInfo = async () => {
     if (!authToken) return null;
     try {
@@ -684,19 +713,16 @@ const fetchUsuariosComite = async () => {
     router.replace('/login');
     return;
   }
-
     const response = await axios.get(`${API_BASE_URL}/users/comite`, {
       headers: { 'Authorization': `Bearer ${token}`}
     });
+     console.log("Usuarios del comité:", response.data);
     setUsuariosComite(response.data);
   } catch (error) {
     console.error('Error al cargar usuarios para comité:', error);
     Alert.alert("Error", "No se pudieron cargar los miembros del comité. Revisa la consola.");
   }
 };
-
-
-
   const verificarConflictoHorario = (fechaHora) => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
     const horaFormateada = dayjs(fechaHora).format('HH:mm');
@@ -711,7 +737,6 @@ const fetchUsuariosComite = async () => {
     });
     return conflictos;
   };
-
   const handleClockTimeChange = (newDate) => {
     const conflictos = verificarConflictoHorario(newDate);
     if (conflictos.length > 0) {
@@ -721,7 +746,6 @@ const fetchUsuariosComite = async () => {
       setFechaHoraSeleccionada(newDate);
     }
   };
-
   useEffect(() => {
     if (authToken) {
       fetchUserInfo();
@@ -731,7 +755,6 @@ const fetchUsuariosComite = async () => {
       return () => clearInterval(interval);
     }
   }, [authToken]);
-
   useEffect(() => {
     const initialize = async () => {
       setIsLoading(true);
@@ -761,7 +784,6 @@ const fetchUsuariosComite = async () => {
     };
     initialize();
   }, []);
-
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
     const selectedLabels = selectedIds.map(id => {
@@ -770,24 +792,24 @@ const fetchUsuariosComite = async () => {
     });
     setTextoTiposSeleccionados(selectedLabels.join(', '));
   }, [tiposSeleccionados]);
-
   useEffect(() => {
     const selectedDateStr = dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD');
     const eventsDelDia = eventos.filter(e => e.fechaevento === selectedDateStr);
     setEventosDelDia(eventsDelDia);
   }, [eventos, fechaHoraSeleccionada]);
-
-  const addResource = () => setRecursos(prev => [...prev, '']);
+  const addResource = () => setRecursos(prev => [...prev, { nombre_recurso: '', cantidad: '' }]);
   const removeResource = (indexToRemove) => setRecursos(prev => prev.filter((_, index) => index !== indexToRemove));
-  const updateResource = (text, indexToUpdate) => setRecursos(prev => prev.map((resource, index) => index === indexToUpdate ? text : resource));
-
+  const updateResource = (text, indexToUpdate, field) => {
+  const nuevosRecursos = [...recursos];
+  nuevosRecursos[indexToUpdate][field] = text;
+  setRecursos(nuevosRecursos);
+};
   const handleInputChange = (field, value) => {
     if (field === 'nombreevento') setNombreevento(value);
     if (field === 'lugarevento') setLugarevento(value);
     if (field === 'nombreResponsable') setNombreResponsable(value);
     if (errors[field]) setErrors(prevErrors => ({ ...prevErrors, [field]: null }));
   };
-
   const onChangeTimeEventoPrincipal = (event, selectedDate) => {
     setShowTimePicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -804,7 +826,6 @@ const fetchUsuariosComite = async () => {
       }
     }
   };
-
   const handleCheckboxChange = (setter, key) => setter(prev => ({ ...prev, [key]: !prev[key] }));
   const handleOtroTextChange = (setter, text) => setter(prev => ({ ...prev, otroTexto: text }));
   const handleResultadoChange = (key, value) => setResultadosEsperados(prev => ({ ...prev, [key]: value }));
@@ -834,10 +855,8 @@ const fetchUsuariosComite = async () => {
     newObjetivos[index] = value;
     setObjetivosPDI(newObjetivos);
   };
-
 const scrollToObjetivos = () => {
   setSeccionObjetivosVisible(true);
-
   setTimeout(() => {
     if (objetivosSectionRef.current && scrollViewRef.current) {
       setIsScrollingToObjetivos(true);
@@ -893,8 +912,6 @@ const scrollToComite = () => {
     }
   }, 0);
 };
-
-
 const scrollToRecursos = () => {
   setSeccionRecursosVisible(true);
   setTimeout(() => {
@@ -914,7 +931,6 @@ const scrollToRecursos = () => {
     }
   }, 0);
 };
-
 const scrollToPresupuesto = () => {
   setSeccionPresupuestoVisible(true);
   setTimeout(() => {
@@ -934,27 +950,66 @@ const scrollToPresupuesto = () => {
     }
   }, 0);
 };
-
   const validateForm = () => {
-    const newErrors = {};
-    if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es obligatorio.';
-    if (!nombreResponsable.trim()) newErrors.nombreResponsable = 'El nombre del responsable es obligatorio.';
-    if (Object.values(tiposSeleccionados).every(v => !v)) newErrors.tipos = 'Selecciona al menos un tipo de evento.';
-    if (Object.values(objetivos).every(v => !v)) newErrors.objetivos = 'Selecciona al menos un objetivo.';
-    if (!argumentacion.trim()) newErrors.argumentacion = 'La argumentación es obligatoria.';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const confirmSubmit = () => {
-    if (!validateForm()) {
-      Alert.alert('Formulario Incompleto', 'Por favor, corrige los campos marcados en rojo.');
-      return;
-    }
-    setShowConfirmModal(true);
-  };
-
+  const newErrors = {};
+  if (!nombreevento.trim()) {
+    newErrors.nombreevento = 'El nombre del evento es obligatorio.';
+  }
+  if (Object.values(tiposSeleccionados).every(v => !v)) {
+    newErrors.tipos = 'Selecciona al menos un tipo de evento.';
+  }
+  if (tiposSeleccionados['5'] && !textoOtroTipo.trim()) {
+    newErrors.textoOtroTipo = 'Describe el otro tipo de evento.';
+  }
+  if (Object.values(objetivos).every(v => !v)) {
+    newErrors.objetivos = 'Selecciona al menos un objetivo.';
+  }
+  if (objetivos.otro && !objetivos.otroTexto.trim()) {
+    newErrors.objetivosOtroTexto = 'Describe el otro objetivo.';
+  }
+  if (!argumentacion.trim()) {
+    newErrors.argumentacion = 'La argumentación es obligatoria.';
+  }
+  if (!clasificacionSeleccionada) {
+    newErrors.clasificacionSeleccionada = 'La clasificación estratégica es obligatoria.';
+  }
+  if (clasificacionSeleccionada && 
+      CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && 
+      !subcategoriaSeleccionada) {
+    newErrors.subcategoriaSeleccionada = 'Selecciona una subcategoría.';
+  }
+  console.log('Errores de validación:', newErrors);
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
+const confirmSubmit = () => {
+  console.log("Validando formulario...");
+  console.log("Estado actual:", {
+    nombreevento,
+    lugarevento,
+    tiposSeleccionados,
+    objetivos,
+    argumentacion,
+    clasificacionSeleccionada,
+    subcategoriaSeleccionada,
+    fechaHoraSeleccionada: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD HH:mm:ss'),
+    comiteSeleccionado,
+    recursosTecnologicos,
+    mobiliario,
+    vajilla
+  });
+  if (!validateForm()) {
+    console.log("Formulario inválido:", errors);
+    Alert.alert(
+      'Formulario Incompleto',
+      'Por favor, corrige los campos marcados en rojo antes de continuar.'
+    );
+    return;
+  }
+  setShowConfirmModal(true);
+};
   const handleSubmitConfirmed = async () => {
+    console.log("Iniciando envío del evento...");
     setShowConfirmModal(false);
     setIsLoading(true);
     if (!authToken) {
@@ -964,8 +1019,6 @@ const scrollToPresupuesto = () => {
     }
     try {
       if (!nombreevento.trim()) throw new Error('El nombre del evento es obligatorio');
-      if (!nombreResponsable.trim()) throw new Error('El responsable del evento es obligatorio');
-
       const tiposParaEnviar = Object.keys(tiposSeleccionados)
         .filter(id => tiposSeleccionados[id])
         .map(id => {
@@ -976,41 +1029,69 @@ const scrollToPresupuesto = () => {
           } : null;
         })
         .filter(item => item !== null);
-
       if (tiposParaEnviar.length === 0) throw new Error('Debes seleccionar al menos un tipo de evento');
-
-      const objetivoParaEnviar = Object.keys(objetivos)
-        .filter(key => objetivos[key] === true && key !== 'otroTexto')
-        .map(key => {
-          const obj = { id: OBJETIVOS_EVENTO_MAP[key] };
-          if (key === 'otro' && objetivos.otroTexto.trim()) obj.texto_personalizado = objetivos.otroTexto.trim();
-          return obj;
-        });
-
+       const objetivoParaEnviar = Object.keys(objetivos)
+      .filter(key => objetivos[key] === true && key !== 'otroTexto')
+      .map(key => {
+       if (key === 'otro' && objetivos.otroTexto.trim()) {
+      return {
+        id: OBJETIVOS_EVENTO_MAP[key],
+        texto_personalizado: objetivos.otroTexto.trim()
+      };
+    } else {
+      return OBJETIVOS_EVENTO_MAP[key];
+    }
+      });
       if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo ');
-
-      const segmentosParaEnviar = [];
-      const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
-      Object.keys(segmentoObjetivo)
-        .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
-        .forEach(key => {
-          const label = { estudiantes: 'Estudiantes', docentes: 'Docentes', publicoExterno: 'Público Externo', influencers: 'Influencers' }[key];
-          const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
-          if (segmentoData) {
-            segmentosParaEnviar.push({ id: parseInt(segmentoData.id, 10), texto_personalizado: segmentosTextoPersonalizado[key] || null });
-          }
-        });
-
-      const recursosParaEnviar = recursosSeleccionados
-        .filter(id => id != null)
-        .map(id => parseInt(id, 10))
-        .filter(id => !isNaN(id));
-
-      const nuevosRecursos = recursos
-        .map(texto => texto.trim())
-        .filter(texto => texto.length > 0)
-        .map(texto => ({ nombre_recurso: texto, recurso_tipo: 'Material/Técnico/Tercero' }));
-
+        const segmentosParaEnviar = [];
+    const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
+    Object.keys(segmentoObjetivo)
+      .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
+      .forEach(key => {
+        const label = {
+          estudiantes: 'Estudiantes',
+          docentes: 'Docentes',
+          publicoExterno: 'Público Externo',
+          influencers: 'Influencers'
+        }[key];
+        const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
+        if (segmentoData) {
+          segmentosParaEnviar.push({
+            id: parseInt(segmentoData.id, 10),
+            texto_personalizado: segmentosTextoPersonalizado[key] || null
+          });
+        }
+      });
+   const nuevosRecursos = [
+      // Recursos tecnológicos
+      ...recursosTecnologicos
+        .filter(r => r.nombre && r.nombre.trim() !== '')
+        .map(r => ({
+          nombre_recurso: r.nombre.trim(),
+          cantidad: parseInt(r.cantidad) || 1,
+          recurso_tipo: 'tecnologico'
+        })),
+      // Mobiliario
+      ...mobiliario
+        .filter(r => r.nombre && r.nombre.trim() !== '')
+        .map(r => ({
+          nombre_recurso: r.nombre.trim(),
+          cantidad: parseInt(r.cantidad) || 1,
+          recurso_tipo: 'mobiliario'
+        })),
+      // Vajilla
+      ...vajilla
+        .filter(r => r.nombre && r.nombre.trim() !== '')
+        .map(r => ({
+          nombre_recurso: r.nombre.trim(),
+          cantidad: parseInt(r.cantidad) || 1,
+          recurso_tipo: 'vajilla'
+        }))
+    ];
+    const recursosExistentes = recursosSeleccionados
+      .filter(id => id != null)
+      .map(id => parseInt(id, 10))
+      .filter(id => !isNaN(id));
       const presupuestoData = {
         egresos: egresos
           .filter(item => item.descripcion.trim() !== '')
@@ -1032,55 +1113,59 @@ const scrollToPresupuesto = () => {
         total_ingresos: totalIngresos,
         balance: balance
       };
-
       const eventoPayload = {
-        nombreevento: nombreevento.trim(),
-        lugarevento: lugarevento.trim() || 'Por definir',
-        responsable_evento: nombreResponsable.trim(),
-        fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
-        horaevento: '00:00:00',
-        argumentacion: argumentacion.trim() || null,
-        objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) : null,
-        resultados_esperados: JSON.stringify(resultadosEsperados),
-        tipos_de_evento: tiposParaEnviar,
-        objetivos: objetivoParaEnviar,
-        segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
-        recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
-        idclasificacion: parseInt(clasificacionSeleccionada, 10) || null,
-        idsubcategoria: parseInt(subcategoriaSeleccionada, 10) || null,
-        comite: comiteSeleccionado,
+         nombreevento: nombreevento.trim(),
+      lugarevento: lugarevento.trim() || 'Por definir',
+      fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
+      horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'), // ✅ CORRECCIÓN AQUÍ
+      argumentacion: argumentacion.trim() || null,
+      objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 
+        ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) 
+        : null,
+      resultados_esperados: JSON.stringify(resultadosEsperados),
+      tipos_de_evento: tiposParaEnviar,
+      objetivos: objetivoParaEnviar,
+      segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
+      recursos_existentes: recursosExistentes.length > 0 ? recursosExistentes : null, // ✅ NUEVO
+      recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
+      presupuesto: presupuestoData, // ✅ NUEVO
+      idclasificacion: parseInt(clasificacionSeleccionada, 10) || null,
+      idsubcategoria: parseInt(subcategoriaSeleccionada, 10) || null,
+      comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
       };
-
+       console.log('Payload a enviar:', JSON.stringify(eventoPayload, null, 2));
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
-
-      try {
-        await sendAdminNotification({ id: response.data.id || response.data.data?.id, ...eventoPayload });
-        console.log('Notificación enviada exitosamente al administrador');
-      } catch (notificationError) {
-        console.warn('El evento se creó correctamente, pero hubo un error al enviar la notificación:', notificationError);
-      }
-
-      Alert.alert('Éxito', 'El evento ha sido creado correctamente y se ha notificado al administrador.', [{ text: 'OK', onPress: () => router.back() }]);
+ console.log('Respuesta del servidor:', response.data);
+  console.log('Respuesta del servidor:', response.data);
+Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.back() }]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
-      if (error.response) errorMessage = error.response.data.message || error.response.data.error || `Error del servidor: ${error.response.status}`;
-      else if (error.request) errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión y la URL de la API.";
-      else errorMessage = `Error en la configuración: ${error.message}`;
-      Alert.alert('Error al crear el evento', errorMessage);
-    } finally {
-      setIsLoading(false);
+      if (error.response) {
+      // Error del servidor
+      errorMessage = error.response.data.message 
+        || error.response.data.error 
+        || JSON.stringify(error.response.data)
+        || `Error del servidor: ${error.response.status}`;
+    } else if (error.request) {
+      // No hay respuesta del servidor
+      errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión.";
+    } else {
+      // Error en la configuración
+      errorMessage = error.message || "Error desconocido";
     }
-  };
-
+    Alert.alert('Error al crear el evento', errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingContainer}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Crear Evento</Text>
         <NotificationBell notificationCount={unreadCount} onPress={() => setShowNotificationsModal(true)} />
       </View>
-
       <View style={styles.mainContainer}>
         {width > 768 && (
           <View style={styles.calendarColumn}>
@@ -1099,7 +1184,6 @@ const scrollToPresupuesto = () => {
             </View>
           </View>
         )}
-
         <ScrollView
           ref={scrollViewRef}
           style={styles.formColumn}
@@ -1120,19 +1204,6 @@ const scrollToPresupuesto = () => {
               />
             </View>
             {errors.nombreevento && <Text style={styles.errorText}>{errors.nombreevento}</Text>}
-
-            <Text style={styles.label}>Responsable del Evento</Text>
-            <View style={[styles.inputGroup, errors.nombreResponsable && styles.inputError]}>
-              <Ionicons name="person-outline" size={20} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={nombreResponsable}
-                onChangeText={(text) => handleInputChange('nombreResponsable', text)}
-                placeholder="Nombre del responsable"
-              />
-            </View>
-            {errors.nombreResponsable && <Text style={styles.errorText}>{errors.nombreResponsable}</Text>}
-
             <Text style={styles.label}>Clasificación Estratégica</Text>
             <TouchableOpacity
               style={[styles.inputGroup, errors.clasificacionSeleccionada && styles.inputError]}
@@ -1146,7 +1217,6 @@ const scrollToPresupuesto = () => {
               </Text>
             </TouchableOpacity>
             {errors.clasificacionSeleccionada && <Text style={styles.errorText}>{errors.clasificacionSeleccionada}</Text>}
-
             {clasificacionSeleccionada && CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && (
               <>
                 <Text style={styles.label}>Subcategoría</Text>
@@ -1164,7 +1234,22 @@ const scrollToPresupuesto = () => {
                 {errors.subcategoriaSeleccionada && <Text style={styles.errorText}>{errors.subcategoriaSeleccionada}</Text>}
               </>
             )}
-
+    <Text style={styles.label}>Lugar del Evento</Text>
+<TouchableOpacity
+  style={[styles.inputGroup, errors.lugarevento && styles.inputError]}
+  onPress={() => {
+    setCampusSeleccionado(null);
+    setShowLugarModal(true);
+  }}
+>
+  <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
+  <Text style={styles.input}>
+    {lugarevento
+      ? lugarevento
+      : 'Selecciona un lugar para el evento'}
+  </Text>
+</TouchableOpacity>
+{errors.lugarevento && <Text style={styles.errorText}>{errors.lugarevento}</Text>}
             {width <= 768 && (
               <>
                 <Text style={styles.label}>Fecha de Realización</Text>
@@ -1181,7 +1266,6 @@ const scrollToPresupuesto = () => {
                 />
               </>
             )}
-
             <Text style={styles.label}>Tipo de Evento (puede seleccionar más de un tipo)</Text>
             {TIPOS_DE_EVENTO.map((item) => (
               <TouchableOpacity key={item.id} style={styles.checkboxRow} onPress={() => handleTipoEventoChange(item.id)}>
@@ -1195,7 +1279,6 @@ const scrollToPresupuesto = () => {
                 <TextInput style={styles.input} value={textoOtroTipo} onChangeText={setTextoOtroTipo} placeholder="¿Cuál?" />
               </View>
             )}
-
             <TouchableOpacity style={styles.gotoButton} onPress={scrollToObjetivos}>
               <Ionicons name="arrow-forward" size={20} color="#ffffff" />
               <Text style={styles.gotoButtonText}>Ir a Objetivos</Text>
@@ -1298,7 +1381,6 @@ const scrollToPresupuesto = () => {
     })}
   </View>
 </View>
-
             {segmentoObjetivo.otro && (
               <View style={styles.otroInputContainer}>
                 <TextInput
@@ -1310,7 +1392,6 @@ const scrollToPresupuesto = () => {
                 {segmentoObjetivo.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>}
               </View>
             )}
-
             <Text style={styles.label}>Argumentación:</Text>
             <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
               <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
@@ -1328,7 +1409,6 @@ const scrollToPresupuesto = () => {
               <Ionicons name="arrow-forward" size={20} color="#ffffff" />
               <Text style={styles.gotoButtonText}>Ir a Resultados Esperados y Comite</Text>
             </TouchableOpacity>
-          
           </View>
            </>
           )}
@@ -1367,45 +1447,39 @@ const scrollToPresupuesto = () => {
                 onChangeText={(text) => handleResultadoChange('otro', text)}
               />
             </View>
-           
           </View>
-          
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>IV. COMITÉ DEL EVENTO</Text>
-           <Text style={styles.comiteDescription}>
-  Selecciona a los miembros del comité del evento:
-</Text>
-
+           <Text style={styles.comiteDescription}>Selecciona a los miembros del comité del evento:</Text>
 {usuariosComite.length > 0 ? (
   <View style={styles.comiteList}>
     {usuariosComite.map(usuario => (
-      <TouchableOpacity
-        key={usuario.id}
-        style={styles.checkboxRow}
-        onPress={() => {
-          if (comiteSeleccionado.includes(usuario.id)) {
-            setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
-          } else {
-            setComiteSeleccionado(prev => [...prev, usuario.id]);
-          }
-        }}
-      >
-        <Ionicons
-          name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
-          size={24}
-          color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
-        />
-        <View style={styles.comiteUserText}>
-          <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
-          <Text style={styles.comiteUserRole}>{usuario.role}</Text>
-           {usuario.role === 'academico' && usuario.facultad && (
-        <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666' }]}>
-          ({usuario.facultad})
-        </Text>
-      )}
-        </View>
-      </TouchableOpacity>
-    ))}
+  <TouchableOpacity
+    key={usuario.id}
+    style={styles.checkboxRow}
+    onPress={() => {
+      if (comiteSeleccionado.includes(usuario.id)) {
+        setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
+      } else {
+        setComiteSeleccionado(prev => [...prev, usuario.id]);
+      }
+    }}
+  >
+    <Ionicons
+      name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
+      size={24}
+      color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
+    />
+    <View style={styles.comiteUserText}>
+      <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
+   <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666', fontStyle: 'italic' }]}>
+        {usuario.role === 'academico'
+          ? `Académico - ${usuario.facultad || 'Sin facultad'}${usuario.carrera ? ` (${usuario.carrera})` : ''}  `
+          : usuario.role.charAt(0).toUpperCase() + usuario.role.slice(1)}
+      </Text>
+          </View>
+        </TouchableOpacity>
+      ))}
   </View>
 ) : (
   <Text style={styles.comitePlaceholder}>Cargando usuarios...</Text>
@@ -1418,46 +1492,133 @@ const scrollToPresupuesto = () => {
           </>
             )}
             {seccionRecursosVisible && (
-              <>
-           <View 
-              style={[styles.formSection, isScrollingToComite && styles.formSectionHighlighted]}
-              ref={recursosSectionRef}
-            >
-            <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
-            <View style={styles.subsection}>
-              <Text style={styles.subsectionTitle}>Recursos Adicionales Requeridos</Text>
-              <Text style={styles.subsectionDescription}>
-                Describe recursos que no están disponibles en la universidad y necesitas solicitar, comprar o contratar:
-              </Text>
-              {recursos.map((resource, index) => (
-                <View key={index} style={styles.resourceInputGroup}>
-                  <Ionicons name="cube-outline" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.resourceInput}
-                    placeholder={`Recurso ${index + 1}`}
-                    placeholderTextColor="#999"
-                    value={resource}
-                    onChangeText={(text) => updateResource(text, index)}
-                  />
-                  {recursos.length > 1 && (
-                    <TouchableOpacity onPress={() => removeResource(index)} style={styles.removeButton}>
-                      <Ionicons name="remove-circle-outline" size={24} color="red" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-              <TouchableOpacity onPress={addResource} style={styles.addButton}>
-                <Ionicons name="add-circle-outline" size={24} color="#007bff" />
-                <Text style={styles.addButtonText}>Agregar otro recurso</Text>
-              </TouchableOpacity>
+  <>
+    <View 
+      style={[styles.formSection, isScrollingToRecursos && styles.formSectionHighlighted]}
+      ref={recursosSectionRef}
+    >
+      <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
+      {/* Recursos Tecnológicos */}
+      <View style={styles.subsection}>
+        <Text style={styles.subsectionTitle}>Recursos Tecnológicos</Text>
+        <Text style={styles.subsectionDescription}>
+          Describe los recursos tecnológicos que necesitas (ej. laptops, proyectores, cámaras, etc.):
+        </Text>
+        {recursosTecnologicos.map((recurso, index) => (
+          <View key={`tec-${index}`} style={styles.resourceInputGroup}>
+            <Ionicons name="laptop-outline" size={20} color="#666" style={styles.inputIcon} />
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                style={[styles.resourceInput, { flex: 1, marginRight: 5 }]}
+                placeholder={`Nombre del recurso ${index + 1}`}
+                placeholderTextColor="#999"
+                value={recurso.nombre}
+                onChangeText={(text) => updateRecursoTecnologico(text, index, 'nombre')}
+              />
+              <TextInput
+                style={[styles.resourceInput, { width: 80 }]}
+                placeholder="Cant."
+                placeholderTextColor="#999"
+                value={recurso.cantidad}
+                onChangeText={(text) => updateRecursoTecnologico(text, index, 'cantidad')}
+                keyboardType="numeric"
+              />
             </View>
-            <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
-              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-              <Text style={styles.gotoButtonText}>Ir Presupuesto</Text>
-            </TouchableOpacity>
-          </View>
-          </>
+            {recursosTecnologicos.length > 1 && (
+              <TouchableOpacity onPress={() => removeRecursoTecnologico(index)} style={styles.removeButton}>
+                <Ionicons name="remove-circle-outline" size={24} color="red" />
+              </TouchableOpacity>
             )}
+          </View>
+        ))}
+        <TouchableOpacity onPress={addRecursoTecnologico} style={styles.addButton}>
+          <Ionicons name="add-circle-outline" size={24} color="#007bff" />
+          <Text style={styles.addButtonText}>Agregar recurso tecnológico</Text>
+        </TouchableOpacity>
+      </View>
+      {/* Mobiliario */}
+      <View style={styles.subsection}>
+        <Text style={styles.subsectionTitle}>Mobiliario</Text>
+        <Text style={styles.subsectionDescription}>
+          Describe el mobiliario requerido (ej. mesas, sillas, escenarios, etc.):
+        </Text>
+        {mobiliario.map((recurso, index) => (
+          <View key={`mob-${index}`} style={styles.resourceInputGroup}>
+            <Ionicons name="bed-outline" size={20} color="#666" style={styles.inputIcon} />
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                style={[styles.resourceInput, { flex: 1, marginRight: 5 }]}
+                placeholder={`Nombre del recurso ${index + 1}`}
+                placeholderTextColor="#999"
+                value={recurso.nombre}
+                onChangeText={(text) => updateMobiliario(text, index, 'nombre')}
+              />
+              <TextInput
+                style={[styles.resourceInput, { width: 80 }]}
+                placeholder="Cant."
+                placeholderTextColor="#999"
+                value={recurso.cantidad}
+                onChangeText={(text) => updateMobiliario(text, index, 'cantidad')}
+                keyboardType="numeric"
+              />
+            </View>
+            {mobiliario.length > 1 && (
+              <TouchableOpacity onPress={() => removeMobiliario(index)} style={styles.removeButton}>
+                <Ionicons name="remove-circle-outline" size={24} color="red" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+        <TouchableOpacity onPress={addMobiliario} style={styles.addButton}>
+          <Ionicons name="add-circle-outline" size={24} color="#007bff" />
+          <Text style={styles.addButtonText}>Agregar mobiliario</Text>
+        </TouchableOpacity>
+      </View>
+      {/* Vajilla */}
+      <View style={styles.subsection}>
+        <Text style={styles.subsectionTitle}>Vajilla</Text>
+        <Text style={styles.subsectionDescription}>
+          Describe la vajilla necesaria (ej. platos, copas, cubiertos, servilletas, etc.):
+        </Text>
+        {vajilla.map((recurso, index) => (
+          <View key={`vaj-${index}`} style={styles.resourceInputGroup}>
+            <Ionicons name="restaurant-outline" size={20} color="#666" style={styles.inputIcon} />
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                style={[styles.resourceInput, { flex: 1, marginRight: 5 }]}
+                placeholder={`Nombre del recurso ${index + 1}`}
+                placeholderTextColor="#999"
+                value={recurso.nombre}
+                onChangeText={(text) => updateVajilla(text, index, 'nombre')}
+              />
+              <TextInput
+                style={[styles.resourceInput, { width: 80 }]}
+                placeholder="Cant."
+                placeholderTextColor="#999"
+                value={recurso.cantidad}
+                onChangeText={(text) => updateVajilla(text, index, 'cantidad')}
+                keyboardType="numeric"
+              />
+            </View>
+            {vajilla.length > 1 && (
+              <TouchableOpacity onPress={() => removeVajilla(index)} style={styles.removeButton}>
+                <Ionicons name="remove-circle-outline" size={24} color="red" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ))}
+        <TouchableOpacity onPress={addVajilla} style={styles.addButton}>
+          <Ionicons name="add-circle-outline" size={24} color="#007bff" />
+          <Text style={styles.addButtonText}>Agregar vajilla</Text>
+        </TouchableOpacity>
+      </View>
+      <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
+        <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+        <Text style={styles.gotoButtonText}>Ir Presupuesto</Text>
+      </TouchableOpacity>
+    </View>
+  </>
+)}
             {seccionPresupuestoVisible && (
               <>
               <View 
@@ -1489,11 +1650,9 @@ const scrollToPresupuesto = () => {
                 {formatCurrency(balance)}
               </Text>
             </View>
-           
           </View>
           </>
         )}
-       
           {/* Modales */}
           <Modal visible={showClasificacionModal} transparent animationType="fade" onRequestClose={() => setShowClasificacionModal(false)}>
             <View style={styles.modalOverlay}>
@@ -1520,7 +1679,6 @@ const scrollToPresupuesto = () => {
               </View>
             </View>
           </Modal>
-
           <Modal visible={showSubcategoriaModal} transparent animationType="fade" onRequestClose={() => setShowSubcategoriaModal(false)}>
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
@@ -1545,9 +1703,66 @@ const scrollToPresupuesto = () => {
               </View>
             </View>
           </Modal>
+          <Modal
+  visible={showLugarModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowLugarModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContent}>
+      <Text style={styles.modalTitle}>
+        {campusSeleccionado ? `Selecciona un área en ${LUGARES_CON_AREAS[campusSeleccionado].label}` : 'Selecciona un campus'}
+      </Text>
+      <ScrollView>
+        {campusSeleccionado ? (
+          // Mostrar áreas del campus seleccionado
+          LUGARES_CON_AREAS[campusSeleccionado].areas.map((area) => (
+            <TouchableOpacity
+              key={area.id}
+              style={styles.modalOption}
+              onPress={() => {
+                setLugarevento(area.nombre);
+                setShowLugarModal(false);
+                setCampusSeleccionado(null);
+              }}
+            >
+              <Text style={styles.modalOptionText}>{area.nombre}</Text>
+            </TouchableOpacity>
+          ))
+        ) : (
+          // Mostrar lista de campus
+          Object.entries(LUGARES_CON_AREAS).map(([key, data]) => (
+            <TouchableOpacity
+              key={key}
+              style={styles.modalOption}
+              onPress={() => setCampusSeleccionado(key)}
+            >
+              <Text style={styles.modalOptionText}>{data.label}</Text>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
+      {/* Botón "Volver" si ya se eligió campus */}
+      {campusSeleccionado && (
+        <TouchableOpacity
+          style={[styles.modalButtonSecondary, { marginTop: 10 }]}
+          onPress={() => setCampusSeleccionado(null)}
+        >
+          <Text style={styles.modalButtonSecondaryText}>← Volver a campus</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity
+        style={styles.modalButtonSecondary}
+        onPress={() => setShowLugarModal(false)}
+      >
+        <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
         </ScrollView>
       </View>
-
       <View style={styles.fixedBottomContainer}>
         <TouchableOpacity 
           onPress={confirmSubmit} 
@@ -1560,7 +1775,6 @@ const scrollToPresupuesto = () => {
           )}
         </TouchableOpacity>
       </View>
-
       <ConfirmModal
         showConfirmModal={showConfirmModal}
         setShowConfirmModal={setShowConfirmModal}
@@ -1581,9 +1795,8 @@ const scrollToPresupuesto = () => {
         setConflictoDetectado={setConflictoDetectado}
       />
     </KeyboardAvoidingView>
-  );
+);
 };
-
 const styles = StyleSheet.create({
   gotoButton: {
     backgroundColor: '#e95a0c',
@@ -1760,8 +1973,10 @@ comiteUserText: {
   marginLeft: 10,
 },
 comiteUserRole: {
-  fontSize: 12,
-  color: '#666',
+  fontSize: 14,
+  color: '#333',
+  fontWeight:'600',
+  marginBottom:2,
   fontStyle: 'italic',
 },
 comitePlaceholder: {
@@ -2668,5 +2883,4 @@ objetivoPDIColumn: {
     marginLeft: 10,
   },
 });
-
 export default ProyectoEvento;

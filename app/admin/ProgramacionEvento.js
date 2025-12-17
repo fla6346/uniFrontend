@@ -1,9 +1,7 @@
-// app/(admin)/CrearEvento.js
 import React, { useState, useEffect } from 'react';
-// --- 1. AÑADIMOS FlatList A LA IMPORTACIÓN ---
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Image, FlatList
+  Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Image
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
@@ -12,23 +10,30 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import dayjs from 'dayjs'; // <-- Importación de dayjs
+import dayjs from 'dayjs';
+import * as SecureStore from 'expo-secure-store';
 
-// --- LÓGICA API Y TOKEN (sin cambios) ---
+// --- Configuración de API y Tokens ---
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
-  determinedApiBaseUrl = 'http://10.0.2.2:3001/api';
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else if (Platform.OS === 'ios') {
-  determinedApiBaseUrl = 'http://localhost:3001/api';
-} else { // web y otros
-  determinedApiBaseUrl = 'http://localhost:3001/api';
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+} else {
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 }
 const API_BASE_URL = determinedApiBaseUrl;
+const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
-  return "token-de-prueba-para-desarrollo";
+  if (Platform.OS === 'web') {
+    try { return localStorage.getItem(TOKEN_KEY); } catch (e) { console.error("Error al acceder a localStorage en web:", e); return null; }
+  } else {
+    try { return await SecureStore.getItemAsync(TOKEN_KEY); } catch (e) { console.error("Error al obtener token de SecureStore en nativo:", e); return null; }
+  }
 };
 
+// --- Configuración de calendario ---
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   monthNamesShort: ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'],
@@ -38,9 +43,22 @@ LocaleConfig.locales['es'] = {
 };
 LocaleConfig.defaultLocale = 'es';
 
+// --- Componente de actividades ---
 const SeccionActividades = ({ titulo, actividades, setActividades, handleActividadDateChange, errors }) => {
-  const agregarActividad = () => { setActividades(prev => [ ...prev, { key: `act-${titulo.replace(/\s/g, '')}-${Date.now()}`, nombreActividad: '', responsable: '', fechaInicio: new Date(), fechaFin: new Date(), showDatePickerInicio: false, showDatePickerFin: false, } ]); };
-  const eliminarActividad = (index) => { setActividades(prev => prev.filter((_, i) => i !== index)); };
+  const agregarActividad = () => {
+    setActividades(prev => [...prev, {
+      key: `act-${titulo.replace(/\s/g, '')}-${Date.now()}`,
+      nombreActividad: '',
+      responsable: '',
+      fechaInicio: new Date(),
+      fechaFin: new Date(),
+      showDatePickerInicio: false,
+      showDatePickerFin: false,
+    }]);
+  };
+  const eliminarActividad = (index) => {
+    setActividades(prev => prev.filter((_, i) => i !== index));
+  };
   return (
     <View style={styles.formSection}>
       <Text style={styles.sectionTitle}>{titulo}</Text>
@@ -55,27 +73,87 @@ const SeccionActividades = ({ titulo, actividades, setActividades, handleActivid
           <Text style={styles.label}>Actividad</Text>
           <View style={styles.inputGroup}>
             <Ionicons name="archive-outline" size={20} style={styles.inputIcon}/>
-            <TextInput style={styles.input} value={actividad.nombreActividad} onChangeText={(text)=>{ setActividades(prev=>{ const newState=[...prev]; newState[index]={...newState[index], nombreActividad: text}; return newState; }); }} placeholder="Nombre de la Actividad" placeholderTextColor="#aaa" />
+            <TextInput 
+              style={styles.input} 
+              value={actividad.nombreActividad} 
+              onChangeText={(text) => {
+                setActividades(prev => {
+                  const newState = [...prev];
+                  newState[index] = { ...newState[index], nombreActividad: text };
+                  return newState;
+                });
+              }} 
+              placeholder="Nombre de la Actividad" 
+              placeholderTextColor="#aaa" 
+            />
           </View>
           {errors[`${titulo}_${index}_nombre`] && <Text style={styles.errorText}>{errors[`${titulo}_${index}_nombre`]}</Text>}
+          
           <Text style={styles.label}>Responsable</Text>
           <View style={styles.inputGroup}>
             <Ionicons name="person-outline" size={20} style={styles.inputIcon} />
-            <TextInput style={styles.input} value={actividad.responsable} onChangeText={(text) => { setActividades(prev => { const newState = [...prev]; newState[index] = { ...newState[index], responsable: text }; return newState; }); }} placeholder="Nombre del responsable" placeholderTextColor="#aaa" />
+            <TextInput 
+              style={styles.input} 
+              value={actividad.responsable} 
+              onChangeText={(text) => {
+                setActividades(prev => {
+                  const newState = [...prev];
+                  newState[index] = { ...newState[index], responsable: text };
+                  return newState;
+                });
+              }} 
+              placeholder="Nombre del responsable" 
+              placeholderTextColor="#aaa" 
+            />
           </View>
           {errors[`${titulo}_${index}_responsable`] && <Text style={styles.errorText}>{errors[`${titulo}_${index}_responsable`]}</Text>}
+          
           <Text style={styles.label}>Fecha Inicio Actividad</Text>
-          <TouchableOpacity onPress={() => { setActividades(prev => { const newState = [...prev]; newState[index] = { ...newState[index], showDatePickerInicio: true }; return newState; }); }} style={styles.datePickerButton} >
+          <TouchableOpacity 
+            onPress={() => {
+              setActividades(prev => {
+                const newState = [...prev];
+                newState[index] = { ...newState[index], showDatePickerInicio: true };
+                return newState;
+              });
+            }} 
+            style={styles.datePickerButton}
+          >
             <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
             <Text style={styles.datePickerText}>{actividad.fechaInicio.toLocaleDateString()}</Text>
           </TouchableOpacity>
-          {actividad.showDatePickerInicio && ( <DateTimePicker value={actividad.fechaInicio} mode="date" display="default" onChange={(event, date) => handleActividadDateChange(index, 'fechaInicio', event, date, setActividades)} /> )}
+          {actividad.showDatePickerInicio && (
+            <DateTimePicker 
+              value={actividad.fechaInicio} 
+              mode="date" 
+              display="default" 
+              onChange={(event, date) => handleActividadDateChange(index, 'fechaInicio', event, date, setActividades)} 
+            />
+          )}
+          
           <Text style={styles.label}>Fecha Fin Actividad</Text>
-          <TouchableOpacity onPress={() => { setActividades(prev => { const newState = [...prev]; newState[index] = { ...newState[index], showDatePickerFin: true }; return newState; }); }} style={styles.datePickerButton} >
+          <TouchableOpacity 
+            onPress={() => {
+              setActividades(prev => {
+                const newState = [...prev];
+                newState[index] = { ...newState[index], showDatePickerFin: true };
+                return newState;
+              });
+            }} 
+            style={styles.datePickerButton}
+          >
             <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
             <Text style={styles.datePickerText}>{actividad.fechaFin.toLocaleDateString()}</Text>
           </TouchableOpacity>
-          {actividad.showDatePickerFin && ( <DateTimePicker value={actividad.fechaFin} mode="date" display="default" minimumDate={actividad.fechaInicio} onChange={(event, date) => handleActividadDateChange(index, 'fechaFin', event, date, setActividades)} /> )}
+          {actividad.showDatePickerFin && (
+            <DateTimePicker 
+              value={actividad.fechaFin} 
+              mode="date" 
+              display="default" 
+              minimumDate={actividad.fechaInicio} 
+              onChange={(event, date) => handleActividadDateChange(index, 'fechaFin', event, date, setActividades)} 
+            />
+          )}
         </View>
       ))}
       <TouchableOpacity onPress={agregarActividad} style={styles.addButton}>
@@ -86,302 +164,236 @@ const SeccionActividades = ({ titulo, actividades, setActividades, handleActivid
   );
 };
 
-
-const CrearEvento = () => {
+// --- Componente principal ---
+const programacionEvento = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
 
   const getInitialDate = () => {
     if (params.selectedDate) {
-      let initialDate = dayjs(params.selectedDate); 
+      let initialDate = dayjs(params.selectedDate);
       if (params.selectedHour) {
         initialDate = initialDate.hour(parseInt(params.selectedHour, 10)).minute(0).second(0);
       }
-      return initialDate.toDate(); 
+      return initialDate.toDate();
     }
-    return new Date(); };
-  
-  // ... (otros estados) ...
+    return new Date();
+  };
+
+  // Estados generales
   const [authToken, setAuthToken] = useState(null);
   const [nombreevento, setNombreevento] = useState('');
   const [lugarevento, setLugarevento] = useState('');
+  const [responsable, setResponsable] = useState('');
   const [fechaHoraSeleccionada, setFechaHoraSeleccionada] = useState(getInitialDate());
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [actividadesPrevias, setActividadesPrevias] = useState([]);
   const [actividadesDurante, setActividadesDurante] = useState([]);
   const [actividadesPost, setActividadesPost] = useState([]);
   const [idtipoevento, setIdtipoevento] = useState('');
-  const [objetivos, setObjetivos]=useState({
-    modeloPedagogico: false,
-    posicionamiento: false,
-    internacionalizacion: false,
-    rsu: false,
-    fidelizacion: false,
-    otro: false,
-    otroTexto: '',
-  });
-  const [tiposEventoDisponibles, setTiposEventoDisponibles] = useState([ 
-    { idtipoevento: '1', nombretipoevento: 'Académicos/Curriculares' },
-    { idtipoevento: '2', nombretipoevento: 'Culturales' }, 
-    { idtipoevento: '3', nombretipoevento: 'Deportivos' }, 
-    { idtipoevento: '4', nombretipoevento: 'Sociales' }, 
-    { idtipoevento: '5', nombretipoevento: 'Institucionales' }, 
-    { idtipoevento: '6', nombretipoevento: 'Externos' },
-    { idtipoevento: '7', nombretipoevento: 'Marketing' },
-    { idtipoevento: '8', nombretipoevento: 'Internacionalizacion' },
-  ]);
   const [serviciosContratados, setServiciosContratados] = useState([]);
-  const [ambientes,setAmbientes]=useState([]);
+  const [ambientes, setAmbientes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [eventosRegistrados, setEventosRegistrados] = useState([]);
-  const [markedDates, setMarkedDates] = useState({});
   const [isLoadingEventos, setIsLoadingEventos] = useState(false);
-  const [eventosDelDia, setEventosDelDia] = useState([]);
-
-  const eventTypeColors = {
-    '1': '#e95a0c', '2': '#3498db', '3': '#2ecc71',
-    '4': '#9b59b6', '5': '#f1c40f', '6': '#7f8c8d',
-  };
-const { idevento } = params; // string o undefined
-const isEditing = !!idevento;
   
+  const [layoutsDisponibles, setLayoutsDisponibles] = useState([]);
+  const [layoutSeleccionado, setLayoutSeleccionado] = useState(null);
+const [cargandoLayouts, setCargandoLayouts] = useState(false);
+  const { idevento } = params;
+  const isEditing = !!idevento;
 
-useEffect(() => {
-  const initializeAndFetch = async () => {
-    const token = await getTokenAsync();
-    setAuthToken(token);
+  // Formateo de fechas
+  const formatToISODate = (date) => {
+    if (!(date instanceof Date) || isNaN(date.valueOf())) return new Date().toISOString().split('T')[0];
+    return date.toISOString().split('T')[0];
+  };
+  const formatToISOTime = (date) => {
+    if (!(date instanceof Date) || isNaN(date.valueOf())) return new Date().toTimeString().split(' ')[0].substring(0, 5);
+    return date.toTimeString().split(' ')[0].substring(0, 5);
+  };
 
-    // Solicitar permisos de imagen solo una vez (si no es web)
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permiso Necesario', 'Se necesita permiso para acceder a la galería.');
-      }
+  const formatActivityForSubmit = (actividad) => ({
+    nombreActividad: actividad.nombreActividad,
+    responsable: actividad.responsable,
+    fechaInicio: actividad.fechaInicio.toISOString().split('T')[0],
+    fechaFin: actividad.fechaFin.toISOString().split('T')[0],
+  });
+
+  // === FUNCIÓN PARA GENERAR CROQUIS ===
+  const handleGenerarCroquis = async () => {
+    if (!authToken) {
+      Alert.alert('Error', 'Debes estar autenticado.');
+      return;
     }
 
-    if (token) {
-      // Siempre cargamos los eventos registrados para el calendario
-      fetchEventosRegistrados(token);
+    const eventoParaCroquis = {
+      nombreevento: nombreevento.trim(),
+      lugarevento: lugarevento.trim(),
+      fechaevento: formatToISODate(fechaHoraSeleccionada),
+      horaevento: formatToISOTime(fechaHoraSeleccionada),
+      actividadesPrevias: actividadesPrevias.map(a => ({ nombreActividad: a.nombreActividad })),
+      actividadesDurante: actividadesDurante.map(a => ({ nombreActividad: a.nombreActividad })),
+      actividadesPost: actividadesPost.map(a => ({ nombreActividad: a.nombreActividad })),
+    };
 
-      // Si estamos editando, cargamos el evento específico
-      if (isEditing) {
-        setIsLoadingEventos(true); // <-- Usa este estado para mostrar loading
-        try {
-          const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const evento = response.data;
+  }
 
-          // Rellenar todos los estados con los datos del evento
-          setNombreevento(evento.nombreevento || '');
-          setLugarevento(evento.lugarevento || '');
-
-          // Fecha y hora del evento principal
-          const fechaEvento = new Date(evento.fechaevento + 'T' + (evento.horaevento || '00:00'));
-          setFechaHoraSeleccionada(fechaEvento);
-
-          setIdtipoevento(String(evento.idtipoevento) || '');
-
-          // Actividades
-          setActividadesPrevias(
-            (evento.actividadesPrevias || []).map((act, i) => ({
-              key: `act-prev-${i}-${Date.now()}`,
-              nombreActividad: act.nombreActividad || '',
-              responsable: act.responsable || '',
-              fechaInicio: new Date(act.fechaInicio),
-              fechaFin: new Date(act.fechaFin),
-              showDatePickerInicio: false,
-              showDatePickerFin: false,
-            }))
-          );
-          setActividadesDurante(
-            (evento.actividadesDurante || []).map((act, i) => ({
-              key: `act-dur-${i}-${Date.now()}`,
-              ...act,
-              fechaInicio: new Date(act.fechaInicio),
-              fechaFin: new Date(act.fechaFin),
-              showDatePickerInicio: false,
-              showDatePickerFin: false,
-            }))
-          );
-          setActividadesPost(
-            (evento.actividadesPost || []).map((act, i) => ({
-              key: `act-post-${i}-${Date.now()}`,
-              ...act,
-              fechaInicio: new Date(act.fechaInicio),
-              fechaFin: new Date(act.fechaFin),
-              showDatePickerInicio: false,
-              showDatePickerFin: false,
-            }))
-          );
-
-          // Servicios
-          setServiciosContratados(
-            (evento.serviciosContratados || []).map((serv, i) => ({
-              key: `servicio_${i}_${Date.now()}`,
-              ...serv,
-              fechaInicio: new Date(serv.fechaInicio),
-              showDatePickerInicio: false,
-            }))
-          );
-
-          // Ambientes
-          setAmbientes(
-            (evento.ambientes || []).map((amb, i) => ({
-              key: `ambiente_${i}_${Date.now()}`,
-              ...amb,
-            }))
-          );
-
-        } catch (error) {
-          console.error("Error al cargar el evento para edición:", error);
-          Alert.alert("Error", "No se pudo cargar el evento.");
-          router.back();
-        } finally {
-          setIsLoadingEventos(false);
+  // Manejo de fechas y validación
+  const handleActividadDateChange = (index, field, event, selectedDate, setActividades) => {
+    const pickerFlag = field === 'fechaInicio' ? 'showDatePickerInicio' : 'showDatePickerFin';
+    setActividades(prev => {
+      const newState = [...prev];
+      if (newState[index]) newState[index] = { ...newState[index], [pickerFlag]: false };
+      return newState;
+    });
+    if (event.type === 'set' && selectedDate) {
+      setActividades(prev => {
+        const newState = [...prev];
+        if (newState[index]) {
+          newState[index] = { ...newState[index], [field]: selectedDate };
+          if (field === 'fechaInicio' && newState[index].fechaFin < selectedDate) {
+            newState[index].fechaFin = selectedDate;
+          }
         }
-      }
+        return newState;
+      });
     }
   };
 
-  initializeAndFetch();
-}, [idevento]); // <-- Solo depende de idevento
+  const validateForm = () => {
+    const newErrors = {};
+    if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es requerido.';
+    if (!idtipoevento) newErrors.idtipoevento = 'El tipo de evento es requerido.';
 
-useEffect(() => {
-  const initializeAndFetch = async () => {
-    const token = await getTokenAsync();
-    setAuthToken(token);
-    if (token) {
-      if (isEditing) {
-        setIsLoadingEventos(true);
-        try {
-          const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const evento = response.data;
+    const validateActivityList = (list, listName) => {
+      list.forEach((act, index) => {
+        if (!act.nombreActividad?.trim()) newErrors[`${listName}_${index}_nombre`] = 'Nombre de actividad requerido.';
+        if (!act.responsable?.trim()) newErrors[`${listName}_${index}_responsable`] = 'Responsable requerido.';
+      });
+    };
+    validateActivityList(actividadesPrevias, 'Programación de Actividades Previas');
+    validateActivityList(actividadesDurante, 'Programación de Actividades Durante el Evento');
+    validateActivityList(actividadesPost, 'Programación de Actividades Después del Evento');
 
-          // Rellenar todos los estados con los datos del evento
-          setNombreevento(evento.nombreevento || '');
-          setLugarevento(evento.lugarevento || '');
-          
-          // Fecha y hora del evento principal
-          const fechaEvento = new Date(evento.fechaevento + 'T' + (evento.horaevento || '00:00'));
-          setFechaHoraSeleccionada(fechaEvento);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-          setIdtipoevento(String(evento.idtipoevento) || '');
+  // Funciones de servicios y ambientes
+  const agregarAmbiente = () => setAmbientes(prev => [...prev, { key: `ambiente_${Date.now()}`, nombre: '', requisito: '', observaciones: '' }]);
+  const eliminarAmbiente = (index) => setAmbientes(ambientes.filter((_, i) => i !== index));
+  const actualizarAmbiente = (index, campo, valor) => {
+    const nuevos = [...ambientes];
+    nuevos[index][campo] = valor;
+    setAmbientes(nuevos);
+  };
 
-          // Actividades
-          setActividadesPrevias(
-            (evento.actividadesPrevias || []).map((act, i) => ({
-              key: `act-prev-${i}-${Date.now()}`,
-              nombreActividad: act.nombreActividad || '',
-              responsable: act.responsable || '',
-              fechaInicio: new Date(act.fechaInicio),
-              fechaFin: new Date(act.fechaFin),
-              showDatePickerInicio: false,
-              showDatePickerFin: false,
-            }))
-          );
-          setActividadesDurante(
-            (evento.actividadesDurante || []).map((act, i) => ({
-              key: `act-dur-${i}-${Date.now()}`,
-              ...act,
-              fechaInicio: new Date(act.fechaInicio),
-              fechaFin: new Date(act.fechaFin),
-              showDatePickerInicio: false,
-              showDatePickerFin: false,
-            }))
-          );
-          setActividadesPost(
-            (evento.actividadesPost || []).map((act, i) => ({
-              key: `act-post-${i}-${Date.now()}`,
-              ...act,
-              fechaInicio: new Date(act.fechaInicio),
-              fechaFin: new Date(act.fechaFin),
-              showDatePickerInicio: false,
-              showDatePickerFin: false,
-            }))
-          );
-
-          // Servicios
-          setServiciosContratados(
-            (evento.serviciosContratados || []).map((serv, i) => ({
-              key: `servicio_${i}_${Date.now()}`,
-              ...serv,
-              fechaInicio: new Date(serv.fechaInicio),
-              showDatePickerInicio: false,
-            }))
-          );
-
-          // Ambientes
-          setAmbientes(
-            (evento.ambientes || []).map((amb, i) => ({
-              key: `ambiente_${i}_${Date.now()}`,
-              ...amb,
-            }))
-          );
-
-        } catch (error) {
-          console.error("Error al cargar el evento para edición:", error);
-          Alert.alert("Error", "No se pudo cargar el evento.");
-          router.back();
-        } finally {
-          setIsLoadingEventos(false);
-        }
-      }
-    }
-
-    // Permisos de imagen (solo si no es edición o no importa)
-    if (Platform.OS !== 'web') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') Alert.alert('Permiso Necesario', 'Se necesita permiso para acceder a la galería.');
+  const agregarServicio = () => setServiciosContratados(prev => [...prev, { key: `servicio_${Date.now()}`, nombreServicio: '', caracteristica: '', fechaInicio: new Date(), observaciones: '', showDatePickerInicio: false }]);
+  const eliminarServicio = (index) => setServiciosContratados(serviciosContratados.filter((_, i) => i !== index));
+  const actualizarServicio = (index, campo, valor) => {
+    const nuevos = [...serviciosContratados];
+    nuevos[index][campo] = valor;
+    setServiciosContratados(nuevos);
+  };
+  const handleServicioDateChange = (index, field, event, selectedDate) => {
+    actualizarServicio(index, 'showDatePickerInicio', false);
+    if (event.type === 'set' && selectedDate) {
+      actualizarServicio(index, field, selectedDate);
     }
   };
 
-  initializeAndFetch();
-}, [idevento]); // <-- Añadir `idevento` como dependencia
+ 
+const cargarLayouts = async (token) => {
+  const authTokenToUse = token || authToken;
+  
+  if (!authTokenToUse) {
+    console.log('No hay token para cargar layouts');
+    return;
+  }
 
-  const fetchEventosRegistrados = async (token) => {
+  console.log('Iniciando carga de layouts...');
+  setCargandoLayouts(true);
+  
+  try {
+    const response = await axios.get(`${API_BASE_URL}/layouts`, {
+      headers: { 'Authorization': `Bearer ${authTokenToUse}` }
+    });
+    
+    console.log('Respuesta de layouts:', response.data);
+    console.log('Cantidad de layouts:', response.data?.length || 0);
+    
+    if (response.data && Array.isArray(response.data)) {
+      setLayoutsDisponibles(response.data);
+      console.log('Layouts guardados en estado:', response.data.length);
+    } else {
+      console.error('Formato de respuesta incorrecto:', response.data);
+      setLayoutsDisponibles([]);
+    }
+    
+  } catch (error) {
+    console.error('Error al cargar layouts:', error.response?.data || error.message);
+    Alert.alert('Error', 'No se pudieron cargar los layouts disponibles.');
+    setLayoutsDisponibles([]);
+  } finally {
+    setCargandoLayouts(false);
+  }
+};
+
+  // Carga inicial
+  useEffect(() => {
+    const initializeAndFetch = async () => {
+  const token = await getTokenAsync();
+  setAuthToken(token);
+
+  if (!token) {
+    Alert.alert('Error', 'No autenticado');
+    router.back();
+    return;
+  }
+
+  // 1. Primero cargar layouts
+  await cargarLayouts(token);
+
+  // 2. Luego, si es edición, cargar evento
+  if (isEditing) {
     setIsLoadingEventos(true);
     try {
-      const response = await axios.get(`${API_BASE_URL}/eventos`, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (response.data && Array.isArray(response.data)) {
-        setEventosRegistrados(response.data);
-        const diaInicial = getInitialDate();
-        const diaInicialStr = formatToISODate(diaInicial);
-        const eventosDelDiaInicial = response.data
-          .filter(e => e.fechaevento.split('T')[0] === diaInicialStr)
-          .sort((a, b) => a.horaevento.localeCompare(b.horaevento));
-        setEventosDelDia(eventosDelDiaInicial);
+      const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const evento = response.data;
+
+      // ... (todos tus set de estado)
+
+      // Ahora SÍ layoutsDisponibles está disponible
+      if (evento.idlayout) {
+        const layoutEncontrado = layoutsDisponibles.find(l => l.idlayout === evento.idlayout);
+        setLayoutSeleccionado(layoutEncontrado || null);
       }
+
     } catch (error) {
-      console.error("Error al cargar los eventos existentes:", error);
+      console.error("Error al cargar el evento:", error);
+      Alert.alert("Error", "No se pudo cargar el evento.");
+      router.back();
     } finally {
       setIsLoadingEventos(false);
     }
-  };
-  const handleObjetivoChange=(key)=>{
-    setObjetivos(prev=>({...prev,[key]:!prev[key] }));
-  };
-  const handleOtroObjetivoText=(text)=>{
-    setObjetivos(prev=>({...prev, otroTexto:text}));
-  };
-  const onDayPressEventoPrincipal = (day) => {
-    const { dateString } = day;
-    router.push(`/admin/AgendaDia?date=${dateString}`);
-  };
+  }
 
-  const formatToISODate = (date) => { if (!(date instanceof Date) || isNaN(date.valueOf())) return new Date().toISOString().split('T')[0]; return date.toISOString().split('T')[0]; };
-  const formatToISOTime = (date) => { if (!(date instanceof Date) || isNaN(date.valueOf())) return new Date().toTimeString().split(' ')[0].substring(0, 5); return date.toTimeString().split(' ')[0].substring(0, 5); };
-  const onChangeTimeEventoPrincipal = (event, selectedTime) => { setShowTimePicker(Platform.OS === 'ios'); if (event.type === 'set' && selectedTime) { const nuevaHora = new Date(selectedTime); const fechaActual = new Date(fechaHoraSeleccionada); fechaActual.setHours(nuevaHora.getHours()); fechaActual.setMinutes(nuevaHora.getMinutes()); setFechaHoraSeleccionada(fechaActual); } if (Platform.OS === 'android') { setShowTimePicker(false); } };
-  const handleActividadDateChange = (index, field, event, selectedDate, setActividades) => { const pickerVisibilityFlag = field === 'fechaInicio' ? 'showDatePickerInicio' : 'showDatePickerFin'; setActividades(prev => { const newState = [...prev]; if (newState[index]) { newState[index] = { ...newState[index], [pickerVisibilityFlag]: false }; } return newState; }); if (event.type === 'set' && selectedDate) { setActividades(prev => { const newState = [...prev]; if (newState[index]) { newState[index] = {...newState[index], [field]: selectedDate}; if (field === 'fechaInicio' && newState[index].fechaFin < selectedDate) { newState[index].fechaFin = selectedDate; } } return newState; }); } };
-  const validateForm = () => { const newErrors = {}; if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es requerido.'; if (!idtipoevento) newErrors.idtipoevento = 'El tipo de evento es requerido.'; const validateActivityList = (list, listName) => { list.forEach((act, index) => { if (!act.nombreActividad?.trim()) newErrors[`${listName}_${index}_nombre`] = `Nombre de actividad requerido.`; if (!act.responsable?.trim()) newErrors[`${listName}_${index}_responsable`] = `Responsable requerido.`; }); }; validateActivityList(actividadesPrevias, 'Programación de Actividades Previas'); validateActivityList(actividadesDurante, 'Programación de Actividades Durante el Evento'); validateActivityList(actividadesPost, 'Programación de Actividades Después del Evento'); setErrors(newErrors); return Object.keys(newErrors).length === 0; };
-  const agregarAmbiente = () => { setAmbientes(prevState => [...prevState, { key: `ambiente_${Date.now()}`, nombre: '', requisito: '', observaciones: '' }]); }; const eliminarAmbiente = (index) => { setAmbientes(ambientes.filter((_, i) => i !== index)); }; const actualizarAmbiente = (index, campo, valor) => { const nuevosAmbientes = [...ambientes]; nuevosAmbientes[index][campo] = valor; setAmbientes(nuevosAmbientes); }; const agregarServicio = () => { setServiciosContratados(prevState => [...prevState, { key: `servicio_${Date.now()}`, nombreServicio: '', caracteristica: '', fechaInicio: new Date(), observaciones: '', showDatePickerInicio: false }]); }; const eliminarServicio = (index) => { setServiciosContratados(serviciosContratados.filter((_, i) => i !== index)); };
-  const actualizarServicio = (index, campo, valor) => { const nuevosServicios = [...serviciosContratados]; nuevosServicios[index][campo] = valor;
-     setServiciosContratados(nuevosServicios); };
-  const handleServicioDateChange = (index, field, event, selectedDate) => { actualizarServicio(index, 'showDatePickerInicio', false); if (event.type === 'set' && selectedDate) { actualizarServicio(index, field, selectedDate); } };
- const handleCrearEvento = async () => {
+  // ... permisos de imagen, etc.
+};
+    initializeAndFetch();
+  }, [idevento]);
+
+  if (isEditing && isLoadingEventos) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#e95a0c" />
+        <Text style={{ marginTop: 10, color: '#555' }}>Cargando evento...</Text>
+      </View>
+    );
+  }
+const handleCrearEvento = async () => {
   if (!validateForm()) {
     Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo.");
     return;
@@ -392,18 +404,20 @@ useEffect(() => {
   }
 
   setIsLoading(true);
-
   const payload = {
     nombreevento: nombreevento.trim(),
     lugarevento: lugarevento.trim(),
     fechaevento: formatToISODate(fechaHoraSeleccionada),
     horaevento: formatToISOTime(fechaHoraSeleccionada),
+    responsable: responsable.trim(),
     idtipoevento: idtipoevento ? parseInt(idtipoevento, 10) : null,
     actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
     actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
     actividadesPost: actividadesPost.map(formatActivityForSubmit),
-    serviciosContratados: serviciosContratados,
-    ambientes: ambientes,
+    serviciosContratados,
+    ambientes,
+    idlayout: layoutSeleccionado ? layoutSeleccionado.idlayout : null,
+    comite: comiteSeleccionado,
   };
 
   try {
@@ -412,20 +426,15 @@ useEffect(() => {
       response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
-      if (response.status === 200) {
-        Alert.alert('Éxito', 'Evento actualizado correctamente.');
-        router.back();
-      }
+      
+      Alert.alert('Éxito', 'Evento actualizado correctamente.');
     } else {
-      // Crear nuevo
       response = await axios.post(`${API_BASE_URL}/eventos`, payload, {
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
-      if (response.status === 201) {
-        Alert.alert('Éxito', 'Evento creado correctamente.');
-        router.back();
-      }
+      Alert.alert('Éxito', 'Evento creado correctamente.');
     }
+    router.back();
   } catch (error) {
     console.error("Error al guardar evento:", error.response?.data || error.message);
     const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Ocurrió un error al conectar con el servidor.';
@@ -445,101 +454,32 @@ useEffect(() => {
         contentContainerStyle={styles.scrollContentContainer} 
         keyboardShouldPersistTaps="handled"
       >
-        <Stack.Screen options={{ title:isEditing ? 'Editar Evento':'Crear Nuevo Evento' }} />
+        <Stack.Screen options={{ title: isEditing ? 'Programar Evento' : 'Crear Nuevo Evento' }} />
 
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Información Principal</Text>
-          
-          
-          <Text style={styles.label}>Nombre del Evento</Text>
-          <View style={styles.inputGroup}>
-            <Ionicons name="text-outline" size={20} style={styles.inputIcon} />
-            <TextInput style={[styles.input, errors.nombreevento && styles.inputError]} value={nombreevento} onChangeText={setNombreevento} placeholder="Nombre del evento" placeholderTextColor="#aaa"/>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Nombre del Evento</Text>
+            <Text style={styles.infoValue}>{nombreevento || 'No especificado'}</Text>
           </View>
-          {errors.nombreevento && <Text style={styles.errorText}>{errors.nombreevento}</Text>}
-          
-          <Text style={styles.label}>Lugar del Evento</Text>
-          <View style={styles.inputGroup}>
-            <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
-            <TextInput style={styles.input} value={lugarevento} onChangeText={setLugarevento} placeholder="Lugar (opcional)" placeholderTextColor="#aaa"/>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Lugar del Evento</Text>
+            <Text style={styles.infoValue}>{lugarevento || 'No especificado'}</Text>
           </View>
-          
-          <Text style={styles.label}>Fecha del Evento</Text>
-          <View style={styles.calendarContainer}>
-            <Calendar
-              onDayPress={onDayPressEventoPrincipal}
-              markedDates={markedDates}
-              markingType={'period'}
-              theme={{
-                  todayTextColor: '#e95a0c',
-                  arrowColor: '#e95a0c',
-                  selectedDayTextColor: '#ffffff',
-              }}
-            />
-            {isLoadingEventos && <ActivityIndicator style={{padding: 10}} />}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Nombre del Responsable</Text>
+             <Text style={styles.infoValue}>
+                {params.nombre ? `${params.nombre} ${params.apellidopat || ''}` : 'Cargando...'}
+                  </Text>
           </View>
-
-          <View style={styles.eventListContainer}>
-            <Text style={styles.eventListHeader}>Eventos para el {new Date(fechaHoraSeleccionada).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'})}</Text>
-            {eventosDelDia.length > 0 ? (
-              <FlatList
-                data={eventosDelDia}
-                keyExtractor={(item) => item.idevento.toString()}
-                renderItem={({ item }) => (
-                  <View style={styles.eventListItem}>
-                    <View style={[styles.eventTypeIndicator, {backgroundColor: eventTypeColors[item.idtipoevento] || '#bdc3c7'}]} />
-                    <Text style={styles.eventListTime}>{item.horaevento.substring(0, 5)}</Text>
-                    <Text style={styles.eventListName}>{item.nombreevento}</Text>
-                  </View>
-                )}
-              />
-            ) : (
-              <Text style={styles.emptyListText}>No hay eventos programados para este día.</Text>
-            )}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Fecha y Hora</Text>
+            <Text style={styles.infoValue}>
+              {formatToISODate(fechaHoraSeleccionada)} • {formatToISOTime(fechaHoraSeleccionada)}
+            </Text>
           </View>
-
-          <Text style={styles.label}>Hora del Evento</Text>
-          <TouchableOpacity onPress={() => setShowTimePicker(true)} style={styles.datePickerButton}>
-              <Ionicons name="time-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
-              <Text style={styles.datePickerText}>
-                  {fechaHoraSeleccionada.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-          </TouchableOpacity>
-
-          {showTimePicker && ( 
-            <DateTimePicker 
-              value={fechaHoraSeleccionada} 
-              mode="time" 
-              is24Hour={true} 
-              display="default"
-              onChange={onChangeTimeEventoPrincipal}
-            /> 
-          )}
-          {errors.fechaHora && <Text style={styles.errorText}>{errors.fechaHora}</Text>}
-          
-          <Text style={styles.label}>Tipo de Evento</Text>
-          <View style={[styles.pickerContainer, errors.idtipoevento && styles.inputError]}>
-            <Picker 
-              selectedValue={idtipoevento} 
-              onValueChange={(itemValue) => setIdtipoevento(itemValue)} 
-              style={styles.picker} 
-              prompt="Seleccione un tipo de evento"
-            >
-              <Picker.Item label="-- Seleccione un tipo --" value="" style={styles.pickerItemPlaceholder} />
-              {tiposEventoDisponibles.map((tipo) => (
-                <Picker.Item 
-                  key={tipo.idtipoevento} 
-                  label={tipo.nombretipoevento} 
-                  value={tipo.idtipoevento.toString()} 
-                  style={styles.pickerItem}
-                />
-              ))}
-            </Picker>
-          </View>
-          {errors.idtipoevento && 
-          <Text style={styles.errorText}>{errors.idtipoevento}</Text>}
         </View>
-        
+
         <SeccionActividades
           titulo="Programación de Actividades Previas"
           actividades={actividadesPrevias}
@@ -562,6 +502,7 @@ useEffect(() => {
           errors={errors}
         />
 
+        {/* Servicios */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Servicios</Text>
           {serviciosContratados.map((servicio, index) => (
@@ -572,9 +513,8 @@ useEffect(() => {
                   <Ionicons name="trash-bin-outline" size={22} color="#c0392b" />
                 </TouchableOpacity>
               </View>
-
               <Text style={styles.label}>Servicio</Text>
-               <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
                 <Ionicons name="build-outline" size={20} style={styles.inputIcon} />
                 <TextInput 
                   style={styles.input} 
@@ -584,8 +524,6 @@ useEffect(() => {
                   placeholderTextColor="#aaa"
                 />
               </View>
-              {errors[`servicio_${index}_nombreServicio`] && <Text style={styles.errorText}>{errors[`servicio_${index}_nombreServicio`]}</Text>}
-
               <Text style={styles.label}>Caracteristicas</Text>
               <View style={styles.inputGroup}>
                 <Ionicons name="list-outline" size={20} style={styles.inputIcon} />
@@ -597,8 +535,6 @@ useEffect(() => {
                   placeholderTextColor="#aaa"
                 />
               </View>
-              {errors[`servicio_${index}_caracteristica`] && <Text style={styles.errorText}>{errors[`servicio_${index}_caracteristica`]}</Text>}
-
               <Text style={styles.label}>Fecha Entrega</Text>
               <TouchableOpacity onPress={() => actualizarServicio(index, 'showDatePickerInicio', true)} style={styles.datePickerButton}>
                 <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
@@ -612,7 +548,7 @@ useEffect(() => {
                   onChange={(event, date) => handleServicioDateChange(index, 'fechaInicio', event, date)}
                 />
               )}
-             <Text style={styles.label}>Observaciones</Text>
+              <Text style={styles.label}>Observaciones</Text>
               <View style={styles.inputGroup}>
                 <Ionicons name="document-text-outline" size={20} style={styles.inputIcon} />
                 <TextInput 
@@ -623,7 +559,6 @@ useEffect(() => {
                   placeholderTextColor="#aaa"
                 />
               </View>
-              {errors[`servicio_${index}_observaciones`] && <Text style={styles.errorText}>{errors[`servicio_${index}_observaciones`]}</Text>}
             </View>
           ))}
           <TouchableOpacity onPress={agregarServicio} style={styles.addButton}>
@@ -631,7 +566,8 @@ useEffect(() => {
             <Text style={styles.addButtonText}>Añadir Servicio</Text>
           </TouchableOpacity>
         </View>
-       
+
+        {/* Ambientes */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Ambiente</Text>
           {ambientes.map((ambiente, index) => (
@@ -642,9 +578,8 @@ useEffect(() => {
                   <Ionicons name="trash-bin-outline" size={22} color="#c0392b" />
                 </TouchableOpacity>
               </View>
-
               <Text style={styles.label}>Ambiente</Text>
-               <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
                 <Ionicons name="business-outline" size={20} style={styles.inputIcon} />
                 <TextInput 
                   style={styles.input} 
@@ -654,8 +589,6 @@ useEffect(() => {
                   placeholderTextColor="#aaa"
                 />
               </View>
-              {errors[`ambiente_${index}_nombre`] && <Text style={styles.errorText}>{errors[`ambiente_${index}_nombre`]}</Text>}
-
               <Text style={styles.label}>Requisito</Text>
               <View style={styles.inputGroup}>
                 <Ionicons name="list-outline" size={20} style={styles.inputIcon} />
@@ -667,9 +600,7 @@ useEffect(() => {
                   placeholderTextColor="#aaa"
                 />
               </View>
-              {errors[`ambiente_${index}_requisito`] && <Text style={styles.errorText}>{errors[`ambiente_${index}_requisito`]}</Text>}
-
-             <Text style={styles.label}>Observaciones</Text>
+              <Text style={styles.label}>Observaciones</Text>
               <View style={styles.inputGroup}>
                 <Ionicons name="document-text-outline" size={20} style={styles.inputIcon} />
                 <TextInput 
@@ -680,7 +611,6 @@ useEffect(() => {
                   placeholderTextColor="#aaa"
                 />
               </View>
-              {errors[`ambiente_${index}_observaciones`] && <Text style={styles.errorText}>{errors[`ambiente_${index}_observaciones`]}</Text>}
             </View>
           ))}
           <TouchableOpacity onPress={agregarAmbiente} style={styles.addButton}>
@@ -689,18 +619,73 @@ useEffect(() => {
           </TouchableOpacity>
         </View>
 
+        {/* === GALERÍA DE LAYOUTS SUBIDOS === */}
+          <View style={styles.formSection}>
+  <Text style={styles.sectionTitle}>Layouts Disponibles</Text>
+
+  {cargandoLayouts ? (
+    <View style={styles.centered}>
+      <ActivityIndicator size="small" color="#e95a0c" />
+      <Text style={{ marginTop: 8, color: '#666' }}>Cargando layouts...</Text>
+    </View>
+  ) : layoutsDisponibles.length === 0 ? (
+    <View>
+      <Text style={{ color: '#777', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>
+        No hay layouts subidos aún.
+      </Text>
+      <TouchableOpacity 
+        onPress={() => cargarLayouts(authToken)} 
+        style={styles.retryButton}
+      >
+        <Ionicons name="reload" size={20} color="#e95a0c" />
+        <Text style={styles.retryButtonText}>Reintentar carga</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+      <View style={styles.layoutsGrid}>
+        {layoutsDisponibles.map((layout) => {
+  const imageUrl = layout.imagenUrl || `${API_BASE_URL.replace('/api', '')}/uploads/${layout.url_imagen}`;
+  const isSelected = layoutSeleccionado?.idlayout === layout.idlayout;
+
+  return (
+    <View key={layout.idlayout} style={[styles.layoutItem, isSelected && styles.layoutItemSelected]}>
+      <TouchableOpacity 
+        onPress={() => setLayoutSeleccionado(layout)} // ← SELECCIONA EL LAYOUT
+      >
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.layoutImage}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
+      <Text style={styles.layoutName} numberOfLines={2}>
+        {layout.nombre}
+      </Text>
+    </View>
+  );
+})}
+      </View>
+    </ScrollView>
+  )}
+</View>
+
+
+        {/* Botón de guardar */}
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleCrearEvento}
           disabled={isLoading || !authToken}
         >
-          {isLoading ? <ActivityIndicator color="#fff" /> :
-           <Text style={styles.buttonText}>Crear Evento</Text>}
+          <Text style={styles.buttonText}>
+            {isEditing ? 'Guardar Cambios' : 'Crear Evento'}
+            </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
+
 
 
 // --- ESTILOS (sin cambios) ---
@@ -747,6 +732,109 @@ const styles = StyleSheet.create({
   eventListTime: { fontSize: 15, fontWeight: '500', color: '#333', width: 60, },
   eventListName: { fontSize: 15, color: '#555', flex: 1, },
   emptyListText: { textAlign: 'center', color: '#777', paddingVertical: 20, fontStyle: 'italic', },
+    centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+    infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  layoutItemSelected: {
+  borderColor: '#e95a0c',
+  borderWidth: 2,
+  borderRadius: 10,
+  backgroundColor: '#fffaf5',
+},
+  infoLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#1e293b',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1.2,
+    flexWrap: 'wrap',
+  },  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  fieldContainer: {
+    marginBottom: 20,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#1e293b',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1.2,
+    flexWrap: 'wrap',
+  },
+ layoutsGrid: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+  },
+  layoutItem: {
+    width: 150,
+    marginRight: 15,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  layoutImage: {
+    width: 130,
+    height: 130,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  layoutName: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '500',
+    width: '100%',
+  },
+centered: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingVertical: 20,
+},
 });
 
-export default CrearEvento;
+export default programacionEvento;

@@ -7,9 +7,6 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
-  Image, 
-  FlatList,
-  Modal,
   ActivityIndicator,
   Pressable,
   Animated,
@@ -20,8 +17,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { PieChart } from 'react-native-chart-kit';
 
-// Configuración de API
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
@@ -38,14 +35,12 @@ const getTokenAsync = async () => {
     try {
       return localStorage.getItem(TOKEN_KEY);
     } catch (e) {
-      console.error("Error al acceder a localStorage en web:", e);
       return null;
     }
   } else {
     try {
       return await SecureStore.getItemAsync(TOKEN_KEY);
     } catch (e) {
-      console.error("Error al obtener token de SecureStore en nativo:", e);
       return null;
     }
   }
@@ -55,134 +50,127 @@ const deleteTokenAsync = async () => {
   if (Platform.OS === 'web') {
     try {
       localStorage.removeItem(TOKEN_KEY);
-    } catch (e) {
-      console.error("Error al eliminar token de localStorage en web:", e);
-    }
+    } catch (e) {}
   } else {
     try {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
-    } catch (e) {
-      console.error("Error al eliminar token de SecureStore en nativo:", e);
-    }
+    } catch (e) {}
   }
 };
 
-// Definición de colores
 const COLORS = {
   primary: '#E95A0C',
-  secondary: '#2980b9',
-  accent: '#e74c3c',
-  second:'#FFA07A',
-  background: '#f8fafc',
-  surface: '#ffffff',
-  success: '#27ae60',
-  warning: '#f39c12',
-  info: '#3498db',
-  purple: '#9b59b6',
-  logout: '#e74c3c',
-  white: '#fff',
-  grayLight: '#ecf0f1',
-  grayText: '#64748b',
-  darkText: '#1e293b',
-  overlay: 'rgba(15, 23, 42, 0.7)',
-  cardShadow: '#000000',
-  notificationUnread: '#e6f0ff',
-  notificationRead: '#ffffff',
+  primaryLight: '#FFEDD5',
+  secondary: '#4B5563',
+  accent: '#EF4444',
+  success: '#10B981',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  background: '#F9FAFB',
+  surface: '#FFFFFF',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  border: '#E5E7EB',
+  divider: '#D1D5DB',
+  shadow: 'rgba(0, 0, 0, 0.05)',
+  white: '#FFFFFF',
+  black: '#000000',
 };
 
-// Constantes para el diseño responsivo
-const CARD_MARGIN = 16;
-const MIN_CARD_WIDTH = 280;
-const MAX_COLUMNS = 3;
-const MAX_CARD_WIDTH = 340;
+const CARD_MARGIN = 12;
+const MIN_CARD_WIDTH_DASHBOARD = 160;
+const MAX_COLUMNS_DASHBOARD = 4;
+const MIN_CARD_WIDTH_ACTIONS = 200;
+const MAX_COLUMNS_ACTIONS = 3;
 
-const ActionCard = ({ action, onPress, cardWidth, index }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+const DashboardCard = ({ title, value, icon, color, trend, description }) => {
+  const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
+  const trendIcon = trend > 0 ? 'arrow-up' : 'arrow-down';
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim, index]);
-
-  const onPressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      speed: 100,
-      bounciness: 10,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 100,
-      bounciness: 10,
-    }).start();
-  };
+  const safeColor = color || COLORS.primary;
+  const safeIcon = icon || 'information-circle-outline';
+  const safeValue = value || '0';
+  const safeTitle = title || 'Sin título';
 
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      accessibilityRole="button"
-      accessibilityLabel={`Acción: ${action.title}`}
-      style={{ margin: CARD_MARGIN / 2 }}
-    >
-      <Animated.View
-        style={[
-          styles.actionCard,
-          {
-            width: cardWidth,
-            transform: [{ scale: scaleAnim }],
-            opacity: fadeAnim,
-          },
-        ]}
-      >
-        <View style={[styles.actionCardHeader, { backgroundColor: action.color }]}>
-          <View style={styles.actionIconContainer}>
-            <Ionicons name={action.iconName} size={32} color={COLORS.white} />
-          </View>
-          <View style={styles.headerOverlayEffect} />
+    <View style={styles.dashboardCardMinimal}>
+      <View style={styles.dashboardCardTopRow}>
+        <Ionicons name={safeIcon} size={32} color={safeColor} />
+        <Text style={styles.dashboardCardValueMinimal}>{safeValue}</Text>
+      </View>
+      <Text style={styles.dashboardCardTitleMinimal}>{safeTitle}</Text>
+      {description && (
+        <Text style={styles.dashboardCardDescriptionMinimal}>{description}</Text>
+      )}
+      {trend !== null && trend !== undefined && (
+        <View style={styles.dashboardCardTrendMinimal}>
+          <Ionicons name={trendIcon} size={14} color={trendColor} />
+          <Text style={[styles.dashboardCardTrendTextMinimal, { color: trendColor }]}>
+            {Math.abs(trend)}% {trend > 0 ? 'más' : 'menos'}
+          </Text>
         </View>
-        <View style={styles.actionContent}>
-          <Text style={styles.actionTitle}>{action.title}</Text>
-          {action.description && (
-            <Text style={styles.actionDescription}>{action.description}</Text>
-          )}
-          {action.badge && (
-            <View style={[styles.badge, { backgroundColor: action.badgeColor || COLORS.accent }]}>
-              <Text style={styles.badgeText}>{action.badge}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.actionArrow}>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.grayText} />
-        </View>
-      </Animated.View>
-    </Pressable>
+      )}
+    </View>
   );
 };
 
-// ✅ CORRECCIÓN PRINCIPAL: Eliminamos la animación de height (problemática)
-const ExpandableBottomBanner = ({ 
-  onLogout, onActionPress, isExpanded, onToggleExpanded }) => {
+const ManagementToolCard = ({ title, description, icon, color, badge, onPress, cardWidth }) => {
+  const safeColor = color || COLORS.secondary;
+  const safeIcon = icon || 'information-circle-outline';
+  const safeTitle = title || 'Sin título';
+  const safeDescription = description || '';
+  
+  return (
+    <TouchableOpacity
+      style={[styles.managementToolCardMinimal, {
+        borderColor: safeColor + '20',
+        width: cardWidth,
+      }]}
+      onPress={onPress}
+    >
+      <View style={styles.managementToolCardHeaderMinimal}>
+        <View style={[styles.managementToolCardIconMinimal, { backgroundColor: safeColor + '10' }]}>
+          <Ionicons name={safeIcon} size={24} color={safeColor} />
+        </View>
+        <View style={styles.managementToolCardTextContainerMinimal}>
+          <Text style={styles.managementToolCardTitleMinimal} numberOfLines={2} ellipsizeMode='tail'>
+            {safeTitle}
+          </Text>
+          {safeDescription && (
+            <Text style={styles.managementToolCardDescriptionMinimal} numberOfLines={2} ellipsizeMode='tail'>
+              {safeDescription}
+            </Text>
+          )}
+        </View>
+        {badge && (
+          <View style={[styles.managementToolCardBadgeMinimal, { backgroundColor: safeColor }]}>
+            <Text style={styles.managementToolCardBadgeTextMinimal}>{badge}</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpanded }) => {
+  const dockHeight = useRef(new Animated.Value(60)).current;
+  const expandedHeight = 200;
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const headerScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: isExpanded ? 1 : 0,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
+    Animated.parallel([
+      Animated.timing(dockHeight, {
+        toValue: isExpanded ? expandedHeight : 60,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(rotateAnim, {
+        toValue: isExpanded ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [isExpanded]);
 
   const rotateInterpolate = rotateAnim.interpolate({
@@ -194,102 +182,69 @@ const ExpandableBottomBanner = ({
     {
       id: 'add-user',
       title: 'Nuevo Usuario',
-      icon: 'person-add',
-      color: COLORS.warning,
+      icon: 'person-add-outline',
+      color: COLORS.primary,
       action: '/admin/UsuariosA'
     },
     {
       id: 'pendientes',
       title: 'Pendientes',
-      icon: 'document-text',
-      color: COLORS.secondary,
+      icon: 'document-text-outline',
+      color: COLORS.warning,
       action: '/admin/EventosPendientes'
     },
     {
       id: 'aprobados',
       title: 'Aprobados',
-      icon: 'document-text',
+      icon: 'checkmark-circle-outline',
       color: COLORS.success,
       action: '/admin/EventosAprobados'
+    },
+    {
+      id: 'settings',
+      title: 'Ajustes',
+      icon: 'settings-outline',
+      color: COLORS.secondary,
+      action: '/admin/Settings'
     }
   ];
 
-  const onPressIn = () => {
-    Animated.spring(headerScale, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      speed: 120,
-      bounciness: 8,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(headerScale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 120,
-      bounciness: 8,
-    }).start();
-  };
-
   return (
-    <View style={styles.expandableBannerContainer}>
-      {/* Contenido expandido SIN animación de altura */}
+    <Animated.View style={[styles.minimalDockContainer, { height: dockHeight }]}>
+      <Pressable onPress={onToggleExpanded} style={styles.minimalDockToggle}>
+        <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+          <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
+        </Animated.View>
+        <Text style={styles.minimalDockToggleText}>Menú</Text>
+      </Pressable>
+
       {isExpanded && (
-        <View style={styles.expandedContent}>
-          <Text style={styles.expandedTitle}>Acciones Rápidas</Text>
-          <View style={styles.quickActionsGrid}>
+        <View style={styles.minimalDockExpandedContent}>
+          <View style={styles.minimalDockQuickActions}>
             {quickActions.map((action) => (
-              <Pressable
+              <TouchableOpacity
                 key={action.id}
-                style={[styles.quickActionItem, { backgroundColor: action.color + '15' }]}
+                style={styles.minimalDockQuickActionButton}
                 onPress={() => onActionPress(action.action)}
               >
-                <Ionicons name={action.icon} size={28} color={action.color} />
-                <Text style={[styles.quickActionText, { color: action.color }]}>
+                <Ionicons name={action.icon} size={24} color={action.color} />
+                <Text style={[styles.minimalDockQuickActionText, { color: action.color }]}>
                   {action.title}
                 </Text>
-              </Pressable>
+              </TouchableOpacity>
             ))}
           </View>
-          <Pressable onPress={onLogout} style={styles.expandedLogoutButton}>
-            <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
-            <Text style={styles.expandedLogoutText}>Cerrar Sesión</Text>
-          </Pressable>
+          <TouchableOpacity onPress={onLogout} style={styles.minimalDockLogoutButton}>
+            <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
+            <Text style={styles.minimalDockLogoutButtonText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
         </View>
       )}
-      {/* Banner principal siempre visible */}
-      <Pressable
-        onPress={onToggleExpanded}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        style={styles.bannerHeader}
-      >
-        <Animated.View style={{ transform: [{ scale: headerScale }] }}>
-          <View style={styles.bannerContent}>
-            <View style={styles.bannerIconsContainer}>
-              <View style={styles.bannerIcon}>
-                <Ionicons name="flash" size={16} color={COLORS.white} />
-              </View>
-              <View style={styles.bannerIcon}>
-                <Ionicons name="settings" size={16} color={COLORS.white} />
-              </View>
-              <View style={styles.bannerIcon}>
-                <Ionicons name="person" size={16} color={COLORS.white} />
-              </View>
-            </View>
-            <Text style={styles.bannerTitle}>Acceso Rápido</Text>
-            <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
-              <Ionicons name="chevron-up" size={20} color={COLORS.white} />
-            </Animated.View>
-          </View>
-        </Animated.View>
-      </Pressable>
-    </View>
+    </Animated.View>
   );
 };
 
-const HeaderSection = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
+const MinimalHeader = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
   const getCurrentGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -298,40 +253,25 @@ const HeaderSection = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
   };
 
   return (
-    <View style={styles.headerContainer}>
-      <Image
-        source={require('../../assets/images/ind.jpg')}
-        style={styles.headerImage}
-        resizeMode="cover"
-      />
-      <View style={styles.headerOverlay}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerGreeting}>{getCurrentGreeting()}</Text>
-          <Text style={styles.headerTitle}>Panel de Administración</Text>
-          <Text style={styles.headerSubtitle}>Gestiona tu aplicación eficientemente</Text>
-        </View>
-        <View style={styles.headerBottom}>
-          <View style={styles.userInfo}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userInitial}>{nombreUsuario.charAt(0).toUpperCase()}</Text>
+    <View style={styles.minimalHeaderContainer}>
+      <View style={styles.minimalHeaderTop}>
+        <Text style={styles.minimalHeaderAdminText}>admin</Text>
+        <TouchableOpacity style={styles.minimalNotificationButton} onPress={onNotificationPress}>
+          <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
+          {unreadCount > 0 && (
+            <View style={styles.minimalNotificationBadge}>
+              <Text style={styles.minimalNotificationBadgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
             </View>
-            <Text style={styles.userName}>{nombreUsuario}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.headerNotificationButton}
-            onPress={onNotificationPress}
-          >
-            <Ionicons name="notifications" size={24} color={COLORS.white} />
-            {unreadCount > 0 && (
-              <View style={styles.headerBadge}>
-                <Text style={styles.headerBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+          )}
+        </TouchableOpacity>
       </View>
+      <View style={styles.minimalHeaderGreeting}>
+        <Text style={styles.minimalGreetingText}>{getCurrentGreeting()},</Text>
+        <Text style={styles.minimalUserNameText}>{nombreUsuario}</Text>
+      </View>
+      <Text style={styles.minimalHeaderTitle}>Panel de Administración</Text>
     </View>
   );
 };
@@ -344,351 +284,220 @@ const HomeAdministradorScreen = () => {
 
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [pendingContentCount, setPendingContentCount] = useState('0');
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
-  const [activeUsersCount, setActiveUsersCount] = useState('0');
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const unreadCount = notifications.filter(notif => !notif.read).length;
+  const [eventosPorEstado, setEventosPorEstado] = useState(null);
 
-  const { columns, cardWidth } = useMemo(() => {
-  let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
-  numColumns = Math.min(numColumns, MAX_COLUMNS);
-  const cols = numColumns > 0 ? numColumns : 1;
-  let width = (windowWidth - CARD_MARGIN * cols * 2) / cols;
-  width = Math.min(width, MAX_CARD_WIDTH);
-  return { columns: cols, cardWidth: width };
-}, [windowWidth]);
-
-
-  const [systemAlerts, setSystemAlerts] = useState([
-    {
-      id: 'alert-3',
-      title: 'Respaldo automático',
-      description: 'Último respaldo hace 25 horas',
-      priority: 'medium',
-      color: COLORS.info,
-      icon: 'cloud-upload',
-      timestamp: new Date(Date.now() - 90000000).toISOString(),
-      action: '/admin/respaldos'
-    },
-    {
-      id: 'alert-4',
-      title: 'Usuarios inactivos',
-      description: '23 cuentas sin actividad por 30+ días',
-      priority: 'low',
-      color: COLORS.purple,
-      icon: 'people',
-      timestamp: new Date(Date.now() - 172800000).toISOString(),
-      action: '/admin/UsuariosVista.js'
-    }
+  const [dashboardStats, setDashboardStats] = useState([
+    { title: 'Usuarios Activos', value: 'cargando...', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
+    { title: 'Eventos Totales', value: 'cargando...', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
+    { title: 'Pendientes', value: 'cargando...', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
+    { title: 'Aprobados (Mes)', value: 'cargando...', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
+    { title: 'Tasa Aprobación', value: 'cargando...', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
+    { title: 'Estabilidad', value: 'cargando...', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
   ]);
 
-  // Estados para datos dinámicos (mantenemos solo para referencia)
-  const [quickStats] = useState([
-    { icon: 'people-outline', value: activeUsersCount, label: 'Usuarios', color: COLORS.info },
-    { icon: 'calendar-outline', value: '24', label: 'Eventos', color: COLORS.success },
-    { icon: 'document-text-outline', value: pendingContentCount, label: 'Contenidos', color: COLORS.warning },
-    { icon: 'trending-up-outline', value: '95%', label: 'Sistema', color: COLORS.purple },
-  ]);
-
-  // Función para obtener notificaciones
-  const fetchNotifications = useCallback(async () => {
-    setLoadingNotifications(true);
+  const fetchDashboardData = useCallback(async () => {
+    setLoadingDashboard(true);
     try {
       const token = await getTokenAsync();
       if (!token) {
-        Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
-        await deleteTokenAsync();
-        router.replace('/LoginAdmin');
+        console.warn('No hay token disponible');
+        setLoadingDashboard(false);
         return;
       }
 
-        console.log('Fetching notifications with REAL events from database...');
-
-    // 🔧 NUEVA IMPLEMENTACIÓN: Obtener eventos reales pendientes
-    let realEventNotifications = [];
-    try {
-      console.log('Fetching pending events from API...');
-      const eventsResponse = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 10000,
       });
-      
-      console.log('Events API response:', eventsResponse.data);
-      
-      // Crear notificaciones basadas en eventos reales pendientes
-      if (eventsResponse.data?.success && eventsResponse.data.events?.length > 0) {
-        realEventNotifications = eventsResponse.data.events.slice(0, 3).map((event, index) => ({
-          id: `event-${event.id}`,
-          title: 'Evento pendiente de aprobación',
-          message: `El evento "${event.title}" necesita tu revisión`,
-          timestamp: new Date(Date.now() - (index + 1) * 1800000).toISOString(),
-          read: false,
-          type: 'event',
-          eventId: event.id, // ID REAL del evento (606, etc.)
-          priority: event.priority,
-          organizer: event.organizer,
-          date: event.date
-        }));
-        
-        console.log('Created event notifications:', realEventNotifications);
+
+      const data = response.data;
+
+      if (!data.estadoCounts || typeof data.estadoCounts !== 'object') {
+        setPendingContentCount('0');
+        setEventosPorEstado(null);
       } else {
-        console.log('No pending events found in API response');
-      }
-    } catch (eventError) {
-      console.error('Error fetching real events for notifications:', eventError);
-      console.error('Error details:', eventError.response?.data);
-      
-      // Fallback: usar datos mock con el evento 606 que sí existe
-      realEventNotifications = [
-        {
-          id: 'event-606',
-          title: 'Evento pendiente de aprobación',
-          message: 'El evento "evento primero" necesita tu revisión',
-          timestamp: new Date().toISOString(),
-          read: false,
-          type: 'event',
-          eventId: 606 // ID REAL de tu base de datos
+        setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
+
+        const estados = Object.keys(data.estadoCounts).filter(key => {
+          const value = data.estadoCounts[key];
+          return typeof value === 'number' && value > 0;
+        });
+        
+        if (estados.length > 0) {
+          const counts = estados.map(estado => data.estadoCounts[estado] || 0);
+          setEventosPorEstado({
+            labels: estados,
+            datasets: [{ data: counts }]
+          });
+        } else {
+          setEventosPorEstado(null);
         }
-      ];
-    }
-
-    // Combinar con otras notificaciones del sistema
-    const systemNotifications = [
-      {
-        id: 'sys-1',
-        title: 'Usuario registrado',
-        message: 'Un nuevo usuario se ha registrado en la plataforma',
-        timestamp: new Date(Date.now() - 30000).toISOString(),
-        read: false,
-        type: 'user'
-      },
-      {
-        id: 'sys-2',
-        title: 'Sistema actualizado',
-        message: 'El sistema se ha actualizado correctamente',
-        timestamp: new Date(Date.now() - 60000).toISOString(),
-        read: true,
-        type: 'system'
-      },
-      {
-        id: 'content-1',
-        title: 'Contenido pendiente de aprobación',
-        message: 'Hay 3 nuevas publicaciones esperando tu revisión',
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-        read: false,
-        type: 'content',
-      },
-      {
-        id: 'error-1',
-        title: 'Mantenimiento programado',
-        message: 'El sistema tendrá mantenimiento el próximo domingo',
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        read: true,
-        type: 'system',
-      },
-    ];
-
-    // Combinar todas las notificaciones
-    const allNotifications = [
-      ...realEventNotifications,
-      ...systemNotifications
-    ];
-
-    const sortedNotifications = allNotifications.sort((a, b) => {
-      if (a.read === b.read) {
-        return new Date(b.timestamp) - new Date(a.timestamp);
       }
-      return a.read ? 1 : -1;
-    });
 
-    console.log(`Final notifications created: ${sortedNotifications.length}`);
-    console.log(`Event notifications: ${realEventNotifications.length}`);
-    
-    setNotifications(sortedNotifications);
-
-  } catch (error) {
-    console.error('Error al cargar notificaciones:', error);
-    Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      await deleteTokenAsync();
-      router.replace('/LoginAdmin');
-    }
-  } finally {
-    setLoadingNotifications(false);
-  }
-}, [router]);
-
-  const fetchDashboardStats = useCallback(async () => {
-    try {
-      const token = await getTokenAsync();
-      if (!token) return;
-
-      setActiveUsersCount('1,245');
-      setPendingContentCount('12');
+      const newStats = [
+        { 
+          title: 'Usuarios Activos', 
+          value: (data.activeUsers || 0).toLocaleString(), 
+          icon: 'people-outline', 
+          color: COLORS.primary, 
+          trend: null, 
+          description: 'Cuentas habilitadas' 
+        },
+        { 
+          title: 'Eventos Totales', 
+          value: (data.totalEvents || 0).toString(), 
+          icon: 'calendar-outline', 
+          color: COLORS.info, 
+          trend: null, 
+          description: 'Todos los eventos' 
+        },
+        { 
+          title: 'Pendientes', 
+          value: (data.estadoCounts?.pendiente || 0).toString(), 
+          icon: 'document-text-outline', 
+          color: COLORS.warning, 
+          trend: null, 
+          description: 'Esperando aprobación' 
+        },
+        { 
+          title: 'Aprobados (Mes)', 
+          value: (data.eventosAprobadosMes || 0).toString(), 
+          icon: 'checkmark-done-outline', 
+          color: COLORS.success, 
+          trend: null, 
+          description: 'Este mes' 
+        },
+        { 
+          title: 'Tasa Aprobación', 
+          value: `${data.tasaAprobacion || 0}%`, 
+          icon: 'analytics-outline', 
+          color: COLORS.info, 
+          trend: null, 
+          description: 'Eventos aprobados / totales' 
+        },
+        { 
+          title: 'Estabilidad', 
+          value: `${data.systemStability || 0}%`, 
+          icon: 'pulse-outline', 
+          color: COLORS.success, 
+          trend: null, 
+          description: 'Rendimiento del sistema' 
+        },
+      ];
+      
+      setDashboardStats(newStats);
       
     } catch (error) {
-      console.error('Error al cargar estadísticas del dashboard:', error);
+      console.error('❌ Error al cargar dashboard:', error);
+      
+      const errorStats = [
+        { title: 'Usuarios Activos', value: '0', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
+        { title: 'Eventos Totales', value: '0', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
+        { title: 'Pendientes', value: '0', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
+        { title: 'Aprobados (Mes)', value: '0', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
+        { title: 'Tasa Aprobación', value: '0%', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
+        { title: 'Estabilidad', value: '0%', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
+      ];
+      setDashboardStats(errorStats);
+      
+      Alert.alert(
+        'Error de Conexión',
+        `No se pudieron cargar los datos del dashboard.\n\nDetalle: ${error.message}`,
+        [
+          { text: 'Reintentar', onPress: () => fetchDashboardData() }, 
+          { text: 'Cancelar', style: 'cancel' }
+        ]
+      );
+    } finally {
+      setLoadingDashboard(false);
     }
   }, []);
-
-  const handleNotificationPress = useCallback(async (notificationItem) => {
-  console.log('=== NOTIFICATION PRESSED ===');
-  console.log('Notification item:', notificationItem);
-  console.log('Event ID from notification:', notificationItem.eventId);
-  
-  // 1. Marcar como leída
-  setNotifications(prev =>
-    prev.map(notif =>
-      notif.id === notificationItem.id
-        ? { ...notif, read: true }
-        : notif
-    ).sort((a, b) => {
-      if (a.read === b.read) {
-        return new Date(b.timestamp) - new Date(a.timestamp);
-      }
-      return a.read ? 1 : -1;
-    })
-  );
-
-  try {
+useEffect(() => {
+  const validateSession = async () => {
     const token = await getTokenAsync();
-    console.log(`Notificación ${notificationItem.id} marcada como leída.`);
-  } catch (error) {
-    console.error(`Error al marcar notificación ${notificationItem.id} como leída:`, error);
-  }
-
-  // 2. Navegar si es un evento
-  if (notificationItem.type === 'event' ) {
-    setShowNotifications(false);
-    
-    router.push({
-      pathname: '/admin/EventosPendientes',  // Cambio aquí: EventDetailScreen en lugar de EventoDetalle
-      //params: { eventId: notificationItem.eventId.toString() }
-    });
-    
-  } else if (notificationItem.type === 'content') {
-    setShowNotifications(false);
-    router.push('/admin/EventDetailScreen');
-  }
-}, [router]);
-
-  const markAllAsRead = useCallback(async () => {
-    setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
-    try {
-      const token = await getTokenAsync();
-      console.log('Todas las notificaciones marcadas como leídas.');
-      // Aquí podrías hacer una llamada a tu API para marcar todas como leídas en el backend
-    } catch (error) {
-      console.error('Error al marcar todas las notificaciones como leídas:', error);
+    if (!token) {
+      console.log(' No hay sesión activa. Redirigiendo a login...');
+      router.replace('/');
+      return;
     }
-  }, []);
+    // Si hay token, cargar datos
+    fetchDashboardData();
+  };
 
-  const unreadCount = notifications.filter(notif => !notif.read).length;
+  validateSession();
+}, [router]);
+  const { cardWidth: actionsCardWidth } = useMemo(() => {
+    const availableWidth = windowWidth - 40;
+    let numColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH_ACTIONS + CARD_MARGIN));
+    numColumns = Math.max(1, Math.min(numColumns, MAX_COLUMNS_ACTIONS));
+    const totalGaps = CARD_MARGIN * (numColumns - 1);
+    const width = (availableWidth - totalGaps) / numColumns;
+    return { cardWidth: width };
+  }, [windowWidth]);
 
   const adminActions = [
     {
-      id: '0',
-      title: 'Proyecto del Evento',
-      iconName: 'clipboard-outline',
-      route: '/admin/ProyectoEvento',
-      color: '#E95A0C',
-      description: 'Elaboración del proyecto del evento',
-      badge: 'Activo',
-      badgeColor: COLORS.success,
-    },
-    {
       id: '1',
-      title: 'Gestionar Usuarios',
+      title: 'Gestión de Usuarios',
       iconName: 'people-outline',
       route: '/admin/UsuariosA',
-      color: '#E95A0C',
-      description: 'Añadir, editar o eliminar usuarios',
+      color: COLORS.secondary,
+      description: 'Administración de cuentas de usuario',
     },
     {
       id: '2',
-      title: 'Eventos Pendientes ',
-      iconName: 'library-outline',
+      title: 'Eventos Pendientes',
+      iconName: 'timer-outline',
       route: '/admin/EventosPendientes',
-      color: COLORS.secondary,
-      description: 'Aprueba los eventos pendientes',
+      color: COLORS.warning,
+      description: 'Revisión y aprobación de eventos',
       badge: `${pendingContentCount} pendientes`,
       badgeColor: COLORS.warning,
     },
     {
       id: '3',
       title: 'Eventos Aprobados',
-      iconName: 'settings-outline',
+      iconName: 'checkmark-circle-outline',
       route: '/admin/EventosAprobados',
       color: COLORS.success,
-      description: 'Ajustes generales de la aplicación',
+      description: 'Gestión de eventos ya aprobados',
     },
     {
       id: '4',
-      title: 'Ver Estadísticas',
+      title: 'Análisis de Datos',
       iconName: 'analytics-outline',
       route: '/admin/Estadistica',
-      color: '#E95A0C',
-      description: 'Visualizar datos y métricas de la app',
+      color: COLORS.info,
+      description: 'Informes y métricas del sistema',
     },
     {
       id: '5',
-      title: 'Reportes',
-      iconName: 'document-attach-outline',
+      title: 'Reportes Avanzados',
+      iconName: 'document-text-outline',
       route: '/admin/reportes',
-      color: '#E95A0C',
-      description: 'Genera informes detallados',
+      color: COLORS.secondary,
+      description: 'Generación de reportes detallados',
       badge: 'Nuevo',
       badgeColor: COLORS.accent,
     },
   ];
 
-  const formatTime = (timestamp) => {
-    const now = new Date();
-    const notifTime = new Date(timestamp);
-    const diff = Math.floor((now - notifTime) / 1000);
-    if (diff < 60) return 'Hace unos segundos';
-    if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
-    return `Hace ${Math.floor(diff / 86400)} días`;
-  };
-
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'user': return 'person-add';
-      case 'system': return 'settings';
-      case 'event': return 'calendar';
-      case 'content': return 'document-text';
-      case 'error': return 'warning';
-      default: return 'information-circle';
-    }
-  };
-
-  const getNotificationColor = (type) => {
-    switch (type) {
-      case 'user': return COLORS.info;
-      case 'system': return COLORS.purple;
-      case 'event': return COLORS.success;
-      case 'content': return COLORS.warning;
-      case 'error': return COLORS.accent;
-      default: return COLORS.warning;
-    }
-  };
-
   const handleActionPress = (route) => {
     if (route) {
       router.push(route);
     } else {
-      Alert.alert(
-        'Próximamente',
-        'Esta funcionalidad estará disponible en la próxima actualización.',
-        [{ text: 'Entendido', style: 'default' }]
-      );
+      Alert.alert('Funcionalidad en Desarrollo', 'Esta característica estará disponible próximamente.', [{ text: 'Entendido' }]);
     }
   };
 
   const handleLogout = async () => {
     Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que deseas cerrar sesión?',
+      'Confirmar Cierre de Sesión',
+      '¿Está seguro que desea cerrar la sesión actual?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -704,121 +513,125 @@ const HomeAdministradorScreen = () => {
     );
   };
 
-  const renderNotification = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.notificationItem,
-        !item.read ? styles.unreadNotification : styles.readNotification
-      ]}
-      onPress={() => handleNotificationPress(item)}
-    >
-      <View style={[styles.notificationIconContainer, { backgroundColor: getNotificationColor(item.type) + '15' }]}>
-        <Ionicons name={getNotificationIcon(item.type)} size={24} color={getNotificationColor(item.type)} />
-      </View>
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>{item.title}</Text>
-        <Text style={styles.notificationMessage}>{item.message}</Text>
-        <Text style={styles.notificationTime}>{formatTime(item.timestamp)}</Text>
-      </View>
-      {!item.read && <View style={styles.unreadDot} />}
-    </TouchableOpacity>
-  );
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <ScrollView 
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: isBannerExpanded ? 400 : 120 } // ✅ Ajuste dinámico de padding
+          { paddingBottom: isBannerExpanded ? 220 : 80 }
         ]}
       >
-        <HeaderSection 
+        <MinimalHeader
           nombreUsuario={nombreUsuario}
           unreadCount={unreadCount}
           onNotificationPress={() => setShowNotifications(true)}
         />
-        {unreadCount > 0 && (
-          <TouchableOpacity
-            style={styles.notificationBanner}
-            onPress={() => setShowNotifications(true)}
-          >
-            <Ionicons name="notifications" size={20} color={COLORS.warning} />
-            <Text style={styles.notificationBannerText}>
-              Tienes {unreadCount} notificación{unreadCount !== 1 ? 'es' : ''} nueva{unreadCount !== 1 ? 's' : ''}
-            </Text>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.warning} />
-          </TouchableOpacity>
-        )}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Herramientas de Gestión</Text>
-          <Text style={styles.sectionSubtitle}>Accede a todas las funcionalidades</Text>
-        </View>
-        <View style={[styles.actionsGrid, { maxWidth: columns * (cardWidth + CARD_MARGIN) }]}>
-          <FlatList
-            data={adminActions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <ActionCard
-                action={item}
-                onPress={() => handleActionPress(item.route)}
-                cardWidth={cardWidth}
-                index={index}
-              />
-            )}
-            numColumns={columns}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-            key={columns}
-          />
-        </View>
-      </ScrollView>
-
-      <Modal
-        visible={showNotifications}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Notificaciones</Text>
-            <View style={styles.modalHeaderActions}>
-              {unreadCount > 0 && (
-                <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
-                  <Text style={styles.markAllText}>Marcar todas</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={() => setShowNotifications(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={24} color={COLORS.darkText} />
-              </TouchableOpacity>
-            </View>
+        
+        <View style={styles.dashboardSectionMinimal}>
+          <View style={styles.sectionHeaderMinimal}>
+            <Text style={styles.sectionTitleMinimal}>Resumen de Actividad</Text>
+            <Text style={styles.sectionSubtitleMinimal}>Métricas clave del sistema</Text>
           </View>
-          {loadingNotifications ? (
-            <View style={styles.loadingContainer}>
+          {loadingDashboard ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}>
               <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Cargando notificaciones...</Text>
+              <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10 }]}>Cargando estadísticas...</Text>
             </View>
           ) : (
-            <FlatList
-              data={notifications}
-              renderItem={renderNotification}
-              keyExtractor={(item) => item.id.toString()}
-              style={styles.notificationsList}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="notifications-off" size={60} color="#ccc" />
-                  <Text style={styles.emptyText}>No hay notificaciones</Text>
-                </View>
-              }
-            />
+            <View style={styles.dashboardGridMinimal}>
+              {dashboardStats.map((stat, index) => (
+                <DashboardCard
+                  key={index}
+                  title={stat.title}
+                  value={stat.value}
+                  icon={stat.icon}
+                  color={stat.color}
+                  trend={stat.trend}
+                  description={stat.description}
+                />
+              ))}
+            </View>
+          )}
+
+          {eventosPorEstado && eventosPorEstado.labels && eventosPorEstado.labels.length > 0 ? (
+            <View style={{ width: '100%', alignItems: 'center', marginTop: 20, paddingHorizontal: 10 }}>
+              <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Distribución de Eventos</Text>
+              <PieChart
+                data={eventosPorEstado.labels
+                  .map((estado, index) => {
+                    if (!estado) return null;
+                    
+                    const name = estado.charAt(0).toUpperCase() + estado.slice(1);
+                    const population = eventosPorEstado.datasets?.[0]?.data?.[index] || 0;
+                    
+                    let color = COLORS.info;
+                    if (estado === 'aprobado') color = COLORS.success;
+                    else if (estado === 'pendiente') color = COLORS.warning;
+                    else if (estado === 'rechazado') color = COLORS.accent;
+                    
+                    return {
+                      name,
+                      population,
+                      color,
+                      legendFontColor: COLORS.textPrimary,
+                      legendFontSize: 12,
+                    };
+                  })
+                  .filter(item => item && item.population > 0)}
+                width={windowWidth - 40}
+                height={220}
+                accessor="population"
+                backgroundColor="transparent"
+                paddingLeft="15"
+                absolute
+                chartConfig={{
+                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                }}
+              />
+            </View>
+          ) : (
+            <View style={{ width: '100%', alignItems: 'center', marginTop: 20, padding: 20 }}>
+              <Ionicons name="pie-chart-outline" size={48} color={COLORS.textTertiary} />
+              <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10, textAlign: 'center' }]}>
+                No hay datos disponibles para mostrar la distribución
+              </Text>
+            </View>
           )}
         </View>
-      </Modal>
 
-      <ExpandableBottomBanner
+        <View style={styles.managementToolsSectionMinimal}>
+          <View style={styles.sectionHeaderMinimal}>
+            <Text style={styles.sectionTitleMinimal}>Herramientas de Gestión</Text>
+            <Text style={styles.sectionSubtitleMinimal}>Acceda a las funcionalidades principales</Text>
+          </View>
+          {loadingDashboard ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10 }]}>Cargando herramientas...</Text>
+            </View>
+          ) : (
+            <View style={styles.dashboardGridMinimal}>
+              {adminActions.map((tool, index) => (
+                <ManagementToolCard
+                  key={index}
+                  title={tool.title}
+                  description={tool.description}
+                  icon={tool.iconName}
+                  color={tool.color}
+                  badge={tool.badge}
+                  onPress={() => handleActionPress(tool.route)}
+                  cardWidth={actionsCardWidth}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+      
+      <MinimalBottomDock
         onLogout={handleLogout}
         onActionPress={handleActionPress}
         isExpanded={isBannerExpanded}
@@ -827,7 +640,6 @@ const HomeAdministradorScreen = () => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -839,425 +651,453 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
+    paddingBottom: 80,
   },
-  headerContainer: {
-    width: '100%',
-    height: 220,
-    position: 'relative',
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  headerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 60, 120, 0.8)',
-    justifyContent: 'space-between',
-    padding: 24,
-  },
-  headerContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerGreeting: {
-    fontSize: 16,
-    color: '#cbd5e1',
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#e2e8f0',
-    opacity: 0.9,
-  },
-  headerBottom: {
+ 
+  minimalHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  userInitial: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  userName: {
-    fontSize: 18,
+  minimalHeaderAdminText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.textSecondary,
   },
-  headerNotificationButton: {
+  minimalNotificationButton: {
     position: 'relative',
-    padding: 8,
+    padding: 4,
   },
-  headerBadge: {
+  minimalNotificationBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -2,
+    right: -2,
     backgroundColor: COLORS.accent,
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.white,
   },
-  headerBadgeText: {
+  minimalNotificationBadgeText: {
     color: COLORS.white,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
   },
-  notificationBanner: {
-    width: '90%',
-    backgroundColor: '#fff3cd',
-    borderColor: '#ffeaa7',
-    borderWidth: 1,
+  minimalHeaderGreeting: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginBottom: 4,
+  },
+  minimalGreetingText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  minimalUserNameText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  minimalHeaderTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  dashboardSectionMinimal: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginTop: 30,
+  },
+  sectionHeaderMinimal: {
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  sectionTitleMinimal: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+  },
+  sectionSubtitleMinimal: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '400',
+  },
+  dashboardGridMinimal: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: CARD_MARGIN,
+    justifyContent: 'space-between',
+  },
+  dashboardCardMinimal: {
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 16,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    width: '48%',
+    minHeight: 110,
+  },
+  dashboardCardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-beetween',
+    marginBotton:8
   },
-  notificationBannerText: {
-    flex: 1,
-    marginLeft: 12,
-    color: '#856404',
-    fontWeight: '500',
-    fontSize: 14,
+    dashboardCardAction: {
+    minHeight: 130, // Mantener altura mínima
+    justifyContent: 'space-between', // Mantener el layout
   },
-  sectionHeader: {
-    width: '90%',
-    marginBottom: 20,
+  dashboardCardValueAction: {
+    fontSize: 18, // Tamaño de fuente más grande para texto
+    fontWeight: '700', // Negrita para destacar
+    color: COLORS.textPrimary,
+    textAlign: 'right', // Alinear a la derecha como en el diseño de referencia
+    flex: 1, // Ocupar todo el espacio disponible
+    marginLeft: 8, // Pequeño margen para separar del ícono
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 16,
-    color: COLORS.grayText,
-  },
-  actionsGrid: {
-    paddingHorizontal: CARD_MARGIN / 2,
-    paddingBottom: 20,
+  minimalHeaderContainer: {
     width: '100%',
-  },
-  actionCard: {
+    paddingHorizontal: 20,
+    paddingTop: StatusBar.currentHeight + 20,
+    paddingBottom: 20,
     backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.cardShadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  actionCardHeader: {
-    height: 80,
+    managementToolsSectionMinimal: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginTop: 40,
+    marginBottom: 40,
+  },
+
+  minimalHeaderAdminText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  minimalNotificationButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  minimalNotificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: COLORS.accent,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.white,
   },
-  headerOverlayEffect: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    managementToolCardMinimal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minHeight: 130,
+    borderWidth: 1,
+    //minWidth: 150,
+    maxWidth: '100%',
+    //marginHorizontal: 8,
   },
-  actionIconContainer: {
+  managementToolCardHeaderMinimal: {
+    flexDirection: 'column',
+    //alignItems: 'center',
+    gap: 12,
+  },
+  managementToolCardIconMinimal: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  actionContent: {
-    padding: 20,
-    minHeight: 100,
-  },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginBottom: 8,
-  },
-  actionDescription: {
-    fontSize: 14,
-    color: COLORS.grayText,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  actionArrow: {
-    position: 'absolute',
-    right: 16,
-    top: '50%',
-    marginTop: -10,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingTop: 50,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-  },
-  modalHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  markAllButton: {
-    marginRight: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-  },
-  markAllText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  closeButton: {
-    padding: 5,
-  },
-  notificationsList: {
-    flex: 1,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    alignItems: 'flex-start',
-  },
-  unreadNotification: {
-    backgroundColor: COLORS.notificationUnread,
-  },
-  readNotification: {
-    backgroundColor: COLORS.notificationRead,
-  },
-  notificationIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
-    marginTop: 2,
+    marginBottom: 8
   },
-  notificationContent: {
+  managementToolCardTextContainerMinimal: {
     flex: 1,
+    //gap: 12
   },
-  notificationTitle: {
-    fontSize: 16,
+  managementToolCardTitleMinimal: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  managementToolCardDescriptionMinimal: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  managementToolCardBadgeMinimal: {
+  paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    position: 'absolute',
+    top: 20,
+    right: 20,
+  },
+  managementToolCardBadgeTextMinimal: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  minimalNotificationBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
     fontWeight: 'bold',
-    color: COLORS.darkText,
+  },
+  minimalHeaderGreeting: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
     marginBottom: 4,
   },
-  notificationMessage: {
+  minimalGreetingText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  minimalUserNameText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  minimalHeaderTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  sectionHeaderMinimal: {
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  sectionTitleMinimal: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+  },
+  sectionSubtitleMinimal: {
     fontSize: 14,
-    color: COLORS.grayText,
-    marginBottom: 8,
-    lineHeight: 20,
+    color: COLORS.textSecondary,
+    fontWeight: '400',
   },
-  notificationTime: {
-    fontSize: 12,
-    color: '#999',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.accent,
-    marginTop: 8,
-    marginLeft: 10,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: COLORS.grayText,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#999',
-  },
-  expandableBannerContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  expandedContent: {
-    backgroundColor: COLORS.surface,
+  dashboardSectionMinimal: {
+    width: '100%',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: 350,
-    minHeight: 280,
-    maxWidth: 800,
-    alignSelf: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.cardShadow,
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
+    marginTop: 30,
   },
-  expandedTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginBottom: 16,
-    textAlign: 'center',
+  dashboardGridMinimal: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: CARD_MARGIN,
+    justifyContent: 'space-between',
   },
-  quickActionsGrid: {
+  dashboardCardMinimal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    width: '48%',
+    minHeight: 130,
+    justifyContent: 'space-between',
+  },
+  dashboardCardHeaderMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  dashboardCardValueMinimal: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  dashboardCardTitleMinimal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  dashboardCardTrendMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  dashboardCardTrendTextMinimal: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dashboardCardDescriptionMinimal: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
+  },
+  actionsSectionMinimal: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginTop: 40,
+    marginBottom: 40,
+  },
+  actionsGridMinimal: {
+    width: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    maxWidth: 600,
-    alignSelf: 'center'
+    gap: CARD_MARGIN,
   },
-  quickActionItem: {
-    width: '30%',
-    aspectRatio: 1,
+  actionCardMinimal: {
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
     padding: 16,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 6,
-    textAlign: 'center',
-    lineHeight: 18,
-    color: COLORS.darkText,
-  },
-  expandedLogoutButton: {
     flexDirection: 'row',
-    backgroundColor: COLORS.accent,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    alignItems: 'center',
+    gap: 12,
+  },
+  actionCardIconMinimal: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCardContentMinimal: {
+    flex: 1,
+  },
+  actionCardTitleContainerMinimal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  actionCardTitleMinimal: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    flex: 1,
+    marginRight: 8,
+  },
+  actionCardBadgeMinimal: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  actionCardBadgeTextMinimal: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  actionCardDescriptionMinimal: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  minimalDockContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.primary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+    overflow: 'hidden',
+  },
+  minimalDockToggle: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    marginBottom: 10,
-    width: '100%',
-  },
-  expandedLogoutText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  bannerHeader: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  bannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  bannerIconsContainer: {
-    flexDirection: 'row',
+    paddingVertical: 18,
     gap: 8,
   },
-  bannerIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bannerTitle: {
+  minimalDockToggleText: {
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
-    flex: 1,
+  },
+  minimalDockExpandedContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 60,
+  },
+  minimalDockQuickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+    gap: 10,
+  },
+  minimalDockQuickActionButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    width: '22%',
+  },
+  minimalDockQuickActionText: {
+    fontSize: 11,
+    fontWeight: '600',
     textAlign: 'center',
-    marginHorizontal: 16,
+    marginTop: 4,
+  },
+  minimalDockLogoutButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    width: '100%',
+  },
+  minimalDockLogoutButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

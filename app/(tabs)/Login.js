@@ -24,8 +24,16 @@ if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }
 const API_BASE_URL = determinedApiBaseUrl;
-// --- FIN DE LA LÓGICA ---
+/*useEffect(() => {
+  const unsubscribe = router.beforeRemove?.((e) => {
+    // Evita volver a pantallas protegidas desde el login
+    e.preventDefault();
+  });
 
+  return () => {
+    if (unsubscribe) unsubscribe();
+  };
+}, [router]);*/
 const LoginScreen = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -69,6 +77,12 @@ const LoginScreen = () => {
         } else {
           await SecureStore.setItemAsync(TOKEN_KEY, token);
         }
+        const tokenVerificado = Platform.OS === 'web' 
+  ? localStorage.getItem(TOKEN_KEY)
+  : await SecureStore.getItemAsync(TOKEN_KEY);
+
+console.log('Token guardado correctamente:', tokenVerificado);
+
         const USER_DATA_KEY = 'userData';
         try {
             if (Platform.OS === 'web') {
@@ -96,8 +110,8 @@ const LoginScreen = () => {
             routeParams = { nombre: user.nombre };
             break;
             
-          case 'DAF':
-            targetRoute = '../admin/HomeDAF'; // Necesitarás crear esta pantalla
+          case 'daf':
+            targetRoute = '/admin/Daf'; // Necesitarás crear esta pantalla
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
             
@@ -106,7 +120,7 @@ const LoginScreen = () => {
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
               case 'academico':
-            targetRoute = '../admin/HomeAcademico'; 
+            targetRoute = '/admin/HomeAcademico'; 
             routeParams = { nombre: user.nombre };
             break;
             

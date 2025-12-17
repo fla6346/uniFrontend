@@ -1,3 +1,4 @@
+// app/admin/EventosAprobados.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
@@ -6,16 +7,16 @@ import {
   FlatList,
   TouchableOpacity,
   StatusBar,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
+// Configuración de API
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
@@ -27,14 +28,13 @@ if (Platform.OS === 'android') {
 const API_BASE_URL = determinedApiBaseUrl;
 const TOKEN_KEY = 'adminAuthToken';
 
-// Paleta de colores actualizada con tu naranja principal
+// Nueva paleta de colores para diferenciar de "Pendientes"
 const COLORS = {
-  accent: '#FF6B35',        // Tu color naranja principal
-  secondary: '#F7931E',     // Naranja secundario
-  primary: '#FF6B35',       // Tu color como primario
-  background: '#FFF8F5',    // Fondo cálido naranja muy claro
+  primary: '#2E7D32',       // Verde oscuro para aprobados
+  accent: '#4CAF50',        // Verde principal
+  background: '#F1F8E9',    // Fondo verde muy claro
   surface: '#ffffff',
-  success: '#27ae60',
+  success: '#2E7D32',
   warning: '#f39c12',
   info: '#3498db',
   purple: '#9b59b6',
@@ -43,8 +43,6 @@ const COLORS = {
   grayText: '#64748b',
   darkText: '#1e293b',
   cardShadow: '#000000',
-  orangeLight: '#FFE4D6',   // Naranja muy claro
-  orangeDark: '#E55A2B',    // Naranja más oscuro
 };
 
 const getTokenAsync = async () => {
@@ -79,34 +77,42 @@ const deleteTokenAsync = async () => {
   }
 };
 
-const EventosPendientes = () => {
+const EventosAprobadosDaf = () => {
   const router = useRouter();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  //const { area } = useLocalSearchParams();
 
-
-   const fetchPendingEvents = useCallback(async () => {
+  const fetchApprovedEvents = useCallback(async () => {
     try {
       const token = await getTokenAsync();
       if (!token) {
-        Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
         router.replace('/LoginAdmin');
         return;
       }
 
-      // ✅ Pasar `area` como parámetro a la API
-      const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        //params: { area: area || 'academica' } // Si no hay area, usa 'academica' por defecto
+      const response = await axios.get(`${API_BASE_URL}/eventos/aprobados`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
-      setEvents(response.data || []);
+      const normalizedEvents = (response.data || []).map(event => ({
+        id: event.idevento,
+        title: event.nombreevento || 'Sin título',
+        description: event.descripcion || 'Sin descripción',
+        date: event.fechaevento,
+        time: event.horaevento,
+        location: event.lugarevento || 'Sin ubicación',
+        organizer: event.responsable_evento || 'Sin organizador',
+        attendees: event.participantes_esperados || 'No especificado',
+        status: event.estado || 'aprobado',
+        category: 'General',
+        submittedDate: event.createdAt || event.fechaevento,
+        submittedBy: event.responsable_evento || 'Sistema',
+      }));
+
+      setEvents(normalizedEvents);
     } catch (error) {
-      console.error('Error al cargar eventos pendientes:', error);
-      Alert.alert('Error', 'No se pudieron cargar los eventos pendientes.');
-      
+      console.error('Error al cargar eventos aprobados:', error);
       if (error.response?.status === 401 || error.response?.status === 403) {
         await deleteTokenAsync();
         router.replace('/LoginAdmin');
@@ -118,80 +124,38 @@ const EventosPendientes = () => {
   }, [router]);
 
   useEffect(() => {
-    fetchPendingEvents();
-  }, [fetchPendingEvents]);
+    fetchApprovedEvents();
+  }, [fetchApprovedEvents]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchPendingEvents();
-  }, [fetchPendingEvents]);
+    fetchApprovedEvents();
+  }, [fetchApprovedEvents]);
 
   const handleEventPress = (event) => {
     router.push({
-      pathname: '/admin/EventDetailScreen',
+      pathname: '/admin/EventDetailUpdateScreen', // <-- Ruta actualizada
       params: { eventId: event.id }
     });
   };
-
-  const handleQuickAction = async (eventId, action) => {
-    Alert.alert(
-      `${action} Evento`,
-      `¿Estás seguro de que deseas ${action.toLowerCase()} este evento?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar',
-          onPress: async () => {
-            try {
-              const token = await getTokenAsync();
-              
-               await axios.put(`${API_BASE_URL}/eventos/${eventId}/${action.toLowerCase()}`, {}, {
-                 headers: { 'Authorization': `Bearer ${token}` }
-               });
-
-              Alert.alert('Éxito', `Evento ${action.toLowerCase()} correctamente`);
-              
-              // Actualizar la lista
-              setEvents(prev => prev.filter(event => event.id !== eventId));
-              if(action==='aprobar'){
-                Alert.alert('Éxito', 'Evento aprobado correctamente', [
-                { text: 'Ver eventos aceptados', onPress: () => router.replace('/admin/EventosAceptados') },
-                { text: 'Volver', onPress: () => router.back(), style: 'cancel' }
-]);
-              }
-            } catch (error) {
-              console.error('error al procesar',error);
-              Alert.alert('Error', `No se pudo ${action.toLowerCase()} el evento`);
-            }
-          }
-        }
-      ]
+const reenviarNotificacion = async (eventoId, userId) => {
+  try {
+    const token = await getTokenAsync();
+    await axios.post(
+      `${API_BASE_URL}/notificaciones/reenviar`,
+      { eventoId, userId },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'alta': return COLORS.accent;      // Naranja principal
-      case 'media': return COLORS.warning;    // Amarillo
-      case 'baja': return COLORS.info;        // Azul
-      default: return COLORS.grayText;
-    }
-  };
-
-  const getPriorityText = (priority) => {
-    switch (priority) {
-      case 'alta': return 'Alta';
-      case 'media': return 'Media';
-      case 'baja': return 'Baja';
-      default: return 'Normal';
-    }
-  };
-
+    alert('Notificación reenviada');
+  } catch (error) {
+    console.error('Error al reenviar notificación:', error);
+    alert('No se pudo reenviar la notificación');
+  }
+};
   const formatSubmittedDate = (date) => {
     const now = new Date();
     const submittedDate = new Date(date);
     const diff = Math.floor((now - submittedDate) / 1000);
-
     if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
     if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
     const days = Math.floor(diff / 86400);
@@ -207,33 +171,30 @@ const EventosPendientes = () => {
       <View style={styles.eventHeader}>
         <View style={styles.eventTitleContainer}>
           <Text style={styles.eventTitle}>{item.title}</Text>
-          <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '15' }]}>
-            <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
-              {getPriorityText(item.priority)}
-            </Text>
-          </View>
+          {/* Icono de check en lugar de badge */}
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.accent} />
         </View>
-        
-        
       </View>
 
       <Text style={styles.eventDescription} numberOfLines={2}>
         {item.description}
       </Text>
-     
+
       <View style={styles.eventDetails}>
         <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={16} color={COLORS.accent} />
-          <Text style={styles.detailText}>{item.date} - {item.time}</Text>
+          <Ionicons name="calendar" size={16} color={COLORS.primary} />
+          <Text style={styles.detailText}>Fecha: {item.date}</Text>
         </View>
-        
         <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={16} color={COLORS.accent} />
-          <Text style={styles.detailText} numberOfLines={1}>{item.location}</Text>
+          <Ionicons name="time" size={16} color={COLORS.primary} />
+          <Text style={styles.detailText}>Hora: {item.time}</Text>
         </View>
-        
         <View style={styles.detailRow}>
-          <Ionicons name="person-outline" size={16} color={COLORS.accent} />
+          <Ionicons name="location" size={16} color={COLORS.primary} />
+          <Text style={styles.detailText} numberOfLines={1}>Lugar: {item.location}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="person" size={16} color={COLORS.primary} />
           <Text style={styles.detailText}>Organiza: {item.organizer}</Text>
         </View>
       </View>
@@ -242,7 +203,6 @@ const EventosPendientes = () => {
         <View style={styles.categoryContainer}>
           <Text style={styles.categoryText}>{item.category}</Text>
         </View>
-        
         <View style={styles.submissionInfo}>
           <Text style={styles.submittedBy}>Por: {item.submittedBy}</Text>
           <Text style={styles.submittedDate}>{formatSubmittedDate(item.submittedDate)}</Text>
@@ -250,7 +210,7 @@ const EventosPendientes = () => {
       </View>
 
       <View style={styles.viewDetailsPrompt}>
-        <Text style={styles.viewDetailsText}>Toca para ver detalles completos</Text>
+        <Text style={styles.viewDetailsText}>Ver o actualizar detalles</Text>
         <Ionicons name="chevron-forward" size={16} color={COLORS.grayText} />
       </View>
     </TouchableOpacity>
@@ -260,17 +220,20 @@ const EventosPendientes = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.accent} />
-        <Text style={styles.loadingText}>Cargando eventos pendientes...</Text>
+        <Text style={styles.loadingText}>Cargando eventos aprobados...</Text>
       </View>
     );
   }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       
       <View style={styles.header}>
-        
-        <Text style={styles.headerTitle}>Eventos Pendientes</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Eventos Aprobados</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
           <Ionicons name="refresh" size={24} color={COLORS.white} />
         </TouchableOpacity>
@@ -280,7 +243,7 @@ const EventosPendientes = () => {
         <View style={styles.summaryBanner}>
           <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
           <Text style={styles.summaryText}>
-            {events.length} evento{events.length !== 1 ? 's' : ''} pendiente{events.length !== 1 ? 's' : ''}
+            {events.length} evento{events.length !== 1 ? 's' : ''} aprobado{events.length !== 1 ? 's' : ''}
           </Text>
         </View>
       )}
@@ -309,7 +272,6 @@ const EventosPendientes = () => {
       />
     </View>
   );
- 
 };
 
 const styles = StyleSheet.create({
@@ -329,12 +291,12 @@ const styles = StyleSheet.create({
     color: COLORS.grayText,
   },
   header: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.primary, // Verde oscuro
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 15,
     paddingHorizontal: 20,
     shadowColor: COLORS.cardShadow,
     shadowOffset: { width: 0, height: 2 },
@@ -357,20 +319,18 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   summaryBanner: {
-    backgroundColor: COLORS.orangeLight,
+    backgroundColor: COLORS.accent, // Verde sólido
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
   },
   summaryText: {
     marginLeft: 12,
     fontSize: 14,
-    color: COLORS.orangeDark,
+    color: COLORS.white, // Texto blanco
     fontWeight: '600',
   },
   eventsList: {
@@ -384,8 +344,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
+    // ✅ Sin borde izquierdo para diferenciar
     ...Platform.select({
       ios: {
         shadowColor: COLORS.cardShadow,
@@ -401,45 +360,20 @@ const styles = StyleSheet.create({
   eventHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center', // Centrado verticalmente con el ícono
     marginBottom: 12,
   },
   eventTitleContainer: {
     flex: 1,
-    marginRight: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   eventTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.darkText,
-    marginBottom: 6,
-  },
-  priorityBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  priorityText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  eventActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  approveButton: {
-    backgroundColor: COLORS.success,
-  },
-  rejectButton: {
-    backgroundColor: COLORS.accent,
+    marginBottom: 0, // Sin margen inferior
   },
   eventDescription: {
     fontSize: 14,
@@ -468,14 +402,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   categoryContainer: {
-    backgroundColor: COLORS.orangeLight,
+    backgroundColor: COLORS.background, // Fondo del mismo color que la app
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   categoryText: {
     fontSize: 12,
-    color: COLORS.orangeDark,
+    color: COLORS.primary, // Verde oscuro
     fontWeight: '600',
   },
   submissionInfo: {
@@ -513,7 +447,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: COLORS.grayText,
     marginTop: 16,
     marginBottom: 8,
   },
@@ -524,4 +458,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EventosPendientes;
+export default EventosAprobadosDaf;

@@ -143,7 +143,7 @@ const EventDetailScreen = () => {
       if (!token) {
         Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
         await deleteTokenAsync();
-        router.replace('/LoginAdmin');
+        router.replace('/Login');
         return;
       }
       const [eventResponse, userResponse]= await Promise.all([
@@ -179,18 +179,19 @@ const EventDetailScreen = () => {
         resultados: eventData.Resultados || [],
         recursos: eventData.Recursos || [],
         tags: eventData.tags || [],
-        creador:eventData.creador ? {
-          nombre: `${eventData.creador.nombre} ${eventData.creador.apellidopat} ${eventData.creador.apellidomat}`,
-          email: eventData.creador.email,
-          role: eventData.creador.role
-        }:null
-
+         academicoCreador: eventData.academicoCreador ? {
+    nombre:[eventData.academicoCreador.nombre,
+            eventData.academicoCreador.apellidopat || '',
+            eventData.academicoCreador.apellidomat || '',].filter(Boolean).join(' ') || eventData.academicoCreador.nombre || 'Usuario sin nombre',
+  email: eventData.academicoCreador.email,
+  role: eventData.academicoCreador.role
+} : null
       };
 
       if (!transformedEvent.id) {
         throw new Error('El evento no tiene un ID válido.');
       }
-
+console.log('Datos del evento transformados:', transformedEvent);
       setEvent(transformedEvent);
       console.log('Frontend: Event details set successfully.');
     } catch (err) {
@@ -360,18 +361,11 @@ const EventDetailScreen = () => {
           <Ionicons name="business-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
           <Text style={styles.detailText}>Organizador: {event.organizer}</Text>
         </View>
-        {user && (
-  <View style={styles.creatorContainer}>
-    <Text style={styles.creatorLabel}>Creado por:</Text>
-    <Text style={styles.creatorName}>{user.nombre}</Text>
-    <Text style={styles.creatorRole}>Rol: {user.role}</Text>
-    <Text style={styles.creatorEmail}>Email: {user.email}</Text>
-  </View>
-)}
         <View style={styles.detailRow}>
           <Ionicons name="people-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
           <Text style={styles.detailText}>Asistentes: {event.attendees}</Text>
         </View>
+       
 
         <View style={styles.detailRow}>
           <Ionicons
@@ -387,7 +381,29 @@ const EventDetailScreen = () => {
             Estado: {event.status}
           </Text>
         </View>
-
+      {event.academicoCreador ? (
+        <View style={styles.creatorContainer}>
+          <Text style={styles.creatorLabel}>Propuesto por:</Text>
+          <Text style={styles.creatorName}>
+            {[
+              event.academicoCreador.nombre,
+              event.academicoCreador.apellidopat,
+              event.academicoCreador.apellidomat
+            ]
+              .filter(Boolean)
+              .join(' ') || 'Usuario sin nombre'}
+          </Text>
+          <Text style={styles.creatorRole}>
+            Rol: {event.academicoCreador.role === 'academico' ? 'Académico' : event.academicoCreador.role}
+          </Text>
+          <Text style={styles.creatorEmail}>Email: {event.academicoCreador.email}</Text>
+        </View>
+      ) : (
+        <View style={styles.creatorContainer}>
+          <Text style={styles.creatorLabel}>Propuesto por:</Text>
+          <Text style={styles.creatorName}>Académico no especificado</Text>
+        </View>
+      )}
         {/* Mostrar objetivos si existen */}
         {event.objetivos && event.objetivos.length > 0 && (
           <View style={styles.section}>

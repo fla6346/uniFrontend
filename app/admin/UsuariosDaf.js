@@ -102,7 +102,7 @@ const COLORS = {
   black: '#000000',
 };
 
-const UsuarioA = () => {
+const UsuariosDaf = () => {
   console.log("UsuariosA: Renderizando componente");
   const router = useRouter();
   const [users, setUsers] = useState([]);
@@ -142,7 +142,7 @@ const UsuarioA = () => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/users`, {
+      const response = await axios.get(`${API_BASE_URL}/users?role=daf`, {
         headers: { 'Authorization': `Bearer ${localToken}` }
       });
 
@@ -230,7 +230,7 @@ const UsuarioA = () => {
   }, [searchTerm, users, filterRole]);
 
   const handleAddUser = () => {
-    router.push('/admin/CrearUsuarioA');
+    router.push('/admin/CrearUsuarioDaf');
   };
 
   const handleViewUser = (user) => {
@@ -238,7 +238,7 @@ const UsuarioA = () => {
     setShowUserModal(true);
   };
 
-  const handleDeleteUser = async (Id) => {
+  const handleDeleteUser = async (userId) => {
     Alert.alert(
       "Eliminar Usuario",
       "¿Estás seguro de que quieres eliminar este usuario?",
@@ -247,14 +247,14 @@ const UsuarioA = () => {
         {
           text: "Sí, Eliminar",
           onPress: async () => {
-            console.log(`UsuariosA: Intentando eliminar usuario con ID: ${Id}`);
+            console.log(`UsuariosA: Intentando eliminar usuario con ID: ${userId}`);
             let localTokenForDelete = await getTokenAsync();
             if (!localTokenForDelete) {
               Alert.alert('Error de Autenticación', 'Token no disponible para eliminar.');
               return;
             }
             try {
-              await axios.delete(`${API_BASE_URL}/users/${Id}`, {
+              await axios.delete(`${API_BASE_URL}/users/${userId}`, {
                 headers: { 'Authorization': `Bearer ${localTokenForDelete}` }
               });
               Alert.alert("Usuario Eliminado", `El usuario ha sido eliminado del servidor.`);
@@ -341,15 +341,7 @@ const renderUserItem = ({ item, index }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => 
-            {
-              console.log('Intentando navegar a:', `/admin/EditUser/${item.id}`);
-             // router.push(`/admin/EditUser/${item.id}`);
-             router.push({
-              pathname:`/admin/EditUser/${item.id}`,
-              params: {id:item.id}
-             })
-            }}
+          onPress={() => router.push(`/admin/editUser/${item.id}`)}
           style={[styles.actionButton, styles.editButton]}
           activeOpacity={0.7}
         >
@@ -449,12 +441,12 @@ const renderUserItem = ({ item, index }) => {
                   style={[styles.modalActionButton, styles.modalEditButton]}
                   onPress={() => {
                     setShowUserModal(false);
-                    router.push({
-                      pathname: '/admin/EditUser/[id]',
-                      params: { id: selectedUser.id }
-                    });
+                    router.push(`/admin/editUser/${selectedUser.id}`);
                   }}
-                ></TouchableOpacity>
+                >
+                  <Ionicons name="pencil" size={16} color="#fff" />
+                  <Text style={styles.modalActionButtonText}>Editar</Text>
+                </TouchableOpacity>
 
                 <TouchableOpacity
                   style={[styles.modalActionButton, styles.modalDeleteButton]}
@@ -955,4 +947,4 @@ roleTitle: {
   },
 });
 
-export default UsuarioA;
+export default UsuariosDaf;

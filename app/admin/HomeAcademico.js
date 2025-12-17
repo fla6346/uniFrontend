@@ -1,26 +1,24 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
   Text,
+  ScrollView,
+  TouchableOpacity,
   StatusBar,
   Alert,
-  Image,
   FlatList,
-  Pressable,
   Animated,
   useWindowDimensions,
-  ScrollView,
   Platform,
-  Modal,
-  ActivityIndicator,
-  TouchableOpacity,
+  ActivityIndicator
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-
+import { BarChart } from 'react-native-chart-kit';
+// Configuración de API
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
@@ -35,16 +33,14 @@ const TOKEN_KEY = 'adminAuthToken';
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
     try {
-      const token = localStorage.getItem(TOKEN_KEY);
-      return (token && token !== 'null' && token !== '') ? token : null;
+      return localStorage.getItem(TOKEN_KEY);
     } catch (e) {
       console.error("Error al acceder a localStorage en web:", e);
       return null;
     }
   } else {
     try {
-      const token = await SecureStore.getItemAsync(TOKEN_KEY);
-      return (token && token !== 'null' && token !== '') ? token : null;
+      return await SecureStore.getItemAsync(TOKEN_KEY);
     } catch (e) {
       console.error("Error al obtener token de SecureStore en nativo:", e);
       return null;
@@ -54,54 +50,68 @@ const getTokenAsync = async () => {
 
 const deleteTokenAsync = async () => {
   if (Platform.OS === 'web') {
-    localStorage.removeItem(TOKEN_KEY);
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.error("Error al eliminar token de localStorage en web:", e);
+    }
   } else {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    try {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    } catch (e) {
+      console.error("Error al eliminar token de SecureStore en nativo:", e);
+    }
   }
 };
 
 const COLORS = {
-  primary: '#219ebc',
-  secondary: '#2980b9',
-  accent: '#e74c3c',
-  background: '#f8fafc',
-  surface: '#ffffff',
-  success: '#27ae60',
-  warning: '#d97706',
-  info: '#3498db',
-  purple: '#9b59b6',
-  logout: '#e74c3c',
-  white: '#fff',
-  grayLight: '#ecf0f1',
-  grayText: '#64748b',
-  res: '#67c1eaff',
-  sis: '#FFCC00',
-  opo: '#755E00',
-  darkText: '#1e293b',
-  overlay: 'rgba(15, 23, 42, 0.7)',
-  cardShadow: '#000000',
-  notificationUnread: '#e6f0ff',
-  notificationRead: '#ffffff',
+  primary: '#E95A0C',
+  primaryLight: '#FFEDD5',
+  secondary: '#4B5563',
+  accent: '#EF4444',
+  success: '#10B981',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  background: '#F9FAFB',
+  surface: '#FFFFFF',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  border: '#E5E7EB',
+  divider: '#D1D5DB',
+  shadow: 'rgba(0, 0, 0, 0.05)',
+  white: '#FFFFFF',
+  black: '#000000',
 };
 
-const CARD_MARGIN = 16;
-const MIN_CARD_WIDTH = 280;
-const MAX_COLUMNS = 3;
-const MAX_CARD_WIDTH = 340;
+const CARD_MARGIN = 12;
+const MIN_CARD_WIDTH_DASHBOARD = 160;
+const MAX_COLUMNS_DASHBOARD = 4;
+const MIN_CARD_WIDTH_ACTIONS = 200;
+const MAX_COLUMNS_ACTIONS = 3;
 
-const QuickStatsCard = ({ stats }) => {
+const DashboardCard = ({ title, value, icon, color, trend, description }) => {
+  const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
+  const trendIcon = trend > 0 ? 'arrow-up' : 'arrow-down';
+
   return (
-    <View style={styles.statsContainer}>
-      <Text style={styles.statsTitle}>Estadísticas Rápidas</Text>
-      <View style={styles.statsRow}>
-        {stats.map((stat, index) => (
-          <View key={index} style={styles.statItem}>
-            <Ionicons name={stat.icon} size={24} color={stat.color} />
-            <Text style={styles.statNumber}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </View>
-        ))}
+    <View style={styles.dashboardCardMinimal}>
+      <View style={styles.dashboardCardHeaderMinimal}>
+        <Ionicons name={icon} size={24} color={color} />
+        <Text style={styles.dashboardCardValueMinimal}>{value}</Text>
       </View>
+      <Text style={styles.dashboardCardTitleMinimal}>{title}</Text>
+      {trend && (
+        <View style={styles.dashboardCardTrendMinimal}>
+          <Ionicons name={trendIcon} size={14} color={trendColor} />
+          <Text style={[styles.dashboardCardTrendTextMinimal, { color: trendColor }]}>
+            {Math.abs(trend)}% {trend > 0 ? 'más' : 'menos'}
+          </Text>
+        </View>
+      )}
+      {description && (
+        <Text style={styles.dashboardCardDescriptionMinimal}>{description}</Text>
+      )}
     </View>
   );
 };
@@ -113,17 +123,17 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 600,
-      delay: index * 150,
+      duration: 400,
+      delay: index * 80,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fadeAnim, index]);
 
   const onPressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.97,
       useNativeDriver: true,
-      speed: 50,
+      speed: 100,
       bounciness: 8,
     }).start();
   };
@@ -132,58 +142,152 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 50,
+      speed: 100,
       bounciness: 8,
     }).start();
   };
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       accessibilityRole="button"
       accessibilityLabel={`Acción: ${action.title}`}
-      style={{ margin: CARD_MARGIN / 2 }}
+      style={{ margin: CARD_MARGIN / 2, width: cardWidth }}
     >
       <Animated.View
         style={[
-          styles.actionCard,
+          styles.actionCardMinimal,
           {
-            width: cardWidth,
             transform: [{ scale: scaleAnim }],
             opacity: fadeAnim,
           },
         ]}
       >
-        <View style={[styles.actionCardHeader, { backgroundColor: action.color }]}>
-          <View style={styles.actionIconContainer}>
-            <Ionicons name={action.iconName} size={32} color={COLORS.white} />
+        <View style={[styles.actionCardIconMinimal, { backgroundColor: action.color + '10' }]}>
+          <Ionicons name={action.iconName} size={28} color={action.color} />
+        </View>
+        <View style={styles.actionCardContentMinimal}>
+          <View style={styles.actionCardTitleContainerMinimal}>
+            <Text style={styles.actionCardTitleMinimal} numberOfLines={1}>
+              {action.title}
+            </Text>
+            {action.badge && (
+              <View style={[styles.actionCardBadgeMinimal, { backgroundColor: action.badgeColor || COLORS.primary }]}>
+                <Text style={styles.actionCardBadgeTextMinimal} numberOfLines={1}>
+                  {action.badge}
+                </Text>
+              </View>
+            )}
           </View>
-          <View style={styles.headerOverlayEffect} />
-        </View>
-
-        <View style={styles.actionContent}>
-          <Text style={styles.actionTitle}>{action.title}</Text>
           {action.description && (
-            <Text style={styles.actionDescription}>{action.description}</Text>
+            <Text style={styles.actionCardDescriptionMinimal} numberOfLines={2}>
+              {action.description}
+            </Text>
           )}
-          {action.badge && (
-            <View style={[styles.badge, { backgroundColor: action.badgeColor || COLORS.accent }]}>
-              <Text style={styles.badgeText}>{action.badge}</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.actionArrow}>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.grayText} />
         </View>
       </Animated.View>
-    </Pressable>
+    </TouchableOpacity>
   );
 };
 
-const HeaderSection = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
+const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpanded }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const dockHeight = useRef(new Animated.Value(60)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(dockHeight, {
+        toValue: isExpanded ? 200 : 60,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(rotateAnim, {
+        toValue: isExpanded ? 1 : 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isExpanded]);
+
+  const rotateInterpolate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  const quickActions = [
+    {
+      id: 'add-user',
+      title: 'Nuevo Usuario',
+      icon: 'person-add-outline',
+      color: COLORS.primary,
+      action: '/admin/UsuariosA'
+    },
+    {
+      id: 'pendientes',
+      title: 'Pendientes',
+      icon: 'document-text-outline',
+      route: '/admin/EventosPendientes',
+      color: COLORS.warning,
+      //action: {
+        //pathname: '/admin/EventosPendientes',
+       // params: { area: 'academica'   }
+        //}
+      },
+    {
+      id: 'aprobados',
+      title: 'Aprobados',
+      icon: 'checkmark-circle-outline',
+      color: COLORS.success,
+      route: '/admin/EventosAprobados',
+    },
+    {
+      id: 'settings',
+      title: 'Ajustes',
+      icon: 'settings-outline',
+      color: COLORS.secondary,
+      action: '/admin/Settings'
+    }
+  ];
+
+  return (
+    <Animated.View style={[styles.minimalDockContainer, { height: dockHeight }]}>
+      <TouchableOpacity onPress={onToggleExpanded} style={styles.minimalDockToggle}>
+        <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
+          <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
+        </Animated.View>
+        <Text style={styles.minimalDockToggleText}>Menú</Text>
+      </TouchableOpacity>
+
+      {isExpanded && (
+        <View style={styles.minimalDockExpandedContent}>
+          <View style={styles.minimalDockQuickActions}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.id}
+                style={styles.minimalDockQuickActionButton}
+                onPress={() => onActionPress(action.action)}
+              >
+                <Ionicons name={action.icon} size={22} color={action.color} />
+                <Text style={[styles.minimalDockQuickActionText, { color: action.color }]}>
+                  {action.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity onPress={onLogout} style={styles.minimalDockLogoutButton}>
+            <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
+            <Text style={styles.minimalDockLogoutButtonText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </Animated.View>
+  );
+};
+
+const MinimalHeader = ({ nombreUsuario,facultad, unreadCount, onNotificationPress }) => {
   const getCurrentGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -192,69 +296,209 @@ const HeaderSection = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
   };
 
   return (
-    <View style={styles.headerContainer}>
-      <Image
-        source={require('../../assets/images/ind.jpg')}
-        style={styles.headerImage}
-        resizeMode="cover"
-      />
-      <View style={styles.headerOverlay}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerGreeting}>{getCurrentGreeting()}</Text>
-          <Text style={styles.headerTitle}>Panel Académico</Text>
-          <Text style={styles.headerSubtitle}>Gestiona tu institución de manera inteligente</Text>
-        </View>
-
-        <View style={styles.headerBottom}>
-          <View style={styles.userInfo}>
-            <View style={styles.userAvatar}>
-              <Text style={styles.userInitial}>{nombreUsuario.charAt(0).toUpperCase()}</Text>
+    <View style={styles.minimalHeaderContainer}>
+      <View style={styles.minimalHeaderTop}>
+        <Text style={styles.minimalHeaderAdminText}>admin</Text>
+        <TouchableOpacity
+          style={styles.minimalNotificationButton}
+          onPress={onNotificationPress}
+        >
+          <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
+          {unreadCount > 0 && (
+            <View style={styles.minimalNotificationBadge}>
+              <Text style={styles.minimalNotificationBadgeText}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </Text>
             </View>
-            <Text style={styles.userName}>{nombreUsuario}</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.headerNotificationButton}
-            onPress={onNotificationPress}
-          >
-            <Ionicons name="notifications" size={24} color={COLORS.white} />
-            {unreadCount > 0 && (
-              <View style={styles.headerBadge}>
-                <Text style={styles.headerBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
+          )}
+        </TouchableOpacity>
       </View>
+      <View style={styles.minimalHeaderGreeting}>
+        <Text style={styles.minimalGreetingText}>{getCurrentGreeting()},</Text>
+        <Text style={styles.minimalUserNameText}>{nombreUsuario}</Text>
+      </View>
+      
+        <Text style={styles.minimalUserFacultyText}>{facultad}</Text>
+      <Text style={styles.minimalHeaderTitle}>Panel de Usuario Académico</Text>
     </View>
   );
 };
 
 const HomeAcademicoScreen = () => {
   const params = useLocalSearchParams();
-  const nombreUsuario = params.nombre || 'Usuario';
+  const nombreUsuario = params.nombre || 'Administrador';
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
 
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [authToken, setAuthToken] = useState(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [pendingContentCount, setPendingContentCount] = useState('0');
+  const [activeUsersCount, setActiveUsersCount] = useState('0');
+  const [isBannerExpanded, setIsBannerExpanded] = useState(false);
+  const [historicalData, setHistoricalData] = useState([]);
+  const unreadCount = notifications.filter(notif => !notif.read).length;
+const [userProfile, setUserProfile] = useState({
+  nombre: '',
+  apellidopat: '',
+  apellidomat: '',
+  facultad: null,
+  loading: true,
+});
+  const fetchDashboardData = useCallback(async () => {
+    setLoadingDashboard(true);
+    try {
+      const token = await getTokenAsync();
+      if (!token) {
+        console.error("No se encontró token de autenticación");
+        setLoadingDashboard(false);
+        return;
+      }
 
-  const [quickStats] = useState([
-    { icon: 'people-outline', value: '1,245', label: 'Estudiantes', color: COLORS.info },
-    { icon: 'calendar-outline', value: '24', label: 'Eventos', color: COLORS.info },
-    { icon: 'document-text-outline', value: '89', label: 'Documentos', color: COLORS.info },
-    { icon: 'trending-up-outline', value: '95%', label: 'Rendimiento', color: COLORS.info },
+      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 10000,
+      });
+
+      const data = response.data;
+      setPendingContentCount(data.pendingContent?.toString() || '0');
+      setActiveUsersCount(data.activeUsers?.toString() || '0');
+
+      setDashboardStats([
+        { 
+          title: 'Usuarios Activos', 
+          value: data.activeUsers?.toLocaleString() || '0', 
+          icon: 'people-outline', 
+          color: COLORS.primary,
+          trend: 12.5,
+          description: 'Último mes'
+        },
+        { 
+          title: 'Eventos Totales', 
+          value: data.totalEvents?.toString() || '0', 
+          icon: 'calendar-outline', 
+          color: COLORS.info,
+          trend: -3.2,
+          description: 'Último mes'
+        },
+        { 
+          title: 'Contenidos Pendientes', 
+          value: data.pendingContent?.toString() || '0', 
+          icon: 'document-text-outline', 
+          color: COLORS.warning,
+          trend: 18.7,
+          description: 'Última semana'
+        },
+        { 
+          title: 'Estabilidad Sistema', 
+          value: `${data.systemStability || 0}%`, 
+          icon: 'pulse-outline',
+          color: COLORS.success,
+          trend: 2.1,
+          description: 'Rendimiento óptimo'
+        },
+      ]);
+    } catch (error) {
+      console.error('Error al cargar dashboard:', error);
+      Alert.alert(
+        'Error',
+        `No se pudieron cargar los datos del panel. ${error.message || ''}`,
+        [{ text: 'Entendido' }]
+      );
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }, []);
+  const fetchHistoricalData = useCallback(async () => {
+  try {
+    const token = await getTokenAsync();
+    if (!token) return;
+
+    const response = await axios.get(`${API_BASE_URL}/dashboard/historical`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    setHistoricalData(response.data.historical || []);
+  } catch (error) {
+    console.error('Error al cargar datos históricos:', error);
+  }
+}, []);
+const fetchUserProfile = useCallback(async () => {
+  try {
+    const token = await getTokenAsync();
+    console.log('Token usado para /profile', token)
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/profile`, {
+      
+      headers: {'Authorization': `Bearer ${token}` },
+      timeout: 8000,
+    });
+    const user = response.data;
+    setUserProfile({
+      nombre: user.nombre || '',
+      apellidopat: user.apellidopat || '',
+      apellidomat: user.apellidomat || '',
+      facultad: user.facultad || 'Sin facultad',
+      
+      loading: false,
+    }
+  );
+  console.log('Perfil recibido:', response);
+  } catch (error) {
+    console.error('Error al cargar perfil de usuario:', error);
+    Alert.alert('Error', 'No se pudo cargar tu información personal.');
+    setUserProfile((prev) => ({ ...prev, loading: false }));
+  }
+}, []);
+useEffect(() => {
+  const checkAuthAndLoadData = async () => {
+    const token = await getTokenAsync();
+    if (!token) {
+      // Si no hay token, redirigir inmediatamente al login
+      router.replace('/');
+      return;
+    }
+
+    // Si hay token, cargar todos los datos
+    await Promise.allSettled([
+      fetchDashboardData(),
+      fetchUserProfile(),
+      fetchHistoricalData()
+    ]);
+  };
+
+  checkAuthAndLoadData();
+}, [fetchDashboardData, fetchUserProfile, fetchHistoricalData, router]);
+  // Cálculo para dashboard
+  const { columns: dashboardColumns, cardWidth: dashboardCardWidth } = useMemo(() => {
+    let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH_DASHBOARD + CARD_MARGIN));
+    numColumns = Math.min(numColumns, MAX_COLUMNS_DASHBOARD);
+    const cols = numColumns > 0 ? numColumns : 1;
+    const totalMargin = CARD_MARGIN * (cols - 1);
+    const width = (windowWidth - 32 - totalMargin) / cols; // 32 = paddingHorizontal * 2
+    return { columns: cols, cardWidth: Math.max(width, MIN_CARD_WIDTH_DASHBOARD) };
+  }, [windowWidth]);
+
+  // Cálculo para acciones
+  const { columns: actionsColumns, cardWidth: actionsCardWidth } = useMemo(() => {
+    let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH_ACTIONS + CARD_MARGIN));
+    numColumns = Math.min(numColumns, MAX_COLUMNS_ACTIONS);
+    const cols = numColumns > 0 ? numColumns : 1;
+    const totalMargin = CARD_MARGIN * (cols - 1);
+    const width = (windowWidth - 32 - totalMargin) / cols;
+    return { columns: cols, cardWidth: Math.max(width, MIN_CARD_WIDTH_ACTIONS) };
+  }, [windowWidth]);
+
+  const [dashboardStats, setDashboardStats] = useState([
+    { title: 'Usuarios Activos', value: 'cargando...', icon: 'people-outline', color: COLORS.primary, trend: null },
+    { title: 'Eventos Totales', value: 'cargando...', icon: 'calendar-outline', color: COLORS.info, trend: null },
+    { title: 'Contenidos Pendientes', value: 'cargando...', icon: 'document-text-outline', color: COLORS.warning, trend: null },
+    { title: 'Estabilidad Sistema', value: 'cargando...', icon: 'pulse-outline', color: COLORS.success, trend: null },
   ]);
-
-  let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH + CARD_MARGIN));
-  numColumns = Math.min(numColumns, MAX_COLUMNS);
-  const columns = numColumns > 0 ? numColumns : 1;
-  let cardWidth = (windowWidth - CARD_MARGIN * (columns + 1)) / columns;
-  cardWidth = Math.min(cardWidth, MAX_CARD_WIDTH);
 
   const adminActions = [
     {
@@ -262,189 +506,79 @@ const HomeAcademicoScreen = () => {
       title: 'Proyecto del Evento',
       iconName: 'clipboard-outline',
       route: '/admin/ProyectoEvento',
-      color: COLORS.sis,
-      description: 'Planifica y gestiona eventos académicos',
-      badge: 'Nuevo',
-      badgeColor: COLORS.accent,
+      color: COLORS.primary,
+      description: 'Gestión de proyectos institucionales',
+      badge: 'Activo',
+      badgeColor: COLORS.success,
     },
     {
       id: '1',
-      title: 'Gestionar Contenido',
-      iconName: 'library-outline',
-      route: '/admin/Contenido',
-      color: COLORS.sis,
-      description: 'Administra publicaciones y recursos',
-      badge: '12 pendientes',
-      badgeColor: COLORS.warning,
-    },
-    {
-      id: '2',
-      title: 'Estadísticas',
-      iconName: 'analytics-outline',
-      route: '/admin/Estadistica',
-      color: COLORS.sis,
-      description: 'Analiza métricas y rendimiento',
-    },
-    {
-      id: '3',
       title: 'Gestión de Usuarios',
       iconName: 'people-outline',
       route: '/admin/UsuarioAcademico',
-      color: COLORS.sis,
-      description: 'Administra estudiantes y docentes',
+      color: COLORS.secondary,
+      description: 'Administración de cuentas de usuario',
+    },
+    {
+      id: '2',
+      title: 'Eventos Pendientes',
+      iconName: 'timer-outline',
+      route: '/admin/EventosPendientes',
+      //params: {area: 'academica'},
+      color: COLORS.warning,
+      description: 'Revisión y aprobación de eventos',
+      badge: `${pendingContentCount} pendientes`,
+      badgeColor: COLORS.warning,
+    },
+    {
+      id: '3',
+      title: 'Eventos Aprobados',
+      iconName: 'checkmark-circle-outline',
+      route: '/admin/EventosAprobados',
+      color: COLORS.success,
+      description: 'Gestión de eventos ya aprobados',
     },
     {
       id: '4',
-      title: 'Configuración',
-      iconName: 'settings-outline',
-      route: '/admin/settings',
-      color: COLORS.sis,
-      description: 'Ajustes del sistema',
+      title: 'Análisis de Datos',
+      iconName: 'analytics-outline',
+      route: '/admin/Estadistica',
+      color: COLORS.info,
+      description: 'Informes y métricas del sistema',
     },
     {
       id: '5',
-      title: 'Reportes',
-      iconName: 'document-attach-outline',
+      title: 'Reportes Avanzados',
+      iconName: 'document-text-outline',
       route: '/admin/reportes',
-      color: COLORS.sis,
-      description: 'Genera informes detallados',
+      color: COLORS.secondary,
+      description: 'Generación de reportes detallados',
+      badge: 'Nuevo',
+      badgeColor: COLORS.accent,
     },
   ];
 
-  const fetchNotifications = useCallback(async () => {
-   
-    setLoadingNotifications(true);
-    try {
-      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
+const handleActionPress = (action) => {
+  if (action && action.role) {
+    router.push({
+      pathname: '/admin/EventosAprobados',
+      params: { role: action.role } // ← PASA EL ROL
+    });
+    return;
+  }
 
-      const notifs = Array.isArray(response.data) ? response.data : [];
-      setNotifications(notifs);
-      setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
-    } catch (error) {
-      console.error('Error al cargar notificaciones:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
-        await deleteTokenAsync();
-        router.replace('/Login');
-      } else {
-        Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
-      }
-    } finally {
-      setLoadingNotifications(false);
-    }
-  }, [authToken, router]);
+  if (action && action.route) {
+    router.push(action.route);
+    return;
+  }
 
-  // Efecto para inicializar y obtener el token
- /* useEffect(() => {
-    const initialize = async () => {
-      const token = await getTokenAsync();
-      console.log('🔑 Token obtenido:', token ? `${token.substring(0, 20)}...` : 'NO HAY TOKEN');
-      
-      if (!token || token === 'null' || token === '') {
-        console.warn('⚠️ Token inválido o ausente en initialize');
-        await deleteTokenAsync();
-        router.replace('/Login');
-        return;
-      }
-      
-      
-      console.log('✅ Token válido, estableciendo en estado');
-      setAuthToken(token);
-      //loadNotifications();
-       try {
-         const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-           headers: { Authorization: `Bearer ${token}` },
-         });
-        // const notifs = Array.isArray(response.data) ? response.data : [];
-         //setNotifications(notifs);
-         //setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
-       } catch (error) {
-         console.error('Error al cargar notificaciones:', error);
-         if (error.response?.status === 401 || error.response?.status === 403) {
-           Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
-           await deleteTokenAsync();
-           router.replace('/Login');
-         }
-       }
-    };
-    
-    initialize();
-  }, [router]);
+  Alert.alert('Funcionalidad en Desarrollo', 'Esta característica estará disponible próximamente.');
+};
 
-  const loadNotifications = async () => {
-       try {
-         const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-           headers: { Authorization: `Bearer ${token}` },
-         });
-        // const notifs = Array.isArray(response.data) ? response.data : [];
-         //setNotifications(notifs);
-         //setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
-       } catch (error) {
-         console.error('Error al cargar notificaciones:', error);
-         if (error.response?.status === 401 || error.response?.status === 403) {
-           Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
-           await deleteTokenAsync();
-           router.replace('/Login');
-         }
-       }
-     };*/
-
- useEffect(() => {
-  if (!authToken) return;
-
-  const loadNotifications = async () => {
-    const token = await getTokenAsync();
-    if (!token) {
-      router.replace('/Login');
-      return;
-    }
-    setLoadingNotifications(true);
-    try {
-      const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      const notifs = Array.isArray(response.data) ? response.data : [];
-      setNotifications(notifs);
-      setUnreadCount(notifs.filter(n => !n.read && n.estado !== 'leido').length);
-    } catch (error) {
-      console.error('Error al cargar notificaciones:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        Alert.alert('Sesión Expirada', 'Tu sesión ha caducado. Por favor, inicia sesión nuevamente.');
-        await deleteTokenAsync();
-        router.replace('/Login');
-      } else {
-        Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
-      }
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
-
-  // Cargar inmediatamente
-  loadNotifications();
-
-  // Polling cada 30 segundos
-  const interval = setInterval(loadNotifications, 30000);
-
-  return () => clearInterval(interval);
-}, [authToken, router]);
-
-  const handleActionPress = (route) => {
-    if (route) {
-      router.push(route);
-    } else {
-      Alert.alert('Próximamente', 'Esta funcionalidad estará disponible pronto.', [
-        { text: 'Entendido' },
-      ]);
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro de que deseas cerrar sesión?',
+      'Confirmar Cierre de Sesión',
+      '¿Está seguro que desea cerrar la sesión actual?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -452,134 +586,131 @@ const HomeAcademicoScreen = () => {
           style: 'destructive',
           onPress: async () => {
             await deleteTokenAsync();
-            router.replace('/');
+             setDashboardStats([
+            { title: 'Usuarios Activos', value: '—', icon: 'people-outline', color: COLORS.primary },
+            { title: 'Eventos Totales', value: '—', icon: 'calendar-outline', color: COLORS.info },
+            { title: 'Contenidos Pendientes', value: '—', icon: 'document-text-outline', color: COLORS.warning },
+            { title: 'Estabilidad Sistema', value: '—', icon: 'pulse-outline', color: COLORS.success },
+          ]);
+          setHistoricalData([]);
+          setUserProfile({
+            nombre: '',
+            apellidopat: '',
+            apellidomat: '',
+            facultad: null,
+            loading: false,
+          });
+
+          // 👉 Redirigir
+          router.replace('/');
           },
         },
-      ],
-      { cancelable: true }
+      ]
     );
   };
 
-  const formatTime = (timestamp) => {
-    const now = new Date();
-    const notifTime = new Date(timestamp);
-    const diff = Math.floor((now - notifTime) / 1000);
-    if (diff < 60) return 'Hace unos segundos';
-    if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
-    return `Hace ${Math.floor(diff / 86400)} días`;
-  };
-
-  const renderNotification = ({ item }) => (
-    <View style={styles.notificationItem}>
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationTitle}>{item.title}</Text>
-        <Text style={styles.notificationMessage}>{item.message}</Text>
-        <Text style={styles.notificationTime}>{formatTime(item.createdAt)}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: isBannerExpanded ? 220 : 80 }
+        ]}
       >
-        <HeaderSection
-          nombreUsuario={nombreUsuario}
+        <MinimalHeader
+          nombreUsuario={userProfile.nombre ? `${userProfile.nombre} ${userProfile.apellidopat}` : nombreUsuario}
+          facultad={userProfile.facultad || 'Cargando...'}
           unreadCount={unreadCount}
           onNotificationPress={() => setShowNotifications(true)}
         />
+        
+<View style={styles.dashboardSectionMinimal}>
+  <View style={styles.sectionHeaderMinimal}>
+    <Text style={styles.sectionTitleMinimal}>Resumen de Actividad</Text>
+    <Text style={styles.sectionSubtitleMinimal}>Métricas clave del sistema</Text>
+  </View>
 
-        <QuickStatsCard stats={quickStats} />
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Herramientas de Gestión</Text>
-          <Text style={styles.sectionSubtitle}>Accede a todas las funcionalidades</Text>
+  {loadingDashboard ? (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+      <Text style={styles.loadingText}>Cargando estadísticas...</Text>
+    </View>
+  ) : (
+    <View style={styles.dashboardGridMinimal}>
+      {dashboardStats.map((stat, index) => (
+        <View key={index} style={{ width: dashboardCardWidth }}>
+          <DashboardCard {...stat} />
         </View>
+      ))}
+    </View>
+  )}
 
-        <View style={styles.actionsGrid}>
-          <FlatList
-            data={adminActions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <ActionCard
-                action={item}
-                onPress={() => handleActionPress(item.route)}
-                cardWidth={cardWidth}
-                index={index}
-              />
-            )}
-            numColumns={columns}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={false}
-            key={columns}
-            contentContainerStyle={{
-              justifyContent: 'center',
-              paddingHorizontal: CARD_MARGIN / 2,
-            }}
-          />
+{historicalData.length > 0 && (
+  <View style={styles.chartContainer}>
+    <Text style={styles.chartTitle}>Eventos por Mes (últimos 6 meses)</Text>
+    <BarChart
+      data={{
+        labels: historicalData.map(d => d.name || ''),
+        datasets: [{
+          data: historicalData.map(d => d.eventos ?? 0)
+        }]
+      }}
+      width={windowWidth - 40}
+      height={220}
+      chartConfig={{
+        backgroundColor: COLORS.surface,
+        backgroundGradientFrom: COLORS.surface,
+        backgroundGradientTo: COLORS.surface,
+        color: (opacity = 1) => `rgba(233, 90, 12, ${opacity})`,
+        labelColor: (opacity = 1) => `rgba(31, 41, 55, ${opacity})`,
+        style: { borderRadius: 16 },
+        propsForLabels: { fontSize: 10 },
+        barPercentage: 0.7,
+      }}
+      style={styles.chart}
+      verticalLabelRotation={15}
+      showValuesOnTopOfBars={false}
+    />
+  </View>
+)}
+</View>
+
+        <View style={styles.actionsSectionMinimal}>
+          <View style={styles.sectionHeaderMinimal}>
+            <Text style={styles.sectionTitleMinimal}>Herramientas de Gestión</Text>
+            <Text style={styles.sectionSubtitleMinimal}>Acceda a las funcionalidades principales</Text>
+          </View>
+          <View style={styles.actionsGridMinimal}>
+            <FlatList
+              data={adminActions}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item, index }) => (
+                <ActionCard
+                  action={item}
+                  onPress={() => handleActionPress(item)}
+                  cardWidth={actionsCardWidth}
+                  index={index}
+                />
+              )}
+              numColumns={actionsColumns}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              key={actionsColumns}
+            />
+          </View>
         </View>
       </ScrollView>
 
-      {/* Modal de Notificaciones */}
-      <Modal
-        visible={showNotifications}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowNotifications(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Notificaciones</Text>
-            <TouchableOpacity onPress={() => setShowNotifications(false)}>
-              <Ionicons name="close" size={24} color={COLORS.darkText} />
-            </TouchableOpacity>
-          </View>
-
-          {loadingNotifications ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Cargando...</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={notifications}
-              renderItem={renderNotification}
-              keyExtractor={(item) => item.id.toString()}
-              style={styles.notificationsList}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="notifications-off" size={60} color="#ccc" />
-                  <Text style={styles.emptyText}>No tienes notificaciones</Text>
-                </View>
-              }
-            />
-          )}
-        </View>
-      </Modal>
-
-      {/* Botón de logout */}
-      <View style={styles.bottomBar}>
-        <Pressable
-          onPress={handleLogout}
-          style={({ pressed }) => [
-            styles.logoutButtonContainer,
-            { opacity: pressed ? 0.8 : 1 },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel="Cerrar sesión"
-        >
-          <View style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
-            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
-          </View>
-        </Pressable>
-      </View>
+      <MinimalBottomDock
+        onLogout={handleLogout}
+        onActionPress={handleActionPress}
+        isExpanded={isBannerExpanded}
+        onToggleExpanded={() => setIsBannerExpanded(!isBannerExpanded)}
+      />
     </View>
   );
 };
@@ -594,339 +725,309 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
-    paddingBottom: 100,
   },
-  headerContainer: {
+  minimalHeaderContainer: {
     width: '100%',
-    height: 220,
-    position: 'relative',
+    paddingHorizontal: 24,
+    paddingTop: (StatusBar.currentHeight || 0) + 24,
+    paddingBottom: 24,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  headerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    justifyContent: 'space-between',
-    padding: 24,
-  },
-  headerContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerGreeting: {
-    fontSize: 16,
-    color: '#cbd5e1',
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#e2e8f0',
-    opacity: 0.9,
-  },
-  headerBottom: {
+  minimalHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: COLORS.warning,
-  },
-  userInitial: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.warning,
-  },
-  userName: {
-    fontSize: 18,
+  minimalHeaderAdminText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.textSecondary,
   },
-  headerNotificationButton: {
+  minimalNotificationButton: {
     position: 'relative',
-    padding: 8,
+    padding: 4,
   },
-  headerBadge: {
+  minimalUserFacultyText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: COLORS.textSecondary,
+  marginBottom: 8,
+},
+  minimalNotificationBadge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -2,
+    right: -2,
     backgroundColor: COLORS.accent,
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerBadgeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  statsContainer: {
-    width: '90%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: -30,
-    marginBottom: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.cardShadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  statsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.darkText,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.grayText,
-    textAlign: 'center',
-  },
-  sectionHeader: {
-    width: '90%',
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 16,
-    color: COLORS.grayText,
-  },
-  actionsGrid: {
-    paddingHorizontal: CARD_MARGIN / 2,
-    paddingBottom: 20,
-  },
-  actionCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    borderColor: COLORS.white,
   },
-  actionCardHeader: {
-    height: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  headerOverlayEffect: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  actionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  actionContent: {
-    padding: 20,
-    minHeight: 100,
-  },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-    marginBottom: 8,
-  },
-  actionDescription: {
-    fontSize: 14,
-    color: COLORS.grayText,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
+  minimalNotificationBadgeText: {
     color: COLORS.white,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
-  actionArrow: {
-    position: 'absolute',
-    right: 16,
-    top: '50%',
-    marginTop: -10,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.cardShadow,
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  logoutButtonContainer: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: COLORS.opo,
-  },
-  logoutButton: {
+  minimalHeaderGreeting: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  logoutButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  // Modal de notificaciones
-  modalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
-  },
-  notificationsList: {
-    flex: 1,
-    padding: 16,
-  },
-  notificationItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.darkText,
+    alignItems: 'baseline',
+    gap: 6,
     marginBottom: 4,
   },
-  notificationMessage: {
-    fontSize: 14,
-    color: COLORS.grayText,
+  minimalGreetingText: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  minimalUserNameText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  minimalHeaderTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  sectionHeaderMinimal: {
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  sectionTitleMinimal: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
     marginBottom: 6,
   },
-  notificationTime: {
+  sectionSubtitleMinimal: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  dashboardSectionMinimal: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginTop: 40,
+  },
+  dashboardGridMinimal: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: CARD_MARGIN,
+    justifyContent: 'space-between',
+  },
+  dashboardCardMinimal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    minHeight: 130,
+    justifyContent: 'space-between',
+  },
+  dashboardCardHeaderMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  dashboardCardValueMinimal: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+  },
+  dashboardCardTitleMinimal: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  dashboardCardTrendMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  dashboardCardTrendTextMinimal: {
     fontSize: 12,
-    color: COLORS.grayText,
+    fontWeight: '600',
+  },
+  dashboardCardDescriptionMinimal: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
+  },
+  actionsSectionMinimal: {
+    width: '100%',
+    paddingHorizontal: 20,
+    marginTop: 40,
+    marginBottom: 60,
+  },
+  actionsGridMinimal: {
+    width: '100%',
+  },
+  actionCardMinimal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  actionCardIconMinimal: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionCardContentMinimal: {
+    flex: 1,
+  },
+  actionCardTitleContainerMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  actionCardTitleMinimal: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    flexShrink: 1,
+  },
+  actionCardBadgeMinimal: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  actionCardBadgeTextMinimal: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  actionCardDescriptionMinimal: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
-    color: COLORS.grayText,
+    fontSize: 14,
+    color: COLORS.textSecondary,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  minimalDockContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.primary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 10,
+    overflow: 'hidden',
+  },
+  minimalDockToggle: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 60,
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 8,
   },
-  emptyText: {
+  minimalDockToggleText: {
+    color: COLORS.white,
     fontSize: 16,
-    color: COLORS.grayText,
-    textAlign: 'center',
+    fontWeight: '600',
   },
+  minimalDockExpandedContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 60,
+  },
+  minimalDockQuickActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+    gap: 10,
+  },
+  minimalDockQuickActionButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    width: '22%',
+  },
+  minimalDockQuickActionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  minimalDockLogoutButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    width: '100%',
+  },
+  minimalDockLogoutButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  chartContainer: {
+  marginTop: 24,
+  backgroundColor: COLORS.surface,
+  borderRadius: 12,
+  padding: 16,
+  alignItems: 'center',
+},
+chartTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: COLORS.textPrimary,
+  marginBottom: 12,
+},
+chart: {
+  borderRadius: 8,
+  marginVertical: 8,
+},
 });
 
 export default HomeAcademicoScreen;

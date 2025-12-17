@@ -1,32 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated, ActivityIndicator, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  ActivityIndicator,
+  Pressable,
+  ImageBackground,
+} from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import { createStackNavigator,StackScreenProps  } from '@react-navigation/stack';
-
-import Home from '../Home'
+import { createStackNavigator, StackScreenProps } from '@react-navigation/stack';
+import Home from '../Home';
 
 SplashScreen.preventAutoHideAsync();
+
 export type RootStackParamList = {
-Welcome: undefined;
-Home: undefined;
+  Welcome: undefined;
+  Home: undefined;
 };
+
 type WelcomeScreenProps = StackScreenProps<RootStackParamList, 'Welcome'>;
+
 const App: React.FC = () => {
   const [appIsReady, setAppIsReady] = useState<boolean>(false);
   const [fadeAnim] = useState<Animated.Value>(new Animated.Value(1));
   const [contentAnim] = useState<Animated.Value>(new Animated.Value(0));
 
-
   const Stack = createStackNavigator<RootStackParamList>();
+
   useEffect(() => {
     async function prepare() {
       try {
-        // Simula carga de recursos (puedes reemplazar con carga real, e.g., fuentes o datos)
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulación de 2 segundos
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Simulación de carga
       } catch (e) {
         console.warn(e);
       } finally {
-        // Animación de desvanecimiento
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 1000,
@@ -48,99 +56,135 @@ const App: React.FC = () => {
 
   if (!appIsReady) {
     return (
-      <View style={styles.container}>
+      <View style={styles.splashContainer}>
         <Animated.Image
-          source={require('../../assets/images/logo.jpg')} // Verifica esta ruta
-          style={[styles.image, { opacity: fadeAnim }]}
+          source={require('../../assets/images/logo.jpg')}
+          style={[styles.splashImage, { opacity: fadeAnim }]}
         />
         <ActivityIndicator size="large" color="#e95a0c" />
       </View>
     );
   }
 
-  // Pantalla principal sin LinearGradient
   return (
-      <Stack.Navigator initialRouteName="Welcome">
-        <Stack.Screen
-          name="Welcome"
-          options={{ headerShown: false }}
-          component={({ navigation }:WelcomeScreenProps) => (
-            <View style={[styles.container, { backgroundColor: '#e9590cd4' }]}>
-              <Animated.View style={[styles.content, { opacity: contentAnim, transform: [{ scale: contentAnim }] }]}>
-                <Text style={styles.title}>¡Bienvenido a EventosApp!</Text>
-                <Text style={styles.subtitle}>Organiza y automatiza tus eventos con facilidad</Text>
-                <Pressable
-                  style={styles.button}
-                  onPress={() => navigation.navigate('Home')}
-                >
-                  <Text style={styles.buttonText}>Explorar Eventos</Text>
-                </Pressable>
-              </Animated.View>
-            </View>
-          )}
-        />
-        <Stack.Screen
-          name="Home"
-          component={Home}
-          options={{ title: 'Home',
-            headerLeft:()=>null,
-           }}
-        />
-      </Stack.Navigator>
+    <Stack.Navigator initialRouteName="Welcome">
+      <Stack.Screen
+        name="Welcome"
+        options={{ headerShown: false }}
+        component={({ navigation }: WelcomeScreenProps) => (
+          <ImageBackground
+            source={require('../../assets/images/photo1.jpg')} // ⚠️ Asegúrate de tener esta imagen
+            style={styles.background}
+            resizeMode="cover"
+          >
+            {/* Overlay semitransparente para mejorar legibilidad */}
+            <View style={styles.overlay} />
+
+            <Animated.View
+              style={[
+                styles.content,
+                {
+                  opacity: contentAnim,
+                  transform: [{ scale: contentAnim }],
+                },
+              ]}
+            >
+              <Text style={styles.title}>¡Bienvenido a EventosApp!</Text>
+              <Text style={styles.subtitle}>
+                Organiza y automatiza tus eventos con facilidad
+              </Text>
+              <Pressable
+                style={styles.button}
+                onPress={() => navigation.navigate('Home')}
+              >
+                <Text style={styles.buttonText}>Explorar Eventos</Text>
+              </Pressable>
+            </Animated.View>
+          </ImageBackground>
+        )}
+      />
+      <Stack.Screen
+        name="Home"
+        component={Home}
+        options={{
+          title: 'Home',
+          headerLeft: () => null,
+        }}
+      />
+    </Stack.Navigator>
   );
 };
+
 const styles = StyleSheet.create({
-  container: {
+  splashContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e95a0c',
+  },
+  splashImage: {
+    width: 300,
+    height: 300,
+    resizeMode: 'contain',
+    marginBottom: 20,
+  },
+  background: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  image: {
-    width: 300,
-    height: 300,
-    resizeMode: 'contain',
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', // Capa oscura semitransparente
   },
   content: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Fondo semi-transparente
+    padding: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 10,
+    elevation: 6,
+    maxWidth: '90%',
   },
   title: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: 'bold',
-    color: '#fcfcfcff',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   subtitle: {
     fontSize: 18,
-    color: '#e0e0e0',
+    color: '#f5f5f5',
     textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 24,
   },
   button: {
     backgroundColor: '#e95a0c',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
   },
   buttonText: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });
 
 export default App;
-

@@ -11,11 +11,12 @@ import {
   RefreshControl,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
+// Configuración de API
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
@@ -79,15 +80,15 @@ const deleteTokenAsync = async () => {
   }
 };
 
-const EventosPendientes = () => {
+const EventosPendientesSA = () => {
   const router = useRouter();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  //const { area } = useLocalSearchParams();
 
 
-   const fetchPendingEvents = useCallback(async () => {
+
+  const fetchPendingEvents = useCallback(async () => {
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -96,13 +97,13 @@ const EventosPendientes = () => {
         return;
       }
 
-      // ✅ Pasar `area` como parámetro a la API
-      const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        //params: { area: area || 'academica' } // Si no hay area, usa 'academica' por defecto
-      });
+      // Llamada real a la API (descomentarla cuando esté lista)
+       const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
+         headers: { 'Authorization': `Bearer ${token}` }
+       });
+       setEvents(response.data.events);
 
-      setEvents(response.data || []);
+
     } catch (error) {
       console.error('Error al cargar eventos pendientes:', error);
       Alert.alert('Error', 'No se pudieron cargar los eventos pendientes.');
@@ -309,7 +310,46 @@ const EventosPendientes = () => {
       />
     </View>
   );
- 
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.accent} />
+      
+      {/* Header con tu color naranja */}
+    
+
+      {events.length > 0 && (
+        <View style={styles.summaryBanner}>
+          <Ionicons name="time" size={20} color={COLORS.accent} />
+          <Text style={styles.summaryText}>
+            {events.length} evento{events.length !== 1 ? 's' : ''} esperando tu aprobación
+          </Text>
+        </View>
+      )}
+
+      <FlatList
+        data={events}
+        renderItem={renderEventItem}
+        keyExtractor={(item) => item.id}
+        style={styles.eventsList}
+        contentContainerStyle={styles.eventsListContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.accent]}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="checkmark-circle-outline" size={60} color={COLORS.success} />
+            <Text style={styles.emptyTitle}>¡Todo al día!</Text>
+            <Text style={styles.emptyText}>No hay eventos pendientes de aprobación</Text>
+          </View>
+        }
+      />
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -524,4 +564,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EventosPendientes;
+export default EventosPendientesSA;

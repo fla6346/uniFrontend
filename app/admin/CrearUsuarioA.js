@@ -25,7 +25,6 @@ const { width } = Dimensions.get('window');
 const CrearUsuarioA = () => {
   const router = useRouter();
 
-  // Estados para dropdowns
   const [open, setOpen] = useState(false); 
   const [role, setRole] = useState(null); 
   const [items, setItems] = useState([ 
@@ -41,21 +40,31 @@ const CrearUsuarioA = () => {
     { label: 'Servicios Estudiantiles', value: 'servicios', icon: () => <Ionicons name="help-circle" size={20} color="#16a085" /> },    
   ]);
 
-  // Estados para facultades
-  const [facultadesSeleccionadas, setFacultadesSeleccionadas] = useState([]);
+  const [facultadSeleccionada, setFacultadSeleccionada] = useState(null); 
   const [openFacultad, setOpenFacultad] = useState(false);
   const [opcionesFacultad, setOpcionesFacultad] = useState([]);
 
-  // Estados para carreras
   const [openCarrera, setOpenCarrera] = useState(false);
-  const [carrerasSeleccionadas, setCarrerasSeleccionadas] = useState([]);
+  const [carreraSeleccionada, setCarreraSeleccionada] = useState(null); // ✅ Corregido a singular
+  const [carrerasDocente, setCarrerasDocente] = useState([]);
   const [opcionesCarrera, setOpcionesCarrera] = useState([
-    { label: 'Ingeniería de Sistemas', value: '1' },
-    { label: 'Ingeniería Industrial', value: '2' },
-    { label: 'Ciencias de la salud', value: '3' },
-    { label: 'Diseño y Tecnologia Crossmedia', value: '4' },
-    { label: 'Ciencias Economicas y Empresariales', value: '5' },
-    { label: 'Ciencias Juridicas', value: '6' },
+      { label: 'Derecho', value: '1' },
+      { label: 'Psicología', value: '2' },
+      { label: 'Periodismo', value: '3' },
+      { label: 'Administración de Empresas', value: '4' },
+      { label: 'Administración de Hotelería y Turismo', value: '5' },
+      { label: 'Contaduría Pública', value: '6' }, // ✅ ID 6 existe
+      { label: 'Ingeniería Comercial', value: '7' },
+      { label: 'Ingeniería Económica', value: '8' },
+      { label: 'Ingeniería Económica y Financiera', value: '9' },
+      { label: 'Arquitectura', value: '10' },
+      { label: 'Diseño Gráfico y Producción Cross Media', value: '11' },
+      { label: 'Publicidad y Marketing', value: '12' },
+      { label: 'Bioquímica y Farmacia', value: '13' },
+      { label: 'Enfermería', value: '14' },
+      { label: 'Medicina', value: '15' },
+      { label: 'Odontología', value: '16' },
+      { label: 'Ingeniería de Sistemas', value: '17' },
   ]);
 
   const [formData, setFormData] = useState({
@@ -74,17 +83,14 @@ const CrearUsuarioA = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
 
-  // Función para determinar si el rol necesita selección de carreras
   const roleNeedsCarreras = (selectedRole) => {
-    return ['student', 'docente', 'director'].includes(selectedRole);
+    return ['student', 'docente', 'academico'].includes(selectedRole);
   };
 
-  // Función para determinar si el rol necesita facultad
   const roleNeedsFacultad = (selectedRole) => {
     return selectedRole === 'academico'; 
   };
 
-  // Cargar facultades al montar el componente
   useEffect(() => {
     const fetchFacultades = async () => {
       try {
@@ -95,13 +101,12 @@ const CrearUsuarioA = () => {
         if (response.data && Array.isArray(response.data)) {
           const facultadesFormateadas = response.data.map(facultad => ({
             label: facultad.nombre,
-            value: facultad.idfacultad.toString()
+            value: facultad.facultad_id.toString()
           }));
           console.log('Facultades formateadas:', facultadesFormateadas);
           setOpcionesFacultad(facultadesFormateadas);
         } else {
           console.log('No hay facultades o formato incorrecto');
-          // Agregar facultades por defecto si no hay en la API
           setOpcionesFacultad([
             { label: 'Facultad de Ingeniería', value: '1' },
             { label: 'Facultad de Ciencias Económicas', value: '2' },
@@ -112,7 +117,6 @@ const CrearUsuarioA = () => {
         }
       } catch (error) {
         console.error('Error al obtener las Facultades', error);
-        // Si hay error, usar facultades por defecto
         setOpcionesFacultad([
           { label: 'Facultad de Ingeniería', value: '1' },
           { label: 'Facultad de Ciencias Económicas', value: '2' },
@@ -126,7 +130,6 @@ const CrearUsuarioA = () => {
     fetchFacultades();
   }, []);
 
-  // Verificar autenticación
   useEffect(() => {
     const checkAuth = async () => {
       const TOKEN_KEY = 'adminAuthToken';
@@ -151,12 +154,24 @@ const CrearUsuarioA = () => {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+  if (role !== 'docente') {
+    setCarrerasDocente([]);
+  }
+  if (role !== 'student' && role !== 'academico') {
+    setCarreraSeleccionada(null);
+  }
+}, [role]);
+useEffect(() => {
+  setOpenCarrera(false);
+  setOpenFacultad(false);
+}, [role]);
+
   const updateFormData = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    // Limpiar error específico cuando se corrige
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -169,7 +184,7 @@ const CrearUsuarioA = () => {
     const newErrors = {};
     
     switch (step) {
-      case 1: // Información básica
+      case 1: 
         if (!formData.username.trim()) {
           newErrors.username = 'El nombre de usuario es requerido.';
         } else if (formData.username.length < 3) {
@@ -179,7 +194,7 @@ const CrearUsuarioA = () => {
         if (!formData.apellidopat.trim()) newErrors.apellidopat = 'El apellido paterno es requerido.';
         break;
         
-      case 2: // Credenciales
+      case 2: 
         if (!formData.email.trim()) {
           newErrors.email = 'El email es requerido.';
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -192,28 +207,29 @@ const CrearUsuarioA = () => {
         }
         break;
         
-      case 3: // Rol y configuración
+      case 3:
         if (!role) {
           newErrors.role = 'El rol es requerido.';
         }
 
-        // Validar carreras si el rol las necesita
         if (roleNeedsCarreras(role)) {
-          if (!carrerasSeleccionadas || carrerasSeleccionadas.length === 0) {
+          const carreraValida = role === 'docente' ? 
+            (carrerasDocente && carrerasDocente.length > 0) : 
+            carreraSeleccionada; // ✅ Usar carreraSeleccionada (singular)
+            
+          if (!carreraValida) {
             if (role === 'student') {
               newErrors.carrera = 'Debe seleccionar la carrera del estudiante.';
-            } else if (role === 'director') {
+            } else if (role === 'academico') { 
               newErrors.carrera = 'Debe seleccionar la carrera que dirigirá.';
             } else if (role === 'docente') {
               newErrors.carrera = 'Debe seleccionar al menos una carrera donde enseñará.';
             }
           }
         }
-
-        // Validar facultad si el rol la necesita
-        if (roleNeedsFacultad(role)) {
-          if (!facultadesSeleccionadas || facultadesSeleccionadas.length === 0) {
-            newErrors.facultad = 'Debe seleccionar la facultad para el director.';
+        if(role === 'academico'){
+          if( !facultadSeleccionada){
+            newErrors.facultad = 'Debe Seleccionar la facultaad para el director ';
           }
         }
         break;
@@ -233,10 +249,15 @@ const CrearUsuarioA = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
- const handleAddUser = async () => {
-    if (!validateStep(3)) return; // Asegura que el último paso sea validado antes de enviar
+  const handleAddUser = async () => {
+    if (!validateStep(3)) return;
     
     setIsLoading(true);
+    console.log("=== DIAGNÓSTICO ===");
+    console.log("Role seleccionado:", role);
+    console.log("Carrera seleccionada:", carreraSeleccionada); // ✅ Singular
+    console.log("Carreras docente:", carrerasDocente);
+    console.log("Facultad seleccionada:", facultadSeleccionada);
     try {
       const newUserPayload = {
         username: formData.username.trim(),
@@ -249,21 +270,23 @@ const CrearUsuarioA = () => {
         habilitado: formData.habilitado ? 1 : 0,
       };
 
-      if (roleNeedsFacultad(role) && facultadesSeleccionadas.length > 0) {
-        // Asumiendo que tu backend espera un solo idfacultad para 'academico'
-        newUserPayload.idfacultad = parseInt(facultadesSeleccionadas[0]); 
-      }
-
-      if (roleNeedsCarreras(role) && carrerasSeleccionadas.length > 0) {
-        if (role === 'student' || role === 'director') {
-          // Para estudiante/director, asume un solo idcarrera
-          newUserPayload.idcarrera = parseInt(carrerasSeleccionadas[0]);
+      // ✅ CORREGIDO: Lógica separada y correcta
+      if (roleNeedsCarreras(role)) {
+        if (role === 'student' || role === 'academico') {
+          if (carreraSeleccionada) {
+            newUserPayload.idcarrera = parseInt(carreraSeleccionada);
+          }
         } else if (role === 'docente') {
-          // Para docente, asume un array de idcarreras
-          newUserPayload.carreras_ids = carrerasSeleccionadas.map(id => parseInt(id));
+          if (carrerasDocente && carrerasDocente.length > 0) {
+            newUserPayload.carreras_ids = carrerasDocente.map(id => parseInt(id));
+          }
         }
       }
 
+      if (role === 'academico' && facultadSeleccionada) {
+        newUserPayload.idfacultad = parseInt(facultadSeleccionada);
+      }
+     
       console.log("FRONTEND - Payload enviado:", JSON.stringify(newUserPayload, null, 2));
       
       const response = await apiClient.post('/auth/register', newUserPayload);
@@ -276,7 +299,6 @@ const CrearUsuarioA = () => {
             {
               text: 'OK',
               onPress: () => {
-                // Resetear formulario
                 setFormData({
                   username: '',
                   nombre: '',
@@ -287,16 +309,15 @@ const CrearUsuarioA = () => {
                   habilitado: true,
                 });
                 setRole(null);
-                setCarrerasSeleccionadas([]);
-                setFacultadesSeleccionadas([]);
+                setCarreraSeleccionada(null); // ✅ Reset correcto
+                setCarrerasDocente([]);
+                setFacultadSeleccionada(null); // ✅ Reset correcto
                 setCurrentStep(1);
                 
-                router.replace({ 
-                  pathname: '/admin/UsuariosA', 
-                  params: { refresh: Date.now().toString() } 
-                });
+                router.replace('/login') 
+                }
               }
-            }
+            
           ]
         );
       }
@@ -306,42 +327,40 @@ const CrearUsuarioA = () => {
       
       let errorMessage = 'Error desconocido al crear usuario.';
       const newErrors = {};
-      let stepToRevert = 1; // Por defecto, volver al paso 1 para errores generales
+      let stepToRevert = 1;
 
       if (error.response) {
         console.error("Respuesta del servidor:", error.response.data);
+        console.error("Errores de validación:", error.response.data.errors);
         
         if (error.response.data?.message) {
           errorMessage = error.response.data.message;
 
           if (error.response.data?.errors && Array.isArray(error.response.data.errors)) {
-            // Errores de validación detallados del backend
             const backendErrors = error.response.data.errors;
             const errorMessages = [];
 
             backendErrors.forEach(err => {
-              const fieldPath = err.path || err.param; // El backend podría usar 'path' o 'param'
+              const fieldPath = err.path || err.param;
               const message = err.message || err.msg;
 
               if (fieldPath) {
                 newErrors[fieldPath] = message;
-                // Determinar a qué paso volver basado en el campo
                 if (['username', 'nombre', 'apellidopat', 'apellidomat'].includes(fieldPath)) {
                   stepToRevert = Math.min(stepToRevert, 1);
                 } else if (['email', 'contrasenia'].includes(fieldPath)) {
                   stepToRevert = Math.min(stepToRevert, 2);
-                } else if (['role', 'carrera', 'facultad_id', 'idcarrera', 'idfacultad', 'carreras_ids'].some(f => fieldPath.includes(f))) { // Comprobar variaciones
+                } else if (['role', 'carrera', 'facultad_id', 'idcarrera', 'facultad_id', 'carreras_ids'].some(f => fieldPath.includes(f))) {
                   stepToRevert = Math.min(stepToRevert, 3);
                 }
               }
               errorMessages.push(message);
             });
-            // Combinar todos los mensajes de error para la alerta
             errorMessage = errorMessages.join('\n');
           }
         } else if (error.response.status === 409) {
           errorMessage = 'El usuario ya existe. Intenta con otro nombre de usuario o email.';
-          stepToRevert = 1; // Probablemente conflicto de nombre de usuario/email
+          stepToRevert = 1;
         } else if (error.response.status >= 500) {
           errorMessage = 'Error del servidor. Intenta nuevamente más tarde.';
         }
@@ -349,15 +368,15 @@ const CrearUsuarioA = () => {
         errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
       }
 
-      setErrors(prev => ({ ...prev, ...newErrors })); // Actualizar errores a nivel del formulario
-      setCurrentStep(stepToRevert); // Volver al paso relevante
+      setErrors(prev => ({ ...prev, ...newErrors }));
+      setCurrentStep(stepToRevert);
 
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
-  // Función para cerrar todos los dropdowns
+
   const closeAllDropdowns = () => {
     setOpen(false);
     setOpenCarrera(false);
@@ -430,7 +449,7 @@ const CrearUsuarioA = () => {
           keyboardType={options.keyboardType || 'default'}
           autoCapitalize={options.autoCapitalize || 'none'}
           placeholderTextColor="#999"
-          onFocus={closeAllDropdowns} // Cerrar dropdowns al enfocar input
+          onFocus={closeAllDropdowns}
         />
         {field === 'contrasenia' && (
           <TouchableOpacity
@@ -552,29 +571,30 @@ const CrearUsuarioA = () => {
       </View>
       {errors.role && <Text style={styles.errorText}>{errors.role}</Text>}
 
-      {/* Selección de carreras para roles que las necesitan */}
       {roleNeedsCarreras(role) && (
         <View style={styles.conditionalContainer}>
           <Text style={styles.label}>
             {role === 'student' && 'Carrera del Estudiante'}
-            {role === 'director' && 'Carrera a Dirigir'}
+            {role === 'academico' && 'Carrera a Dirigir'} {/* ✅ CORRECCIÓN */}
             {role === 'docente' && 'Carreras donde Enseña'}
             <Text style={styles.required}> *</Text>
           </Text>
           <View style={[styles.dropdownContainer, { zIndex: 2000 }]}>
             <DropDownPicker
-              multiple={role === 'docente'} // Solo docentes pueden seleccionar múltiples
+              multiple={role === 'docente'}
               min={1}
-              max={role === 'docente' ? 5 : 1} // Docentes hasta 5, otros solo 1
+              max={role === 'docente' ? 5 : 1}
               open={openCarrera}
-              value={carrerasSeleccionadas}
+              // ✅ CORREGIDO: Estados correctos
+              value={role === 'docente' ? carrerasDocente : carreraSeleccionada}
               items={opcionesCarrera}
               setOpen={setOpenCarrera}
-              setValue={setCarrerasSeleccionadas}
+              // ✅ CORREGIDO: Funciones correctas
+              setValue={role === 'docente' ? setCarrerasDocente : setCarreraSeleccionada}
               setItems={setOpcionesCarrera}
               placeholder={
                 role === 'student' ? 'Selecciona la carrera del estudiante' :
-                role === 'director' ? 'Selecciona la carrera a dirigir' :
+                role === 'academico' ? 'Selecciona la carrera a dirigir' : 
                 'Selecciona las carreras donde enseñará'
               }
               style={[styles.dropdown, errors.carrera && styles.inputError]}
@@ -591,18 +611,16 @@ const CrearUsuarioA = () => {
           </View>
           {errors.carrera && <Text style={styles.errorText}>{errors.carrera}</Text>}
           
-          {/* Información adicional según el rol */}
           <View style={styles.roleInfoContainer}>
             <Text style={styles.roleInfoText}>
               {role === 'student' && '💡 El estudiante será asignado a esta carrera'}
-              {role === 'director' && '💡 Este usuario será el director de la carrera seleccionada'}
+              {role === 'academico' && '💡 Este usuario será el director de la carrera seleccionada'} {/* ✅ CORRECCIÓN */}
               {role === 'docente' && '💡 El docente podrá enseñar en las carreras seleccionadas'}
             </Text>
           </View>
         </View>
       )}
 
-      {/* Selección de facultad para directores académicos */}
       {roleNeedsFacultad(role) && (
         <View style={styles.conditionalContainer}>
           <Text style={styles.label}>
@@ -613,10 +631,10 @@ const CrearUsuarioA = () => {
             <DropDownPicker
               multiple={false}
               open={openFacultad}
-              value={facultadesSeleccionadas}
+              value={facultadSeleccionada}
               items={opcionesFacultad}
               setOpen={setOpenFacultad}
-              setValue={setFacultadesSeleccionadas}
+              setValue={setFacultadSeleccionada}
               setItems={setOpcionesFacultad}
               placeholder="Selecciona la facultad a dirigir"
               style={[styles.dropdown, errors.facultad && styles.inputError]}
@@ -646,8 +664,6 @@ const CrearUsuarioA = () => {
           {errors.facultad && <Text style={styles.errorText}>{errors.facultad}</Text>}
         </View>
       )}
-
-     
     </View>
   );
 
@@ -776,6 +792,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     marginHorizontal: 5,
   },
+  confirmationText: {
+    fontSize: 14,
+    color: '#27ae60',
+    marginTop: 5,
+    fontStyle: 'italic',
+  },
   progressLineActive: {
     backgroundColor: '#e95a0c',
   },
@@ -787,6 +809,7 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     paddingVertical: 20,
+     paddingBottom: 80,
   },
   conditionalContainer: {
     marginTop: 20,
@@ -877,6 +900,7 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     marginBottom: 15,
+    zIndex:9999,
   },
   dropdown: {
     backgroundColor: '#fff',
@@ -890,6 +914,8 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderWidth: 1,
     borderRadius: 12,
+    zIndex:9999,
+    elevation:9999,
   },
   dropdownText: {
     fontSize: 16,
