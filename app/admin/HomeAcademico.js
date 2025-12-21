@@ -95,22 +95,24 @@ const DashboardCard = ({ title, value, icon, color, trend, description }) => {
   const trendIcon = trend > 0 ? 'arrow-up' : 'arrow-down';
 
   return (
-    <View style={styles.dashboardCardMinimal}>
-      <View style={styles.dashboardCardHeaderMinimal}>
-        <Ionicons name={icon} size={24} color={color} />
-        <Text style={styles.dashboardCardValueMinimal}>{value}</Text>
+    <View style={[styles.dashboardCard, { backgroundColor: `${color}10` }]}>
+      <View style={styles.cardHeader}>
+        <View style={[styles.iconContainer, { backgroundColor: color }]}>
+          <Ionicons name={icon} size={20} color={COLORS.white} />
+        </View>
+        <Text style={styles.cardValue}>{value}</Text>
       </View>
-      <Text style={styles.dashboardCardTitleMinimal}>{title}</Text>
-      {trend && (
-        <View style={styles.dashboardCardTrendMinimal}>
-          <Ionicons name={trendIcon} size={14} color={trendColor} />
-          <Text style={[styles.dashboardCardTrendTextMinimal, { color: trendColor }]}>
-            {Math.abs(trend)}% {trend > 0 ? 'más' : 'menos'}
+      <Text style={styles.cardTitle}>{title}</Text>
+      {trend !== null && (
+        <View style={styles.cardTrend}>
+          <Ionicons name={trendIcon} size={12} color={trendColor} />
+          <Text style={[styles.cardTrendText, { color: trendColor }]}>
+            {Math.abs(trend)}% {trend > 0 ? '↑' : '↓'}
           </Text>
         </View>
       )}
       {description && (
-        <Text style={styles.dashboardCardDescriptionMinimal}>{description}</Text>
+        <Text style={styles.cardDescription}>{description}</Text>
       )}
     </View>
   );
@@ -158,7 +160,7 @@ const ActionCard = ({ action, onPress, cardWidth, index }) => {
     >
       <Animated.View
         style={[
-          styles.actionCardMinimal,
+          styles.actionCard,
           {
             transform: [{ scale: scaleAnim }],
             opacity: fadeAnim,
@@ -297,22 +299,7 @@ const MinimalHeader = ({ nombreUsuario,facultad, unreadCount, onNotificationPres
 
   return (
     <View style={styles.minimalHeaderContainer}>
-      <View style={styles.minimalHeaderTop}>
-        <Text style={styles.minimalHeaderAdminText}>admin</Text>
-        <TouchableOpacity
-          style={styles.minimalNotificationButton}
-          onPress={onNotificationPress}
-        >
-          <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
-          {unreadCount > 0 && (
-            <View style={styles.minimalNotificationBadge}>
-              <Text style={styles.minimalNotificationBadgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+     
       <View style={styles.minimalHeaderGreeting}>
         <Text style={styles.minimalGreetingText}>{getCurrentGreeting()},</Text>
         <Text style={styles.minimalUserNameText}>{nombreUsuario}</Text>
@@ -338,6 +325,7 @@ const HomeAcademicoScreen = () => {
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
   const [historicalData, setHistoricalData] = useState([]);
   const unreadCount = notifications.filter(notif => !notif.read).length;
+  const [approvedEventsCount, setApprovedEventsCount] = useState('0');
 const [userProfile, setUserProfile] = useState({
   nombre: '',
   apellidopat: '',
@@ -361,8 +349,10 @@ const [userProfile, setUserProfile] = useState({
       });
 
       const data = response.data;
+      console.log('Datos recibidos del dashboard:', data);
       setPendingContentCount(data.pendingContent?.toString() || '0');
       setActiveUsersCount(data.activeUsers?.toString() || '0');
+      setApprovedEventsCount(data.estadoCounts?.aprobado?.toString() || '0')
 
       setDashboardStats([
         { 
@@ -383,7 +373,7 @@ const [userProfile, setUserProfile] = useState({
         },
         { 
           title: 'Contenidos Pendientes', 
-          value: data.pendingContent?.toString() || '0', 
+          value: data.estadoCounts?.pendiente?.toString() || '0', 
           icon: 'document-text-outline', 
           color: COLORS.warning,
           trend: 18.7,
@@ -500,63 +490,64 @@ useEffect(() => {
     { title: 'Estabilidad Sistema', value: 'cargando...', icon: 'pulse-outline', color: COLORS.success, trend: null },
   ]);
 
-  const adminActions = [
-    {
-      id: '0',
-      title: 'Proyecto del Evento',
-      iconName: 'clipboard-outline',
-      route: '/admin/ProyectoEvento',
-      color: COLORS.primary,
-      description: 'Gestión de proyectos institucionales',
-      badge: 'Activo',
-      badgeColor: COLORS.success,
-    },
-    {
-      id: '1',
-      title: 'Gestión de Usuarios',
-      iconName: 'people-outline',
-      route: '/admin/UsuarioAcademico',
-      color: COLORS.secondary,
-      description: 'Administración de cuentas de usuario',
-    },
-    {
-      id: '2',
-      title: 'Eventos Pendientes',
-      iconName: 'timer-outline',
-      route: '/admin/EventosPendientes',
-      //params: {area: 'academica'},
-      color: COLORS.warning,
-      description: 'Revisión y aprobación de eventos',
-      badge: `${pendingContentCount} pendientes`,
-      badgeColor: COLORS.warning,
-    },
-    {
-      id: '3',
-      title: 'Eventos Aprobados',
-      iconName: 'checkmark-circle-outline',
-      route: '/admin/EventosAprobados',
-      color: COLORS.success,
-      description: 'Gestión de eventos ya aprobados',
-    },
-    {
-      id: '4',
-      title: 'Análisis de Datos',
-      iconName: 'analytics-outline',
-      route: '/admin/Estadistica',
-      color: COLORS.info,
-      description: 'Informes y métricas del sistema',
-    },
-    {
-      id: '5',
-      title: 'Reportes Avanzados',
-      iconName: 'document-text-outline',
-      route: '/admin/reportes',
-      color: COLORS.secondary,
-      description: 'Generación de reportes detallados',
-      badge: 'Nuevo',
-      badgeColor: COLORS.accent,
-    },
-  ];
+  const adminActions = useMemo(() => [
+  {
+    id: '0',
+    title: 'Proyecto del Evento',
+    iconName: 'clipboard-outline',
+    route: '/admin/ProyectoEvento',
+    color: COLORS.primary,
+    description: 'Gestión de proyectos institucionales',
+    badge: 'Activo',
+    badgeColor: COLORS.success,
+  },
+  {
+    id: '1',
+    title: 'Gestión de Usuarios',
+    iconName: 'people-outline',
+    route: '/admin/UsuarioAcademico',
+    color: COLORS.secondary,
+    description: 'Administración de cuentas de usuario',
+  },
+  {
+    id: '2',
+    title: 'Eventos Pendientes',
+    iconName: 'timer-outline',
+    route: '/admin/EventosPendientes',
+    color: COLORS.warning,
+    description: 'Revisión y aprobación de eventos',
+    //`${pendingContentCount} pendientes`, 
+    //data.estadoCounts.pendiente?.toString() || '0',
+    badgeColor: COLORS.warning,
+  },
+  {
+    id: '3',
+    title: 'Eventos Aprobados',
+    iconName: 'checkmark-circle-outline',
+    route: '/admin/EventosAprobados',
+    color: COLORS.success,
+    description: 'Gestión de eventos ya aprobados',
+    badgeColor: COLORS.black
+  },
+  {
+    id: '4',
+    title: 'Análisis de Datos',
+    iconName: 'analytics-outline',
+    route: '/admin/Estadistica',
+    color: COLORS.info,
+    description: 'Informes y métricas del sistema',
+  },
+  {
+    id: '5',
+    title: 'Reportes Avanzados',
+    iconName: 'document-text-outline',
+    route: '/admin/reportes',
+    color: COLORS.secondary,
+    description: 'Generación de reportes detallados',
+    badge: 'Nuevo',
+    badgeColor: COLORS.accent,
+  },
+], [pendingContentCount]);
 
 const handleActionPress = (action) => {
   if (action && action.role) {
@@ -674,6 +665,7 @@ const handleActionPress = (action) => {
       style={styles.chart}
       verticalLabelRotation={15}
       showValuesOnTopOfBars={false}
+      fromZero
     />
   </View>
 )}
@@ -740,6 +732,56 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  dashboardCard: {
+  flex: 1,
+  borderRadius: 16,
+  padding: 16,
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  elevation: 3,
+  minHeight: 140,
+  justifyContent: 'space-between',
+},
+cardHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  marginBottom: 12,
+},
+iconContainer: {
+  width: 40,
+  height: 40,
+  borderRadius: 10,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+cardValue: {
+  fontSize: 28,
+  fontWeight: '800',
+  color: COLORS.textPrimary,
+},
+cardTitle: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: COLORS.textPrimary,
+  marginBottom: 4,
+},
+cardTrend: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+  marginBottom: 4,
+},
+cardTrendText: {
+  fontSize: 12,
+  fontWeight: '600',
+},
+cardDescription: {
+  fontSize: 12,
+  color: COLORS.textTertiary,
+},
   minimalHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1014,9 +1056,14 @@ const styles = StyleSheet.create({
   chartContainer: {
   marginTop: 24,
   backgroundColor: COLORS.surface,
-  borderRadius: 12,
+  borderRadius: 16,
   padding: 16,
   alignItems: 'center',
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  elevation: 3,
 },
 chartTitle: {
   fontSize: 16,

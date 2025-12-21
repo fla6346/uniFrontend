@@ -8,7 +8,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Platform, // Asegúrate de que esté importado
+  Platform, 
+  ImageBackground
 } from 'react-native';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store'; // <--- IMPORTA SecureStore
@@ -176,42 +177,53 @@ console.log('Token guardado correctamente:', tokenVerificado);
     
   };
 
-  return (
-    <View style={styles.screenContainer}>
-      <Stack.Screen options={{ title: "Acceso UFT" }} />
-      <View style={styles.formContainer}>
-        <Text style={styles.title}>Iniciar Sesión</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Correo Electrónico"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          value={contrasenia} // Usa la variable de estado 'contrasenia'
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-        />
-       
-        <TouchableOpacity
-          onPress={handleLogin}
-          style={[styles.button, loading && styles.buttonDisabled]}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.buttonText}>Ingresar</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+  
+    return (
+  <ImageBackground
+    source={require('../../assets/images/photo1.jpg')} // ⚠️ Asegúrate de que la ruta sea correcta
+    style={styles.background}
+    resizeMode="cover"
+  >
+    {/* Overlay semitransparente para legibilidad */}
+    <View style={styles.overlay} />
+
+    <View style={styles.content}>
+      <Text style={styles.title}>Iniciar Sesión</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Correo Electrónico"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+        placeholderTextColor="#aaa"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Contraseña"
+        value={contrasenia}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoCapitalize="0"
+        placeholderTextColor="#aaa"
+      />
+
+      <TouchableOpacity
+        onPress={handleLogin}
+        style={[styles.button, loading && styles.buttonDisabled]}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={styles.buttonText}>Ingresar</Text>
+        )}
+      </TouchableOpacity>
     </View>
-  );
+  </ImageBackground>
+);
+    
 };
 
 const styles = StyleSheet.create({
@@ -270,6 +282,66 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+   background: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  content: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 25,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+  },
+  input: {
+    width: '100%',
+    height: 55,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 18,
+    borderWidth: 0,
+  },
+  button: {
+    backgroundColor: '#e95a0c',
+    width: '100%',
+    height: 55,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#b6470a',
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
 

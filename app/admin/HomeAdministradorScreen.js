@@ -285,6 +285,7 @@ const HomeAdministradorScreen = () => {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingContentCount, setPendingContentCount] = useState('0');
+  const [approvedEventsCount, setApprovedEventsCount] = useState('0');
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const unreadCount = notifications.filter(notif => !notif.read).length;
@@ -318,9 +319,11 @@ const HomeAdministradorScreen = () => {
 
       if (!data.estadoCounts || typeof data.estadoCounts !== 'object') {
         setPendingContentCount('0');
+        setApprovedEventsCount('0');
         setEventosPorEstado(null);
       } else {
         setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
+        setApprovedEventsCount((data.estadoCounts.aprobado || 0).toString());
 
         const estados = Object.keys(data.estadoCounts).filter(key => {
           const value = data.estadoCounts[key];
@@ -465,6 +468,7 @@ useEffect(() => {
       route: '/admin/EventosAprobados',
       color: COLORS.success,
       description: 'Gestión de eventos ya aprobados',
+       badge: `${approvedEventsCount} aprobados`,
     },
     {
       id: '4',
