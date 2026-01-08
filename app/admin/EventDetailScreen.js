@@ -15,6 +15,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import CustomAlert from '../../components/CustomAlert';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Configuración de API (sin cambios)
 let determinedApiBaseUrl;
@@ -84,7 +86,6 @@ const COLORS = {
   notificationRead: '#ffffff',
 };
 
-// Funciones para formatear fecha y tiempo (sin cambios)
 const formatDate = (dateString) => {
   if (!dateString) return 'No especificada';
   try {
@@ -118,6 +119,8 @@ const EventDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user,setUser]= useState(null);
+  const [showApproveAlert, setShowApproveAlert]= useState(false);
+  const[showRejectAlert,setShowRejectAlert]= useState(false);
 
   const fetchEventDetails = useCallback(async () => {
 
@@ -242,60 +245,21 @@ console.log('Datos del evento transformados:', transformedEvent);
     }
   }, [fetchEventDetails, eventId]);
 
-  const handleApproveEvent = async () => {
-  try {
-    const token = await getTokenAsync();
-    if (!token) throw new Error('Token inválido');
-     
-    await axios.put(
-      `${API_BASE_URL}/eventos/${event.id}/approve`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    Alert.alert('Éxito', 'Evento aprobado correctamente');
-    //router.back();
-    router.replace('./Area2')
-  } catch (error) {
-    console.error('Approve error:', error);
-    Alert.alert('Error', 'No se pudo aprobar el evento: ' + error.message);
+  
+const handleApproveEvent=()=>{
+ if(!event || !event.id){
+  Alert.alert('Error','No hay evento cargado para aprobar.');
+  return;
+ }
+ setShowApproveAlert(true);
+}
+const handleRejectEvent=()=>{
+  if(!event || !event.id){
+   Alert.alert('Error','No hay evento cargado para rechazar.');
+   return;
   }
-  };
-
-  const handleRejectEvent = async () => {
-    if (!event || !event.id) {
-      Alert.alert('Error', 'No hay evento cargado para rechazar.');
-      return;
-    }
-
-    Alert.alert(
-      'Rechazar Evento',
-      '¿Estás seguro de que quieres rechazar este evento?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Rechazar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const token = await getTokenAsync();
-              if (!token) throw new Error('Token inválido');
-              await axios.put(
-                `${API_BASE_URL}/eventos/${event.id}/reject`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
-              router.back();
-            } catch (error) {
-              console.error('Reject error:', error);
-              Alert.alert('Error', 'No se pudo rechazar el evento: ' + error.message);
-            }
-          },
-        },
-      ]
-    );
-  };
-
+  setShowRejectAlert(true);
+ };
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -476,6 +440,60 @@ console.log('Datos del evento transformados:', transformedEvent);
           <Text style={styles.editButtonText}>Editar Evento</Text>
         </TouchableOpacity>
       </View>
+      {/* Alerta para aprobar */}
+<CustomAlert
+  visible={showApproveAlert}
+  title="¿Aprobar evento?"
+  message="¿Estás seguro de que quieres aprobar este evento?"
+  cancelText="Cancelar"
+  confirmText="Aprobar"
+  onCancel={() => setShowApproveAlert(false)}
+  onConfirm={async () => {
+    setShowApproveAlert(false);
+    try {
+      const token = await getTokenAsync();
+      if (!token) throw new Error('Token inválido');
+      await axios.put(
+        `${API_BASE_URL}/eventos/${event.id}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      Alert.alert('Éxito', 'Evento aprobado correctamente');
+      router.back();
+    } catch (error) {
+      console.error('Approve error:', error);
+      Alert.alert('Error', 'No se pudo aprobar el evento: ' + (error.message || 'Error desconocido'));
+    }
+  }}
+/>
+
+{/* Alerta para rechazar */}
+<CustomAlert
+  visible={showRejectAlert}
+  title="¿Rechazar evento?"
+  message="¿Estás seguro de que quieres rechazar este evento?"
+  cancelText="Cancelar"
+  confirmText="Rechazar"
+  confirmDestructive
+  onCancel={() => setShowRejectAlert(false)}
+  onConfirm={async () => {
+    setShowRejectAlert(false);
+    try {
+      const token = await getTokenAsync();
+      if (!token) throw new Error('Token inválido');
+      await axios.put(
+        `${API_BASE_URL}/eventos/${event.id}/reject`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
+      router.back();
+    } catch (error) {
+      console.error('Reject error:', error);
+      Alert.alert('Error', 'No se pudo rechazar el evento: ' + (error.message || 'Error desconocido'));
+    }
+  }}
+/>
     </ScrollView>
   );
 };

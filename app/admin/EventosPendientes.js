@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { useFocusEffect } from '@react-navigation/native';
 
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
@@ -27,12 +28,11 @@ if (Platform.OS === 'android') {
 const API_BASE_URL = determinedApiBaseUrl;
 const TOKEN_KEY = 'adminAuthToken';
 
-// Paleta de colores actualizada con tu naranja principal
 const COLORS = {
-  accent: '#FF6B35',        // Tu color naranja principal
-  secondary: '#F7931E',     // Naranja secundario
-  primary: '#FF6B35',       // Tu color como primario
-  background: '#FFF8F5',    // Fondo cálido naranja muy claro
+  accent: '#FF6B35',        
+  secondary: '#F7931E',     
+  primary: '#FF6B35',       
+  background: '#FFF8F5',    
   surface: '#ffffff',
   success: '#27ae60',
   warning: '#f39c12',
@@ -43,8 +43,8 @@ const COLORS = {
   grayText: '#64748b',
   darkText: '#1e293b',
   cardShadow: '#000000',
-  orangeLight: '#FFE4D6',   // Naranja muy claro
-  orangeDark: '#E55A2B',    // Naranja más oscuro
+  orangeLight: '#FFE4D6',   
+  orangeDark: '#E55A2B',    
 };
 
 const getTokenAsync = async () => {
@@ -96,10 +96,8 @@ const EventosPendientes = () => {
         return;
       }
 
-      // ✅ Pasar `area` como parámetro a la API
       const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        //params: { area: area || 'academica' } // Si no hay area, usa 'academica' por defecto
       });
 
       setEvents(response.data || []);
@@ -116,11 +114,11 @@ const EventosPendientes = () => {
       setRefreshing(false);
     }
   }, [router]);
-
-  useEffect(() => {
+useFocusEffect(
+  useCallback(() => {
     fetchPendingEvents();
-  }, [fetchPendingEvents]);
-
+  }, [fetchPendingEvents])
+);
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchPendingEvents();
@@ -171,9 +169,9 @@ const EventosPendientes = () => {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'alta': return COLORS.accent;      // Naranja principal
-      case 'media': return COLORS.warning;    // Amarillo
-      case 'baja': return COLORS.info;        // Azul
+      case 'alta': return COLORS.accent;     
+      case 'media': return COLORS.warning;   
+      case 'baja': return COLORS.info;       
       default: return COLORS.grayText;
     }
   };

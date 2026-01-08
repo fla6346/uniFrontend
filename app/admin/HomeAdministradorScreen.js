@@ -13,11 +13,12 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
+import { PieChart } from 'react-native-chart-kit';
+import Svg, { Line,Circle, Text as SvgText, Path, G } from 'react-native-svg';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { PieChart } from 'react-native-chart-kit';
 
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
@@ -83,6 +84,129 @@ const MIN_CARD_WIDTH_DASHBOARD = 160;
 const MAX_COLUMNS_DASHBOARD = 4;
 const MIN_CARD_WIDTH_ACTIONS = 200;
 const MAX_COLUMNS_ACTIONS = 3;
+const CustomLineChart = ({ data, width, height, color = COLORS.primary, lineWidth = 3 }) => {
+  if (!data || !data.labels || data.labels.length === 0) {
+    return null;
+  }
+
+  const labels = data.labels;
+  const values = data.datasets[0].data;
+  
+  const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  
+  const maxValue = Math.max(...values, 1);
+  const minValue = Math.min(...values, 0);
+  const valueRange = maxValue - minValue || 1;
+  
+  // Calcular puntos para la línea
+  const points = values.map((value, index) => {
+    const x = padding.left + (index / (values.length - 1)) * chartWidth;
+    const y = padding.top + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+    return { x, y, value, label: labels[index] };
+  });
+  
+  // Crear path para la línea con curvas Bézier
+  let linePath = '';
+  points.forEach((point, index) => {
+    if (index === 0) {
+      linePath = `M ${point.x} ${point.y}`;
+    } else {
+      const prevPoint = points[index - 1];
+      const cpx = (prevPoint.x + point.x) / 2;
+      linePath += ` Q ${cpx} ${prevPoint.y}, ${cpx} ${(prevPoint.y + point.y) / 2} Q ${cpx} ${point.y}, ${point.x} ${point.y}`;
+    }
+  });
+  
+  // Crear path para el área bajo la línea
+  const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
+  
+  return (
+    <View style={{ backgroundColor: COLORS.surface, borderRadius: 16, padding: 16 }}>
+      <Svg width={width} height={height}>
+        {/* Líneas de fondo horizontales */}
+        {[0, 0.25, 0.5, 0.75, 1].map((percent, i) => {
+          const y = padding.top + chartHeight * (1 - percent);
+          return (
+            <G key={`grid-${i}`}>
+              <Line
+                x1={padding.left}
+                y1={y}
+                x2={width - padding.right}
+                y2={y}
+                stroke={COLORS.border}
+                strokeWidth="1"
+                strokeDasharray="4,4"
+              />
+              <SvgText
+                x={padding.left - 8}
+                y={y + 4}
+                fontSize="10"
+                fill={COLORS.textSecondary}
+                textAnchor="end"
+              >
+                {Math.round(minValue + valueRange * percent)}
+              </SvgText>
+            </G>
+          );
+        })}
+        
+        {/* Área bajo la línea */}
+        <Path
+          d={areaPath}
+          fill={color}
+          fillOpacity={0.1}
+        />
+        
+        {/* Línea principal */}
+        <Path
+          d={linePath}
+          stroke={color}
+          strokeWidth={lineWidth}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        
+        {/* Puntos en la línea */}
+        {points.map((point, index) => (
+          <G key={`point-${index}`}>
+            <Circle
+              cx={point.x}
+              cy={point.y}
+              r={lineWidth + 2}
+              fill={COLORS.surface}
+              stroke={color}
+              strokeWidth={2}
+            />
+            <Circle
+              cx={point.x}
+              cy={point.y}
+              r={lineWidth}
+              fill={color}
+            />
+          </G>
+        ))}
+        
+        {/* Etiquetas del eje X */}
+        {points.map((point, index) => (
+          <SvgText
+            key={`label-${index}`}
+            x={point.x}
+            y={height - padding.bottom + 20}
+            fontSize="11"
+            fill={COLORS.textSecondary}
+            textAnchor="middle"
+            fontWeight="500"
+          >
+            {point.label}
+          </SvgText>
+        ))}
+      </Svg>
+    </View>
+  );
+};
 
 const DashboardCard = ({ title, value, icon, color, trend, description }) => {
   const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
@@ -288,137 +412,204 @@ const HomeAdministradorScreen = () => {
   const [approvedEventsCount, setApprovedEventsCount] = useState('0');
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
-  const unreadCount = notifications.filter(notif => !notif.read).length;
   const [eventosPorEstado, setEventosPorEstado] = useState(null);
 
+  const [eventosPorDia, setEventosPorDia] = useState(null);
+  const [tiempoPromedioAprobacion, setTiempoPromedioAprobacion] = useState('0');
+  const [usuariosNuevosEsteMes, setUsuariosNuevosEsteMes] = useState('0');
+  
+  const unreadCount = notifications.filter(notif => !notif.read).length;
+  const [eventosPorMes, setEventosPorMes] = useState(null);
   const [dashboardStats, setDashboardStats] = useState([
     { title: 'Usuarios Activos', value: 'cargando...', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
     { title: 'Eventos Totales', value: 'cargando...', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
     { title: 'Pendientes', value: 'cargando...', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
-    { title: 'Aprobados (Mes)', value: 'cargando...', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
+    { title: 'Aprobados ', value: 'cargando...', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
     { title: 'Tasa Aprobación', value: 'cargando...', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
     { title: 'Estabilidad', value: 'cargando...', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
   ]);
 
-  const fetchDashboardData = useCallback(async () => {
-    setLoadingDashboard(true);
-    try {
-      const token = await getTokenAsync();
-      if (!token) {
-        console.warn('No hay token disponible');
-        setLoadingDashboard(false);
-        return;
-      }
 
-      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        timeout: 10000,
-      });
+const fetchDashboardData = useCallback(async () => {
+  setLoadingDashboard(true);
+  try {
+    const token = await getTokenAsync();
+    if (!token) {
+      console.warn('No hay token disponible');
+      setLoadingDashboard(false);
+      return;
+    }
 
-      const data = response.data;
+    const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 10000,
+    });
 
-      if (!data.estadoCounts || typeof data.estadoCounts !== 'object') {
-        setPendingContentCount('0');
-        setApprovedEventsCount('0');
-        setEventosPorEstado(null);
-      } else {
-        setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
-        setApprovedEventsCount((data.estadoCounts.aprobado || 0).toString());
+    const data = response.data;
+    
+    console.log('Datos  del servidor:', data);
 
-        const estados = Object.keys(data.estadoCounts).filter(key => {
-          const value = data.estadoCounts[key];
-          return typeof value === 'number' && value > 0;
-        });
-        
-        if (estados.length > 0) {
-          const counts = estados.map(estado => data.estadoCounts[estado] || 0);
-          setEventosPorEstado({
-            labels: estados,
-            datasets: [{ data: counts }]
+    // Validación robusta de estadoCounts
+    if (!data.estadoCounts || typeof data.estadoCounts !== 'object') {
+      console.warn(' estadoCounts no válido:', data.estadoCounts);
+      setPendingContentCount('0');
+      setApprovedEventsCount('0');
+      setEventosPorEstado(null);
+    } else {
+      setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
+      setApprovedEventsCount((data.estadoCounts.aprobado || 0).toString());
+
+      const pieData = [];
+      for (const [estado, count] of Object.entries(data.estadoCounts)) {
+        if (typeof count === 'number' && count > 0) {
+          let color = COLORS.info;
+          switch(estado.toLowerCase()) {
+            case 'aprobado':
+              color = COLORS.success;
+              break;
+            case 'pendiente':
+              color = COLORS.warning;
+              break;
+            case 'rechazado':
+              color = COLORS.accent;
+              break;
+          }
+          
+          pieData.push({
+            name: estado.charAt(0).toUpperCase() + estado.slice(1),
+            population: count,
+            color: color,
+            legendFontColor: COLORS.textPrimary,
+            legendFontSize: 12,
           });
-        } else {
-          setEventosPorEstado(null);
         }
       }
-
-      const newStats = [
-        { 
-          title: 'Usuarios Activos', 
-          value: (data.activeUsers || 0).toLocaleString(), 
-          icon: 'people-outline', 
-          color: COLORS.primary, 
-          trend: null, 
-          description: 'Cuentas habilitadas' 
-        },
-        { 
-          title: 'Eventos Totales', 
-          value: (data.totalEvents || 0).toString(), 
-          icon: 'calendar-outline', 
-          color: COLORS.info, 
-          trend: null, 
-          description: 'Todos los eventos' 
-        },
-        { 
-          title: 'Pendientes', 
-          value: (data.estadoCounts?.pendiente || 0).toString(), 
-          icon: 'document-text-outline', 
-          color: COLORS.warning, 
-          trend: null, 
-          description: 'Esperando aprobación' 
-        },
-        { 
-          title: 'Aprobados (Mes)', 
-          value: (data.eventosAprobadosMes || 0).toString(), 
-          icon: 'checkmark-done-outline', 
-          color: COLORS.success, 
-          trend: null, 
-          description: 'Este mes' 
-        },
-        { 
-          title: 'Tasa Aprobación', 
-          value: `${data.tasaAprobacion || 0}%`, 
-          icon: 'analytics-outline', 
-          color: COLORS.info, 
-          trend: null, 
-          description: 'Eventos aprobados / totales' 
-        },
-        { 
-          title: 'Estabilidad', 
-          value: `${data.systemStability || 0}%`, 
-          icon: 'pulse-outline', 
-          color: COLORS.success, 
-          trend: null, 
-          description: 'Rendimiento del sistema' 
-        },
-      ];
       
-      setDashboardStats(newStats);
-      
-    } catch (error) {
-      console.error('❌ Error al cargar dashboard:', error);
-      
-      const errorStats = [
-        { title: 'Usuarios Activos', value: '0', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
-        { title: 'Eventos Totales', value: '0', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
-        { title: 'Pendientes', value: '0', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
-        { title: 'Aprobados (Mes)', value: '0', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
-        { title: 'Tasa Aprobación', value: '0%', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
-        { title: 'Estabilidad', value: '0%', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
-      ];
-      setDashboardStats(errorStats);
-      
-      Alert.alert(
-        'Error de Conexión',
-        `No se pudieron cargar los datos del dashboard.\n\nDetalle: ${error.message}`,
-        [
-          { text: 'Reintentar', onPress: () => fetchDashboardData() }, 
-          { text: 'Cancelar', style: 'cancel' }
-        ]
-      );
-    } finally {
-      setLoadingDashboard(false);
+      console.log('Datos del gráfico de pastel:', pieData);
+      setEventosPorEstado(pieData.length > 0 ? pieData : null);
     }
-  }, []);
+     if (data.eventosPorDia && Array.isArray(data.eventosPorDia) && data.eventosPorDia.length > 0) {
+        const lineChartData = {
+          labels: data.eventosPorDia.map(item => {
+            const fecha = new Date(item.fecha);
+            return `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+          }),
+          datasets: [{
+            data: data.eventosPorDia.map(item => item.total || 0),
+            color: (opacity = 1) => `rgba(233, 90, 12, ${opacity})`,
+            strokeWidth: 2
+          }]
+        };
+        setEventosPorDia(lineChartData);
+        console.log('📈 Datos del gráfico de líneas:', lineChartData);
+      } else {
+        setEventosPorDia(null);
+      }
+          setTiempoPromedioAprobacion((data.tiempoPromedioAprobacion || 0).toString());
+      setUsuariosNuevosEsteMes((data.usuariosNuevosEsteMes || 0).toString());
+
+// Dentro de fetchDashboardData, después de recibir `data`
+if (data.eventosPorMes && Array.isArray(data.eventosPorMes)) {
+  const labels = data.eventosPorMes.map(item => item.mes);
+  const values = data.eventosPorMes.map(item => item.total);
+
+  setEventosPorMes({
+    labels,
+    datasets: [
+      {
+        data: values,
+        color: (opacity = 1) => COLORS.primary, // color de la línea
+        strokeWidth: 2,
+      },
+    ],
+  });
+} else {
+  setEventosPorMes(null);
+}
+    const newStats = [
+      { 
+        title: 'Usuarios Activos', 
+        value: (data.activeUsers || 0).toLocaleString(), 
+        icon: 'people-outline', 
+        color: COLORS.primary, 
+        trend: null, 
+        description: 'Cuentas habilitadas' 
+      },
+      { 
+        title: 'Eventos Totales', 
+        value: (data.totalEvents || 0).toString(), 
+        icon: 'calendar-outline', 
+        color: COLORS.info, 
+        trend: null, 
+        description: 'Todos los eventos' 
+      },
+      { 
+        title: 'Pendientes', 
+        value: (data.estadoCounts?.pendiente || 0).toString(), 
+        icon: 'document-text-outline', 
+        color: COLORS.warning, 
+        trend: null, 
+        description: 'Esperando aprobación' 
+      },
+      { 
+        title: 'Aprobados', 
+        value: (data.estadoCounts?.aprobado || 0).toString(), 
+        icon: 'checkmark-done-outline', 
+        color: COLORS.success, 
+        trend: null, 
+        description: 'Eventos aprobados' 
+      },
+      { 
+        title: 'Tasa Aprobación', 
+        value: `${data.tasaAprobacion || 0}%`, 
+        icon: 'analytics-outline', 
+        color: COLORS.info, 
+        trend: null, 
+        description: 'Eventos aprobados / totales' 
+      },
+      { 
+        title: 'Estabilidad', 
+        value: `${data.systemStability || 0}%`, 
+        icon: 'pulse-outline', 
+        color: COLORS.success, 
+        trend: null, 
+        description: 'Rendimiento del sistema' 
+      },
+    ];
+    
+    setDashboardStats(newStats);
+    
+  } catch (error) {
+    console.error('❌ Error al cargar dashboard:', error);
+    
+    setPendingContentCount('0');
+    setApprovedEventsCount('0');
+    setEventosPorEstado(null);
+    setEventosPorDia(null);
+    
+    const errorStats = [
+      { title: 'Usuarios Activos', value: '0', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
+      { title: 'Eventos Totales', value: '0', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
+      { title: 'Pendientes', value: '0', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
+      { title: 'Aprobados (Mes)', value: '0', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
+      { title: 'Tasa Aprobación', value: '0%', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
+      { title: 'Estabilidad', value: '0%', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
+    ];
+    setDashboardStats(errorStats);
+    
+    Alert.alert(
+      'Error de Conexión',
+      `No se pudieron cargar los datos del dashboard.\n\nDetalle: ${error.message}`,
+      [
+        { text: 'Reintentar', onPress: () => fetchDashboardData() }, 
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    );
+  } finally {
+    setLoadingDashboard(false);
+  }
+}, []);
+
 useEffect(() => {
   const validateSession = async () => {
     const token = await getTokenAsync();
@@ -517,6 +708,7 @@ useEffect(() => {
     );
   };
 
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
@@ -560,50 +752,144 @@ useEffect(() => {
             </View>
           )}
 
-          {eventosPorEstado && eventosPorEstado.labels && eventosPorEstado.labels.length > 0 ? (
-            <View style={{ width: '100%', alignItems: 'center', marginTop: 20, paddingHorizontal: 10 }}>
-              <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Distribución de Eventos</Text>
-              <PieChart
-                data={eventosPorEstado.labels
-                  .map((estado, index) => {
-                    if (!estado) return null;
-                    
-                    const name = estado.charAt(0).toUpperCase() + estado.slice(1);
-                    const population = eventosPorEstado.datasets?.[0]?.data?.[index] || 0;
-                    
-                    let color = COLORS.info;
-                    if (estado === 'aprobado') color = COLORS.success;
-                    else if (estado === 'pendiente') color = COLORS.warning;
-                    else if (estado === 'rechazado') color = COLORS.accent;
-                    
-                    return {
-                      name,
-                      population,
-                      color,
-                      legendFontColor: COLORS.textPrimary,
-                      legendFontSize: 12,
-                    };
-                  })
-                  .filter(item => item && item.population > 0)}
-                width={windowWidth - 40}
-                height={220}
-                accessor="population"
-                backgroundColor="transparent"
-                paddingLeft="15"
-                absolute
-                chartConfig={{
-                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                }}
-              />
+    
+{eventosPorEstado && Array.isArray(eventosPorEstado) && eventosPorEstado.length > 0 ? (
+  <View style={{ width: '100%', alignItems: 'center', marginTop: 20, paddingHorizontal: 10 }}>
+    <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Distribución de Eventos</Text>
+    <PieChart
+      data={eventosPorEstado}
+      width={windowWidth - 40}
+      height={220}
+      accessor="population"
+      backgroundColor="transparent"
+      paddingLeft="15"
+      absolute
+      chartConfig={{
+        color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+      }}
+    />
+  </View>
+) : (
+  <View style={{ width: '100%', alignItems: 'center', marginTop: 20, padding: 20 }}>
+    <Ionicons name="pie-chart-outline" size={48} color={COLORS.textTertiary} />
+    <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10, textAlign: 'center' }]}>
+      No hay datos disponibles para mostrar la distribución
+    </Text>
+  </View>
+)}
+{eventosPorDia && eventosPorDia.labels && eventosPorDia.labels.length > 0 ? (
+  <View style={{ width: '100%', alignItems: 'center', marginTop: 30, paddingHorizontal: 10,backgroundColor: COLORS.surface, borderRadius: 16,paddingVertical: 20 }}>
+    <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Tendencia de Eventos (Últimos 7 días)</Text>
+    <CustomLineChart
+      data={eventosPorDia}
+      width={windowWidth - 40}
+      height={220}
+      chartConfig={{
+        backgroundColor: '#ffffff',
+        backgroundGradientFrom: '#ffffff',
+        backgroundGradientTo: '#ffffff',
+        decimalPlaces: 0,
+        color: (opacity = 1) => `rgba(233, 90, 12, ${opacity})`, // Línea naranja brillante
+        labelColor: (opacity = 1) => COLORS.textSecondary, // Texto de ejes en gris oscuro
+        style: {
+          borderRadius: 16,
+          backgroundColor: COLORS.surface, // Asegura fondo claro
+        },
+        propsForDots: {
+          r: "6",
+          strokeWidth: "2",
+          stroke: COLORS.primary, // Borde de puntos naranja
+          fill: COLORS.primaryLight, // Relleno de puntos más claro
+        },
+        propsForBackgroundLines: {
+          stroke: COLORS.border, // Líneas de fondo más claras
+          strokeDasharray: "5, 5", // Estilo punteado suave
+        },
+      }}
+      bezier
+      style={{
+        marginVertical: 8,
+        borderRadius: 16,
+        paddingRight: 20,
+      }}
+      
+    />
+  </View>
+) : (
+  <View style={{ width: '100%', alignItems: 'center', marginTop: 30, padding: 20 }}>
+    <Ionicons name="trending-up-outline" size={48} color={COLORS.textTertiary} />
+    <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10, textAlign: 'center' }]}>
+      No hay datos de tendencia disponibles
+    </Text>
+  </View>
+)}
+
+{eventosPorMes && (
+  <View style={{ width: '100%', alignItems: 'center', marginTop: 30, paddingHorizontal: 10 }}>
+    <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Eventos por Mes</Text>
+    <LineChart
+      data={eventosPorMes}
+      width={windowWidth - 40}
+      height={220}
+      chartConfig={{
+        backgroundGradientFrom: COLORS.surface,
+        backgroundGradientTo: COLORS.surface,
+        decimalPlaces: 0,
+        color: (opacity = 1) => COLORS.primary,
+        labelColor: (opacity = 1) => COLORS.textSecondary,
+        style: { borderRadius: 16 },
+        propsForDots: {
+          r: "4",
+          strokeWidth: "2",
+          stroke: COLORS.primary,
+        },
+      }}
+      bezier
+      style={{ marginVertical: 8, borderRadius: 16 }}
+    />
+  </View>
+)}
+{/* Alertas */}
+          <View style={{ width: '100%', marginTop: 30 }}>
+            
+            <View style={styles.alertsContainer}>
+              {parseInt(pendingContentCount) > 10 && (
+                <View style={[styles.alertCard, { borderLeftColor: COLORS.warning }]}>
+                  <Ionicons name="warning-outline" size={24} color={COLORS.warning} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.alertTitle}>Alta carga de trabajo</Text>
+                    <Text style={styles.alertDescription}>
+                      Tienes {pendingContentCount} eventos pendientes de revisión
+                    </Text>
+                  </View>
+                </View>
+              )}
+              
+              {parseInt(tiempoPromedioAprobacion) > 48 && (
+                <View style={[styles.alertCard, { borderLeftColor: COLORS.accent }]}>
+                  <Ionicons name="time-outline" size={24} color={COLORS.accent} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.alertTitle}>Tiempo de respuesta elevado</Text>
+                    <Text style={styles.alertDescription}>
+                      El tiempo promedio de aprobación es de {tiempoPromedioAprobacion}h
+                    </Text>
+                  </View>
+                </View>
+              )}
+              
+              {parseInt(pendingContentCount) === 0 && (
+                <View style={[styles.alertCard, { borderLeftColor: COLORS.success }]}>
+                  <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.success} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.alertTitle}>Todo al día</Text>
+                    <Text style={styles.alertDescription}>
+                      No hay eventos pendientes por revisar
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
-          ) : (
-            <View style={{ width: '100%', alignItems: 'center', marginTop: 20, padding: 20 }}>
-              <Ionicons name="pie-chart-outline" size={48} color={COLORS.textTertiary} />
-              <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10, textAlign: 'center' }]}>
-                No hay datos disponibles para mostrar la distribución
-              </Text>
-            </View>
-          )}
+          </View>
         </View>
 
         <View style={styles.managementToolsSectionMinimal}>
@@ -644,7 +930,6 @@ useEffect(() => {
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -657,7 +942,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 80,
   },
- 
+  minimalHeaderContainer: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: StatusBar.currentHeight + 20,
+    paddingBottom: 20,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   minimalHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -749,193 +1047,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
     width: '48%',
-    minHeight: 110,
+    minHeight: 130,
+    justifyContent: 'space-between',
   },
   dashboardCardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-beetween',
-    marginBotton:8
-  },
-    dashboardCardAction: {
-    minHeight: 130, // Mantener altura mínima
-    justifyContent: 'space-between', // Mantener el layout
-  },
-  dashboardCardValueAction: {
-    fontSize: 18, // Tamaño de fuente más grande para texto
-    fontWeight: '700', // Negrita para destacar
-    color: COLORS.textPrimary,
-    textAlign: 'right', // Alinear a la derecha como en el diseño de referencia
-    flex: 1, // Ocupar todo el espacio disponible
-    marginLeft: 8, // Pequeño margen para separar del ícono
-  },
-  minimalHeaderContainer: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: StatusBar.currentHeight + 20,
-    paddingBottom: 20,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-    managementToolsSectionMinimal: {
-    width: '100%',
-    paddingHorizontal: 20,
-    marginTop: 40,
-    marginBottom: 40,
-  },
-
-  minimalHeaderAdminText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  minimalNotificationButton: {
-    position: 'relative',
-    padding: 4,
-  },
-  minimalNotificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.white,
-  },
-    managementToolCardMinimal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    minHeight: 130,
-    borderWidth: 1,
-    //minWidth: 150,
-    maxWidth: '100%',
-    //marginHorizontal: 8,
-  },
-  managementToolCardHeaderMinimal: {
-    flexDirection: 'column',
-    //alignItems: 'center',
-    gap: 12,
-  },
-  managementToolCardIconMinimal: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  managementToolCardTextContainerMinimal: {
-    flex: 1,
-    //gap: 12
-  },
-  managementToolCardTitleMinimal: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
-    lineHeight: 22,
-  },
-  managementToolCardDescriptionMinimal: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  managementToolCardBadgeMinimal: {
-  paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    position: 'absolute',
-    top: 20,
-    right: 20,
-  },
-  managementToolCardBadgeTextMinimal: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  minimalNotificationBadgeText: {
-    color: COLORS.white,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  minimalHeaderGreeting: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    marginBottom: 4,
-  },
-  minimalGreetingText: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  minimalUserNameText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  minimalHeaderTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  sectionHeaderMinimal: {
-    marginBottom: 24,
-    paddingHorizontal: 4,
-  },
-  sectionTitleMinimal: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
-  },
-  sectionSubtitleMinimal: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '400',
-  },
-  dashboardSectionMinimal: {
-    width: '100%',
-    paddingHorizontal: 20,
-    marginTop: 30,
-  },
-  dashboardGridMinimal: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: CARD_MARGIN,
-    justifyContent: 'space-between',
-  },
-  dashboardCardMinimal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    width: '48%',
-    minHeight: 130,
-    justifyContent: 'space-between',
-  },
-  dashboardCardHeaderMinimal: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -956,7 +1071,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 4,
+    marginTop: 4,
   },
   dashboardCardTrendTextMinimal: {
     fontSize: 12,
@@ -966,67 +1081,89 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textTertiary,
   },
-  actionsSectionMinimal: {
+  managementToolsSectionMinimal: {
     width: '100%',
     paddingHorizontal: 20,
     marginTop: 40,
     marginBottom: 40,
   },
-  actionsGridMinimal: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: CARD_MARGIN,
+  managementToolCardMinimal: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    minHeight: 130,
+    borderWidth: 1,
+    maxWidth: '100%',
   },
-  actionCardMinimal: {
+  managementToolCardHeaderMinimal: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  managementToolCardIconMinimal: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  managementToolCardTextContainerMinimal: {
+    flex: 1,
+  },
+  managementToolCardTitleMinimal: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  managementToolCardDescriptionMinimal: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  managementToolCardBadgeMinimal: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    position: 'absolute',
+    top: 20,
+    right: 20,
+  },
+  managementToolCardBadgeTextMinimal: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  alertsContainer: {
+    gap: 12,
+  },
+  alertCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    borderLeftWidth: 4,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  actionCardIconMinimal: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionCardContentMinimal: {
-    flex: 1,
-  },
-  actionCardTitleContainerMinimal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  actionCardTitleMinimal: {
+  alertTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 4,
   },
-  actionCardBadgeMinimal: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  actionCardBadgeTextMinimal: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  actionCardDescriptionMinimal: {
-    fontSize: 12,
+  alertDescription: {
+    fontSize: 13,
     color: COLORS.textSecondary,
     lineHeight: 18,
   },
