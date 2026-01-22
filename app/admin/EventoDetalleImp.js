@@ -1,287 +1,1326 @@
-// /frontend/app/admin/EventoDetalle.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
   Alert,
-  StyleSheet,Platform
+  Image,
+  TouchableOpacity,
+  Platform,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { COLORS } from './Daf'; // Reutilizamos tus colores
 
-const API_BASE_URL = Platform.OS === 'android' || Platform.OS === 'ios'
-  ? 'http://192.168.0.167:3001/api'
-  : 'http://localhost:3001/api';
+let determinedApiBaseUrl;
+if (Platform.OS === 'android') {
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+} else if (Platform.OS === 'ios') {
+  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+} else {
+  determinedApiBaseUrl = 'http://localhost:3001/api';
+}
+const API_BASE_URL = determinedApiBaseUrl;
+const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
-  if (Platform.OS === 'web') return localStorage.getItem('adminAuthToken');
-  return await SecureStore.getItemAsync('adminAuthToken');
+  if (Platform.OS === 'web') {
+    try {
+      return localStorage.getItem(TOKEN_KEY);
+    } catch (e) {
+      console.error("Error al acceder a localStorage en web:", e);
+      return null;
+    }
+  } else {
+    try {
+      return await SecureStore.getItemAsync(TOKEN_KEY);
+    } catch (e) {
+      console.error("Error al obtener token de SecureStore en nativo:", e);
+      return null;
+    }
+  }
 };
 
-export default function EventoDetalle() {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
-  const [evento, setEvento] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingPrint, setLoadingPrint] = useState(false);
+const deleteTokenAsync = async () => {
+  if (Platform.OS === 'web') {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+    } catch (e) {
+      console.error("Error al eliminar token de localStorage en web:", e);
+    }
+  } else {
+    try {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    } catch (e) {
+      console.error("Error al eliminar token de SecureStore en nativo:", e);
+    }
+  }
+};
 
-  useEffect(() => {
-    const cargarEvento = async () => {
-      if (!id) {
-        Alert.alert('Error', 'ID de evento no válido');
-        router.back();
+const COLORS = {
+  accent: '#0052A0',
+  secondary: '#2980b9',
+  primary: '#E95A0C',
+  background: '#f8fafc',
+  surface: '#ffffff',
+  success: '#27ae60',
+  warning: '#f39c12',
+  info: '#3498db',
+  purple: '#9b59b6',
+  logout: '#e74c3c',
+  white: '#fff',
+  grayLight: '#ecf0f1',
+  grayText: '#64748b',
+  darkText: '#1e293b',
+  overlay: 'rgba(15, 23, 42, 0.7)',
+  cardShadow: '#000000',
+  notificationUnread: '#e6f0ff',
+  notificationRead: '#ffffff',
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'No especificada';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (error) {
+    return dateString;
+  }
+};
+
+const formatTime = (timeString) => {
+  if (!timeString) return 'No especificada';
+  try {
+    if (timeString.includes(':')) {
+      return timeString;
+    }
+    return timeString;
+  } catch (error) {
+    return timeString;
+  }
+};
+
+const EventDetailScreen = () => {
+  const { eventId } = useLocalSearchParams();
+  const router = useRouter();
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
+  const getCurrentPhase = useCallback((status) => {
+  switch (status) {
+    case 'aprobado':
+      return {
+        number: 3,
+        label: 'Programación del evento',
+        key: 'phase3',
+        color: COLORS.success,
+        icon: 'calendar-outline',
+      };
+    case 'rechazado':
+      return {
+        number: 1,
+        label: 'Evento rechazado',
+        key: 'rejected',
+        color: COLORS.logout,
+        icon: 'close-circle-outline',
+      };
+    case 'pendiente':
+    default:
+      return {
+        number: 2,
+        label: 'Revisión y aprobación',
+        key: 'phase2',
+        color: COLORS.secondary,
+        icon: 'clipboard-outline',
+      };
+  }
+}, []);
+
+  const fetchEventDetails = useCallback(async () => {
+    let processedEventId = Array.isArray(eventId) ? eventId[0] : eventId;
+    if (typeof processedEventId === 'string' && processedEventId.startsWith('event-')) {
+      processedEventId = processedEventId.replace('event-', '');
+    }
+    const numericId = Number(processedEventId);
+    if (isNaN(numericId) || !processedEventId) {
+      setError('ID de evento inválido.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await getTokenAsync();
+      if (!token) {
+        Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
+        await deleteTokenAsync();
+        router.replace('/LoginAdmin');
         return;
       }
+      const [eventResponse, userResponse] = await Promise.all([
+        await axios.get(`${API_BASE_URL}/eventos/${numericId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetchUserDetails(token)
+      ]);
 
-      try {
-        const token = await getTokenAsync();
-        if (!token) {
-          Alert.alert('Error', 'Sesión expirada');
-          router.replace('/');
-          return;
-        }
-
-        const res = await axios.get(`${API_BASE_URL}/eventos/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        setEvento(res.data);
-      } catch (error) {
-        console.error('Error al cargar evento:', error);
-        Alert.alert('Error', 'No se pudo cargar el evento.');
-        router.back();
-      } finally {
-        setLoading(false);
+      const eventData = eventResponse.data;
+      console.log('Respuesta completa del backend:', eventData);
+console.log('ObjetivosPDI del backend:', eventData.ObjetivosPDI);
+console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
+      if (!eventData || typeof eventData !== 'object' || Object.keys(eventData).length === 0) {
+        throw new Error('Datos de evento vacíos o inválidos del servidor.');
       }
-    };
 
-    cargarEvento();
-  }, [id]);
+      const transformedEvent = {
+  id: eventData.idevento || null,
+  title: eventData.nombreevento || 'Sin título',
+  date: formatDate(eventData.fechaevento),
+  time: formatTime(eventData.horaevento),
+  location: eventData.lugarevento || 'Ubicación no especificada',
+  organizer: eventData.responsable_evento || 'Organizador no especificado',
+  attendees: eventData.participantes_esperados || 'No especificado',
+  status: (eventData.estado || 'pendiente').toLowerCase(),
+  imageUrl: eventData.imagenUrl || null,
+  
+  Clasificacion: eventData.Clasificacion || null,
+  subcategoria: eventData.subcategoria || null,
+  tiposEvento: eventData.TiposDeEvento || [],
+  
+  objetivos: eventData.Objetivos || [],
+  objetivosPDI: Array.isArray(eventData.ObjetivosPDI) 
+    ? eventData.ObjetivosPDI 
+    : typeof eventData.objetivos_pdi === 'string'
+      ? JSON.parse(eventData.objetivos_pdi || '[]')
+      : [],
+  
+  segmentos: eventData.segmentos || [],
+  argumentacion: eventData.argumentacion || 'Sin argumentación',
+  
+ resultados: (eventData.Resultados && eventData.Resultados.length > 0)
+  ? eventData.Resultados[0]
+  : {
+      participacion_esperada: null,
+      satisfaccion_esperada: null,
+      otros_resultados: null,
+      satisfaccion_real: null
+    },
+  recursos: eventData.Recursos || [],
+  comite: eventData.Comite || [],
+  presupuesto: eventData.Presupuesto || null,
+  tags: eventData.tags || [],
+  
+  creador: eventData.creador ? {
+    nombre: `${eventData.creador.nombre} ${eventData.creador.apellidopat} ${eventData.creador.apellidomat}`,
+    email: eventData.creador.email,
+    role: eventData.creador.role
+  } : null
+};
+     
+      if (!transformedEvent.id) {
+        throw new Error('El evento no tiene un ID válido.');
+      }
 
-  const handleImprimir = async () => {
-    if (!evento) return;
-
-    setLoadingPrint(true);
-    try {
-      // ✅ Fecha segura
-      const fechaEvento = evento.fechaevento 
-        ? new Date(evento.fechaevento).toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-        : 'Fecha no disponible';
-
-      // ✅ Clasificación segura
-      const clasificacion = evento.clasificacion
-        ? `${evento.clasificacion.label || ''} - ${evento.subcategoria?.label || 'Sin subcategoría'}`
-        : 'No especificada';
-
-      const htmlContent = `
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: sans-serif; margin: 20px; }
-            .header { text-align: center; border-bottom: 2px solid #E95A0C; padding-bottom: 10px; }
-            h1 { color: #E95A0C; margin: 0; }
-            .field { margin: 12px 0; }
-            .label { font-weight: bold; display: inline-block; min-width: 140px; }
-          </style>
-        </head>
-        <body>
-          <div class="header"><h1>Reporte del Evento</h1></div>
-          <div class="field"><span class="label">Título:</span> ${evento.nombreevento || 'Sin título'}</div>
-          <div class="field"><span class="label">Fecha:</span> ${fechaEvento}</div>
-          <div class="field"><span class="label">Clasificación:</span> ${clasificacion}</div>
-          <div class="field"><span class="label">Ubicación:</span> ${evento.lugarevento || 'No especificada'}</div>
-          <div class="field"><span class="label">Hora:</span> ${evento.horaevento || 'No especificada'}</div>
-        </body>
-        </html>
-      `;
-
-      const pdf = await Print.printToFileAsync({ html: htmlContent });
-      if (!pdf?.uri) throw new Error('No se generó el PDF');
-
-      await Sharing.shareAsync(pdf.uri, {
-        UTI: '.pdf',
-        mimeType: 'application/pdf',
-      });
-
-      Alert.alert('Éxito', 'PDF generado y compartido.');
-    } catch (error) {
-      console.error('Error al imprimir:', error);
-      Alert.alert('Error', `No se pudo generar el PDF: ${error.message}`);
+      setEvent(transformedEvent);
+    } catch (err) {
+      let errorMessage = `Error al cargar evento: ${err.message}`;
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        Alert.alert('Acceso Denegado', 'No tienes permiso para ver este recurso o tu sesión ha expirado.');
+        await deleteTokenAsync();
+        router.replace('/LoginAdmin');
+        errorMessage = 'Sesión expirada. Redirigiendo...';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Evento no encontrado. Verifica si el ID es correcto (ej: 12345).';
+      }
+      setError(errorMessage);
     } finally {
-      setLoadingPrint(false);
+      setLoading(false);
     }
+
+
+  }, [eventId, router]);
+
+  const fetchUserDetails = async (token) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data);
+      return response.data;
+    } catch (err) {
+      console.error('Error al cargar datos del usuario', err);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (eventId) {
+      fetchEventDetails();
+    } else {
+      setError('No se proporcionó un ID de evento.');
+      setLoading(false);
+    }
+  }, [fetchEventDetails, eventId]);
+
+  const handleApproveEvent = async () => {
+    try {
+      const token = await getTokenAsync();
+      if (!token) throw new Error('Token inválido');
+
+      await axios.put(
+        `${API_BASE_URL}/eventos/${event.id}/approve`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      Alert.alert('Éxito', 'Evento aprobado correctamente');
+      router.replace('./Area2');
+    } catch (error) {
+      console.error('Approve error:', error);
+      Alert.alert('Error', 'No se pudo aprobar el evento: ' + error.message);
+    }
+  };
+
+  const handleRejectEvent = async () => {
+    if (!event || !event.id) {
+      Alert.alert('Error', 'No hay evento cargado para rechazar.');
+      return;
+    }
+
+    Alert.alert(
+      'Rechazar Evento',
+      '¿Estás seguro de que quieres rechazar este evento?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Rechazar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await getTokenAsync();
+              if (!token) throw new Error('Token inválido');
+              await axios.put(
+                `${API_BASE_URL}/eventos/${event.id}/reject`,
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
+              router.back();
+            } catch (error) {
+              console.error('Reject error:', error);
+              Alert.alert('Error', 'No se pudo rechazar el evento: ' + error.message);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#E95A0C" />
-        <Text style={styles.text}>Cargando evento...</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Cargando detalles del evento...</Text>
       </View>
     );
   }
 
-  if (!evento) {
+  if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>Evento no encontrado</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>Volver</Text>
+      <View style={styles.centered}>
+        <Ionicons name="alert-circle-outline" size={50} color={COLORS.accent} />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchEventDetails}>
+          <Text style={styles.retryButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+  if (!event || Object.keys(event).length === 0) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="information-circle-outline" size={50} color={COLORS.grayText} />
+        <Text style={styles.errorText}>No se encontraron datos del evento.</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Volver</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Detalle del Evento</Text>
+      </View>
+    );
+  }
+const generateEventPDF = async () => {
+  if (!event) {
+    Alert.alert('Error', 'No hay datos del evento para imprimir.');
+    return;
+  }
+
+  // 🟢 Si estás en Web: abrir ventana imprimible
+  if (Platform.OS === 'web') {
+    const printWindow = window.open('', '_blank');
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Evento: ${event.title}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+            h1 { color: #E95A0C; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-weight: bold; color: #1e293b; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+            .label { font-weight: bold; color: #2980b9; }
+          </style>
+        </head>
+        <body>
+          <h1>${event.title}</h1>
+          <div class="section">
+            <div class="section-title">Datos Generales</div>
+            <div><span class="label">Fecha:</span> ${event.date}</div>
+            <div><span class="label">Hora:</span> ${event.time}</div>
+            <div><span class="label">Ubicación:</span> ${event.location}</div>
+            <div><span class="label">Organizador:</span> ${event.organizer}</div>
+            <div><span class="label">Asistentes esperados:</span> ${event.attendees}</div>
+            <div><span class="label">Estado:</span> ${event.status}</div>
+          </div>
+          ${event.creador ? `
+          <div class="section">
+            <div class="section-title">Propuesto por</div>
+            <div>${event.creador.nombre}</div>
+            <div>Rol: ${event.creador.role}</div>
+            <div>Email: ${event.creador.email}</div>
+          </div>` : ''}
+          ${event.Clasificacion ? `
+          <div class="section">
+            <div class="section-title">Clasificación Estratégica</div>
+            <div>${event.Clasificacion.nombreClasificacion} - ${event.Clasificacion.nombresubcategoria}</div>
+          </div>` : ''}
+          ${event.tiposEvento?.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Tipos de Evento</div>
+            <ul>${event.tiposEvento.map(t => `<li>${t.nombretipo || 'Tipo desconocido'}</li>`).join('')}</ul>
+          </div>` : ''}
+          ${event.objetivos?.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Objetivos Principales</div>
+            <ul>${event.objetivos.map(o => `<li>${o.nombre_objetivo || 'Sin tipo'} — ${o.texto_personalizado || ''}</li>`).join('')}</ul>
+          </div>` : ''}
+          ${event.objetivosPDI?.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Objetivos del PDI Institucional</div>
+            <ul>${event.objetivosPDI.map((p, i) => `<li>${i + 1}. ${p}</li>`).join('')}</ul>
+          </div>` : ''}
+          <!-- Segmentos Objetivo -->
+          ${event.objetivos && event.objetivos.some(obj => obj.segmentos?.length > 0) ? `
+          <div class="section">
+            <div class="section-title">Segmentos Objetivo</div>
+            ${event.objetivos.map(obj => 
+              obj.segmentos?.map(seg => `
+                <div><strong>${seg.nombre_segmento || 'Segmento'}</strong>: ${seg.texto_personalizado || ''}</div>
+              `).join('') || ''
+            ).join('')}
+          </div>` : ''}
+          ${event.resultados ? `
+          <div class="section">
+            <div class="section-title">Resultados Esperados</div>
+            ${event.resultados.participacion_esperada ? `<div>Participación: ${event.resultados.participacion_esperada}</div>` : ''}
+            ${event.resultados.satisfaccion_esperada ? `<div>Satisfacción: ${event.resultados.satisfaccion_esperada}</div>` : ''}
+            ${event.resultados.otros_resultados ? `<div>Otros: ${event.resultados.otros_resultados}</div>` : ''}
+          </div>` : ''}
+          ${event.comite?.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Comité del Evento</div>
+            <ul>${event.comite.map(m => `<li>${[m.nombre, m.apellidopat, m.apellidomat].filter(Boolean).join(' ')} (${m.role}) - ${m.email}</li>`).join('')}</ul>
+          </div>` : ''}
+          ${event.presupuesto ? `
+          <div class="section">
+            <div class="section-title">Presupuesto</div>
+            <div>Total Egresos: Bs ${(event.presupuesto.total_egresos || 0).toFixed(2)}</div>
+            <div>Total Ingresos: Bs ${(event.presupuesto.total_ingresos || 0).toFixed(2)}</div>
+            <div style="font-weight:bold; color:${(event.presupuesto.balance || 0) >= 0 ? '#27ae60' : '#e74c3c'}">
+              Balance: Bs ${(event.presupuesto.balance || 0).toFixed(2)}
+            </div>
+          </div>` : ''}
+          <script>
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    return;
+  }
+
+  // 🟢 Si estás en Android o iOS: usar expo-print
+  const htmlContent = `
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @page { margin: 1cm; }
+          body { font-family: Arial, sans-serif; padding: 1.5cm; line-height: 1.6; color: #333; }
+          h1 { color: #E95A0C; margin-bottom: 0.5cm; border-bottom: 2px solid #E95A0C; padding-bottom: 0.3cm; }
+          .section { margin-bottom: 1cm; }
+          .section-title { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 0.3cm; padding-bottom: 0.2cm; border-bottom: 1px solid #ddd; }
+          .detail-row { margin-bottom: 0.2cm; }
+          .label { font-weight: bold; color: #2980b9; }
+          ul { padding-left: 1cm; margin: 0.2cm 0; }
+          li { margin-bottom: 0.2cm; }
+          .budget { font-weight: bold; }
+          .positive { color: #27ae60; }
+          .negative { color: #e74c3c; }
+        </style>
+      </head>
+      <body>
+        <h1>${event.title}</h1>
+        <div class="section">
+          <div class="section-title">Datos Generales</div>
+          <div class="detail-row"><span class="label">Fecha:</span> ${event.date}</div>
+          <div class="detail-row"><span class="label">Hora:</span> ${event.time}</div>
+          <div class="detail-row"><span class="label">Ubicación:</span> ${event.location}</div>
+          <div class="detail-row"><span class="label">Organizador:</span> ${event.organizer}</div>
+          <div class="detail-row"><span class="label">Asistentes esperados:</span> ${event.attendees}</div>
+          <div class="detail-row"><span class="label">Estado:</span> ${event.status}</div>
+        </div>
+        ${event.creador ? `
+        <div class="section">
+          <div class="section-title">Propuesto por</div>
+          <div>${event.creador.nombre}</div>
+          <div>Rol: ${event.creador.role}</div>
+          <div>Email: ${event.creador.email}</div>
+        </div>` : ''}
+        ${event.Clasificacion ? `
+        <div class="section">
+          <div class="section-title">Clasificación Estratégica</div>
+          <div>${event.Clasificacion.nombreClasificacion} - ${event.Clasificacion.nombresubcategoria}</div>
+        </div>` : ''}
+        ${event.tiposEvento?.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Tipos de Evento</div>
+          <ul>${event.tiposEvento.map(t => `<li>${t.nombretipo || 'Tipo desconocido'}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${event.objetivos?.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Objetivos Principales</div>
+          <ul>${event.objetivos.map(o => `<li>${o.nombre_objetivo || 'Sin tipo'} — ${o.texto_personalizado || ''}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${event.objetivosPDI?.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Objetivos del PDI Institucional</div>
+          <ul>${event.objetivosPDI.map((p, i) => `<li>${i + 1}. ${p}</li>`).join('')}</ul>
+        </div>` : ''}
+        <!-- Segmentos Objetivo -->
+        ${event.objetivos && event.objetivos.some(obj => obj.segmentos?.length > 0) ? `
+        <div class="section">
+          <div class="section-title">Segmentos Objetivo</div>
+          ${event.objetivos.map(obj => 
+            obj.segmentos?.map(seg => `
+              <div class="detail-row"><strong>${seg.nombre_segmento || 'Segmento'}</strong>: ${seg.texto_personalizado || ''}</div>
+            `).join('') || ''
+          ).join('')}
+        </div>` : ''}
+        ${event.resultados ? `
+        <div class="section">
+          <div class="section-title">Resultados Esperados</div>
+          ${event.resultados.participacion_esperada ? `<div class="detail-row">Participación: ${event.resultados.participacion_esperada}</div>` : ''}
+          ${event.resultados.satisfaccion_esperada ? `<div class="detail-row">Satisfacción: ${event.resultados.satisfaccion_esperada}</div>` : ''}
+          ${event.resultados.otros_resultados ? `<div class="detail-row">Otros: ${event.resultados.otros_resultados}</div>` : ''}
+        </div>` : ''}
+        ${event.comite?.length > 0 ? `
+        <div class="section">
+          <div class="section-title">Comité del Evento</div>
+          <ul>${event.comite.map(m => `<li>${[m.nombre, m.apellidopat, m.apellidomat].filter(Boolean).join(' ')} (${m.role}) - ${m.email}</li>`).join('')}</ul>
+        </div>` : ''}
+        ${event.presupuesto ? `
+        <div class="section">
+          <div class="section-title">Presupuesto</div>
+          <div class="detail-row">Total Egresos: Bs ${(event.presupuesto.total_egresos || 0).toFixed(2)}</div>
+          <div class="detail-row">Total Ingresos: Bs ${(event.presupuesto.total_ingresos || 0).toFixed(2)}</div>
+          <div class="detail-row budget ${event.presupuesto.balance >= 0 ? 'positive' : 'negative'}">
+            Balance: Bs ${(event.presupuesto.balance || 0).toFixed(2)}
+          </div>
+        </div>` : ''}
+      </body>
+    </html>
+  `;
+
+  try {
+    const result = await Print.printToFileAsync({ html: htmlContent });
+    if (!result?.uri) {
+      throw new Error('No se generó el PDF.');
+    }
+
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(result.uri, {
+        UTI: '.pdf',
+        mimeType: 'application/pdf',
+        dialogTitle: 'Imprimir o guardar evento',
+      });
+    } else {
+      Alert.alert('PDF generado', 'El archivo PDF se guardó en tu dispositivo.');
+    }
+  } catch (error) {
+    console.error('Error al generar PDF:', error);
+    Alert.alert('Error', 'No se pudo generar el PDF: ' + (error.message || 'Error desconocido'));
+  }
+};
+  return (
+    <View style={styles.screenContainer}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Detalles del Evento</Text>
+        <TouchableOpacity onPress={fetchEventDetails}>
+          <Ionicons name="refresh" size={24} color={COLORS.white} />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.title}>{evento.nombreevento}</Text>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        {event.imageUrl && <Image source={{ uri: event.imageUrl }} style={styles.eventImage} />}
 
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>ID:</Text>
-          <Text style={styles.value}>{evento.idevento}</Text>
+        <View style={styles.card}>
+          <Text style={styles.eventTitle}>{event.title}</Text>
+          
+          
         </View>
 
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Fecha:</Text>
-          <Text style={styles.value}>
-            {evento.fechaevento ? new Date(evento.fechaevento).toLocaleDateString('es-ES') : 'N/A'}
-          </Text>
+        {/* Datos Generales */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Datos Generales</Text>
+          <View style={styles.detailRow}>
+            <Ionicons name="calendar-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Fecha: {event.date}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="time-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Hora: {event.time}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Ubicación: {event.location}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="business-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Organizador: {event.organizer}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="people-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Asistentes: {event.attendees}</Text>
+          </View>
         </View>
 
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Hora:</Text>
-          <Text style={styles.value}>{evento.horaevento || 'N/A'}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Ubicación:</Text>
-          <Text style={styles.value}>{evento.lugarevento || 'N/A'}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Clasificación:</Text>
-          <Text style={styles.value}>
-            {evento.clasificacion ? `${evento.clasificacion.label} - ${evento.subcategoria?.label || 'Sin subcategoría'}` : 'N/A'}
-          </Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Text style={styles.label}>Estado:</Text>
-          <Text style={[
-            styles.value,
-            evento.estado?.toLowerCase().includes('aprobado') ? styles.stateAprobado : styles.statePendiente
-          ]}>
-            {evento.estado || 'N/A'}
-          </Text>
-        </View>
-
-        {/* ✅ Solo muestra "Imprimir" si está aprobado */}
-        {evento.estado?.toLowerCase().includes('aprobado') && (
-          <TouchableOpacity
-            style={[styles.printButton, loadingPrint && styles.printButtonDisabled]}
-            onPress={handleImprimir}
-            disabled={loadingPrint}
-          >
-            {loadingPrint ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <>
-                <Ionicons name="print-outline" size={20} color="white" />
-                <Text style={styles.printButtonText}>Imprimir Reporte</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        {/* Creador */}
+        {event.creador && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Propuesto por</Text>
+            <Text style={styles.creatorName}>{event.creador.nombre}</Text>
+            <Text style={styles.creatorRole}>Rol: {event.creador.role}</Text>
+            <Text style={styles.creatorEmail}>Email: {event.creador.email}</Text>
+          </View>
         )}
+
+        {/* Clasificación Estratégica */}
+        {event.Clasificacion && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Clasificación Estratégica</Text>
+            <Text style={styles.detailText}>
+              • {event.Clasificacion.nombreClasificacion} - {event.Clasificacion.nombresubcategoria}
+            </Text>
+          </View>
+        )}
+
+        {/* Tipos de Evento */}
+        {event.tiposEvento && event.tiposEvento.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Tipos de Evento</Text>
+            {event.tiposEvento.map((tipo, index) => (
+              <View key={index} style={styles.listItem}>
+                <Ionicons name="pricetag-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  {tipo.nombretipo || `Tipo ID ${tipo.idtipoevento}`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Objetivos Principales */}
+        {event.objetivos && event.objetivos.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Objetivos Principales</Text>
+            {event.objetivos.map((obj, index) => (
+              <View key={index} style={styles.listItem}>
+                <Ionicons name="bulb-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  {obj.nombre_objetivo || 'Sin tipo'} — {obj.texto_personalizado || 'Objetivo sin descripción'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Objetivos PDI Institucional */}
+        {event.objetivosPDI && event.objetivosPDI.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Objetivos del PDI Institucional</Text>
+            {event.objetivosPDI.map((pdi, index) => (
+              <View key={index} style={styles.listItem}>
+                <Text style={[styles.listText, { fontWeight: 'bold', color: COLORS.primary }]}>
+                  {index + 1}.
+                </Text>
+                <Text style={styles.listText}>{pdi}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Segmentos Objetivo del Evento - ¡MEJORADO! */}
+        {event.objetivos && event.objetivos.some(obj => obj.segmentos && obj.segmentos.length > 0) && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Segmentos Objetivo</Text>
+            {event.objetivos.map((obj, objIndex) => {
+              if (!obj.segmentos || obj.segmentos.length === 0) return null;
+              
+              return obj.segmentos.map((seg, segIndex) => (
+                <View key={`seg-${seg.idsegmento || segIndex}`} style={styles.segmentItem}>
+                  <View style={styles.segmentHeader}>
+                    <Ionicons name="person-outline" size={16} color={COLORS.primary} style={styles.segmentIcon} />
+                    <Text style={styles.segmentName}>
+                      {seg.nombre_segmento || `Segmento ID ${seg.idsegmento}`}
+                    </Text>
+                  </View>
+                  {seg.texto_personalizado && (
+                    <Text style={styles.segmentDescription}>
+                      {seg.texto_personalizado}
+                    </Text>
+                  )}
+                </View>
+              ));
+            })}
+          </View>
+        )}
+
+        {/* Resultados Esperados */}
+        {event.resultados && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Resultados Esperados</Text>
+            {event.resultados.participacion_esperada && (
+              <View style={styles.listItem}>
+                <Ionicons name="people-circle-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  Participación: {event.resultados.participacion_esperada}
+                </Text>
+              </View>
+            )}
+            {event.resultados.satisfaccion_esperada && (
+              <View style={styles.listItem}>
+                <Ionicons name="happy-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  Satisfacción: {event.resultados.satisfaccion_esperada}
+                </Text>
+              </View>
+            )}
+            {event.resultados.otros_resultados && (
+              <View style={styles.listItem}>
+                <Ionicons name="document-text-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  Otros: {event.resultados.otros_resultados}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Recursos Solicitados */}
+        {event.recursos && event.recursos.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Recursos Solicitados</Text>
+            
+            {/* Tecnológicos */}
+            {event.recursos.filter(r => r.recurso_tipo === 'tecnologico').length > 0 && (
+              <View style={styles.resourceCategory}>
+                <Text style={styles.resourceCategoryTitle}>Tecnológicos</Text>
+                {event.recursos
+                  .filter(r => r.recurso_tipo === 'tecnologico')
+                  .map((r, i) => (
+                    <View key={`tec-${i}`} style={styles.listItem}>
+                      <Ionicons name="hardware-chip-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                      <Text style={styles.listText}>
+                        {r.cantidad || 1} x {r.nombre_recurso}
+                      </Text>
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+            
+            {/* Mobiliario */}
+            {event.recursos.filter(r => r.recurso_tipo === 'mobiliario').length > 0 && (
+              <View style={styles.resourceCategory}>
+                <Text style={styles.resourceCategoryTitle}>Mobiliario</Text>
+                {event.recursos
+                  .filter(r => r.recurso_tipo === 'mobiliario')
+                  .map((r, i) => (
+                    <View key={`mob-${i}`} style={styles.listItem}>
+                      <Ionicons name="home-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                      <Text style={styles.listText}>
+                        {r.cantidad || 1} x {r.nombre_recurso}
+                      </Text>
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+            
+            {/* Vajilla */}
+            {event.recursos.filter(r => r.recurso_tipo === 'vajilla').length > 0 && (
+              <View style={styles.resourceCategory}>
+                <Text style={styles.resourceCategoryTitle}>Vajilla</Text>
+                {event.recursos
+                  .filter(r => r.recurso_tipo === 'vajilla')
+                  .map((r, i) => (
+                    <View key={`vaj-${i}`} style={styles.listItem}>
+                      <Ionicons name="restaurant-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                      <Text style={styles.listText}>
+                        {r.cantidad || 1} x {r.nombre_recurso}
+                      </Text>
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+          </View>
+        )}
+   {event.actividadesPrevias && event.actividadesPrevias.length > 0 && (
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>Actividades Previas</Text>
+    {event.actividadesPrevias.map((act, index) => (
+      <View key={index} style={styles.listItem}>
+        <Ionicons name="calendar-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.listText}>
+            <Text style={{ fontWeight: 'bold' }}>{act.nombre}</Text> - {act.responsable}
+          </Text>
+          <Text style={[styles.listText, { fontSize: 13, color: COLORS.grayText }]}>
+            {new Date(act.fecha_inicio).toLocaleDateString('es-ES')} - {new Date(act.fecha_fin).toLocaleDateString('es-ES')}
+          </Text>
+        </View>
       </View>
-    </ScrollView>
+    ))}
+  </View>
+)}
+{event.actividadesDurante && event.actividadesDurante.length > 0 && (
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>Actividades Durante el Evento</Text>
+    {event.actividadesDurante.map((act, index) => (
+      <View key={index} style={styles.listItem}>
+        <Ionicons name="calendar-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.listText}>
+            <Text style={{ fontWeight: 'bold' }}>{act.nombre}</Text> - {act.responsable}
+          </Text>
+          <Text style={[styles.listText, { fontSize: 13, color: COLORS.grayText }]}>
+            {new Date(act.fecha_inicio).toLocaleDateString('es-ES')} - {new Date(act.fecha_fin).toLocaleDateString('es-ES')}
+          </Text>
+        </View>
+      </View>
+    ))}
+  </View>
+)}
+
+{/* === ACTIVIDADES POST === */}
+{event.actividadesPost && event.actividadesPost.length > 0 && (
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>Actividades Post Evento</Text>
+    {event.actividadesPost.map((act, index) => (
+      <View key={index} style={styles.listItem}>
+        <Ionicons name="calendar-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.listText}>
+            <Text style={{ fontWeight: 'bold' }}>{act.nombre}</Text> - {act.responsable}
+          </Text>
+          <Text style={[styles.listText, { fontSize: 13, color: COLORS.grayText }]}>
+            {new Date(act.fecha_inicio).toLocaleDateString('es-ES')} - {new Date(act.fecha_fin).toLocaleDateString('es-ES')}
+          </Text>
+        </View>
+      </View>
+    ))}
+  </View>
+)}
+
+{event.serviciosContratados && event.serviciosContratados.length > 0 && (
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>Servicios Contratados</Text>
+    {event.serviciosContratados.map((serv, index) => (
+      <View key={index} style={styles.listItem}>
+        <Ionicons name="build-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.listText}>
+            <Text style={{ fontWeight: 'bold' }}>{serv.nombreservicio}</Text>
+          </Text>
+          <Text style={[styles.listText, { fontSize: 13, color: COLORS.grayText }]}>
+            Entrega: {serv.fechadeentrega}
+          </Text>
+          {serv.caracteristicas && (
+            <Text style={[styles.listText, { fontSize: 13, color: COLORS.grayText }]}>
+              Características: {serv.caracteristicas}
+            </Text>
+          )}
+          {serv.observaciones && (
+            <Text style={[styles.listText, { fontSize: 13, color: COLORS.grayText }]}>
+              Observaciones: {serv.observaciones}
+            </Text>
+          )}
+        </View>
+      </View>
+    ))}
+  </View>
+)}
+        {/* Comité del Evento */}
+        {event.comite && event.comite.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Comité del Evento</Text>
+            {event.comite.map((miembro, index) => (
+              <View key={index} style={styles.committeeMember}>
+                <Text style={styles.committeeName}>
+                  {[miembro.nombre, miembro.apellidopat, miembro.apellidomat]
+                    .filter(Boolean).join(' ') || 'Miembro sin nombre'}
+                </Text>
+                <Text style={styles.committeeRole}>
+                  Rol: {miembro.role === 'academico' ? 'Académico' : miembro.role}
+                </Text>
+                <Text style={styles.committeeEmail}>Email: {miembro.email}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Presupuesto */}
+        {event.presupuesto && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Presupuesto</Text>
+            <View style={styles.budgetRow}>
+              <Text>Total Egresos:</Text>
+              <Text>Bs {(event.presupuesto.total_egresos || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.budgetRow}>
+              <Text>Total Ingresos:</Text>
+              <Text>Bs {(event.presupuesto.total_ingresos || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.budgetRow}>
+              <Text style={{ fontWeight: 'bold' }}>Balance:</Text>
+              <Text style={{ 
+                fontWeight: 'bold',
+                color: (event.presupuesto.balance || 0) >= 0 ? COLORS.success : COLORS.logout
+              }}>
+                Bs {(event.presupuesto.balance || 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Estado */}
+        <View style={styles.sectionCard}>
+          <View style={styles.detailRow}>
+            <Ionicons
+              name={event.status === 'aprobado' ? 'checkmark-circle-outline' : 'time-outline'}
+              size={20}
+              color={event.status === 'aprobado' ? COLORS.success : COLORS.warning}
+              style={styles.detailIcon}
+            />
+            <Text style={[
+              styles.detailText,
+              { color: event.status === 'aprobado' ? COLORS.success : COLORS.warning }
+            ]}>
+              Estado: {event.status}
+            </Text>
+          </View>
+        </View>
+
+        {/* Botones de acción */}
+        <View style={styles.actionButtonsContainer}>
+      {event.status === 'aprobado' && (
+  <TouchableOpacity
+    style={styles.nextStepButton}
+    onPress={generateEventPDF} 
+  >
+    <Ionicons name="print-outline" size={20} color={COLORS.white} />
+    <Text style={styles.nextStepButtonText}>Imprimir Evento</Text>
+  </TouchableOpacity>
+)}
+
+          
+        </View>
+      </ScrollView>
+    </View>
   );
-}
+};
+EventDetailScreen.options = {
+  headerShown: false,
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  text: { marginTop: 16, fontSize: 16, color: '#6B7280' },
-  error: { fontSize: 18, color: '#EF4444', fontWeight: '600' },
-  backButton: { marginTop: 12, color: '#10B981' },
-  backText: { color: '#10B981', fontSize: 16, fontWeight: '600' },
-  header: { 
-    backgroundColor: '#E95A0C', 
-    paddingTop: 12, 
-    paddingBottom: 16, 
-    paddingHorizontal: 16,
+  sectionCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.cardShadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  listItem: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  headerTitle: { 
-    color: 'white', 
-    fontSize: 20, 
-    fontWeight: '700', 
-    marginLeft: 12 
+  listIcon: {
+    marginRight: 12,
+    marginTop: 4,
   },
-  content: { 
-    padding: 20 
+  listText: {
+    fontSize: 15,
+    color: COLORS.darkText,
+    flex: 1,
+    lineHeight: 20,
   },
-  title: { 
-    fontSize: 24, 
-    fontWeight: '800', 
-    color: '#1F2937', 
-    marginBottom: 24,
-    textAlign: 'center'
+  segmentItem: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
   },
-  infoRow: { 
-    flexDirection: 'row', 
-    marginBottom: 14,
-    flexWrap: 'wrap'
-  },
-  label: { 
-    fontWeight: '700', 
-    color: '#4B5563', 
-    minWidth: 120,
-    flexShrink: 0
-  },
-  value: { 
-    flex: 1, 
-    color: '#1F2937' 
-  },
-  stateAprobado: { color: '#10B981', fontWeight: '600' },
-  statePendiente: { color: '#F59E0B', fontWeight: '600' },
-  printButton: {
+  segmentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 4,
+  },
+  segmentIcon: {
+    marginRight: 8,
+  },
+  segmentName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  segmentDescription: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    fontStyle: 'italic',
+    paddingLeft: 24,
+  },
+  resourceCategory: {
+    marginBottom: 12,
+  },
+  resourceCategoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginBottom: 8,
+    marginLeft: 28,
+  },
+  committeeMember: {
+    padding: 12,
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  committeeName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.darkText,
+    marginBottom: 4,
+  },
+  committeeRole: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    marginBottom: 4,
+  },
+  committeeEmail: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    fontStyle: 'italic',
+  },
+  budgetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  phaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  phaseBadgeText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+ container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  screenContainer: {
+  flex: 1,
+  backgroundColor: COLORS.background,
+},
+header: {
+  backgroundColor: COLORS.primary, // Naranja #E95A0C
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 20,
+  paddingTop: Platform.OS === 'ios' ? 50 : 20, // Para evitar el notch en iOS
+  paddingBottom: 15,
+},
+headerTitle: {
+  color: COLORS.white,
+  fontSize: 18,
+  fontWeight: 'bold',
+},
+  phaseIndicator: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: COLORS.secondary, // Azul profesional (#2980b9)
+  paddingHorizontal: 14,
+  paddingVertical: 6,
+  borderRadius: 20,
+  alignSelf: 'flex-start',
+  marginBottom: 15,
+  marginTop: 5,
+},
+phaseIndicatorText: {
+  color: COLORS.white,
+  fontSize: 14,
+  fontWeight: '600',
+},
+ 
+  centered: {
+    flex: 1,
     justifyContent: 'center',
-    backgroundColor: '#E95A0C',
-    paddingVertical: 14,
-    borderRadius: 10,
-    marginTop: 30,
-    gap: 8
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
   },
-  printButtonDisabled: {
-    opacity: 0.7
-  },
-  printButtonText: {
-    color: 'white',
+  loadingText: {
+    marginTop: 15,
     fontSize: 16,
-    fontWeight: '600'
-  }
+    color: COLORS.grayText,
+  },
+  errorText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: COLORS.accent,
+    textAlign: 'center',
+    marginHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    marginTop: 10,
+    backgroundColor: COLORS.grayLight,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: COLORS.darkText,
+    fontSize: 16,
+  },
+  creatorContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 8,
+  },
+  creatorLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.darkText,
+    marginBottom: 5,
+  },
+  creatorName: {
+    fontSize: 16,
+    color: COLORS.darkText,
+    fontWeight: '500',
+    marginBottom: 3,
+  },
+  creatorRole: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    marginBottom: 3,
+  },
+  creatorEmail: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    fontStyle: 'italic',
+  },
+  eventImage: {
+    width: '100%',
+    height: 250,
+    resizeMode: 'cover',
+    marginBottom: 20,
+  },
+  card: {
+    width: '90%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.cardShadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  eventTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+    marginBottom: 10,
+  },
+  eventDescription: {
+    fontSize: 16,
+    color: COLORS.grayText,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  detailIcon: {
+    marginRight: 10,
+  },
+  detailText: {
+    fontSize: 16,
+    color: COLORS.darkText,
+    flex: 1,
+  },
+  section: {
+    marginTop: 20,
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+    marginBottom: 8,
+  },
+  objectiveText: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    marginBottom: 4,
+    paddingLeft: 10,
+  },
+  resultText: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    marginBottom: 4,
+    paddingLeft: 10,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 15,
+    marginBottom: 20,
+  },
+  tag: {
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagText: {
+    fontSize: 13,
+    color: COLORS.grayText,
+    fontWeight: '500',
+  },
+  actionButtonsContainer: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  editButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.success,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  editButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  nextStepButton: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  nextStepButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
 });
+
+export default EventDetailScreen;

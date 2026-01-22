@@ -114,7 +114,43 @@ const EventDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+const getCurrentPhaseFromFases = useCallback((fases) => {
+  // Si no hay fases, asumimos fase 1 (Planeación)
+  if (!Array.isArray(fases) || fases.length === 0) {
+    return {
+      number: 1,
+      label: 'Planeación',
+      key: 'phase1',
+      color: COLORS.info,
+      icon: 'document-text-outline',
+    };
+  }
 
+  const faseToShow = fases[0];
+
+  // Mapeo de fases conocidas
+  const phaseConfig = {
+    1: { label: 'Planeación', icon: 'document-text-outline', color: COLORS.info },
+    2: { label: 'Revisión y aprobación', icon: 'clipboard-outline', color: COLORS.secondary },
+    3: { label: 'Programación del evento', icon: 'calendar-outline', color: COLORS.success },
+    4: { label: 'Ejecución', icon: 'play-circle-outline', color: COLORS.purple },
+    5: { label: 'Cierre y evaluación', icon: 'checkmark-done-outline', color: COLORS.grayText },
+  };
+
+  const config = phaseConfig[faseToShow.nrofase] || {
+    label: `Fase ${faseToShow.nrofase}`,
+    icon: 'help-circle-outline',
+    color: COLORS.grayText,
+  };
+
+  return {
+    number: faseToShow.nrofase,
+    label: config.label,
+    key: `phase${faseToShow.nrofase}`,
+    color: config.color,
+    icon: config.icon,
+  };
+}, []);
   const fetchEventDetails = useCallback(async () => {
     let processedEventId = Array.isArray(eventId) ? eventId[0] : eventId;
     if (typeof processedEventId === 'string' && processedEventId.startsWith('event-')) {
@@ -145,32 +181,60 @@ const EventDetailScreen = () => {
       ]);
 
       const eventData = eventResponse.data;
+      console.log('Respuesta completa del backend:', eventData);
+console.log('ObjetivosPDI del backend:', eventData.ObjetivosPDI);
+console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
       if (!eventData || typeof eventData !== 'object' || Object.keys(eventData).length === 0) {
         throw new Error('Datos de evento vacíos o inválidos del servidor.');
       }
 
       const transformedEvent = {
-        id: eventData.idevento || null,
-        title: eventData.nombreevento || 'Sin título',
-        description: eventData.descripcion || 'Sin descripción disponible',
-        date: formatDate(eventData.fechaevento),
-        time: formatTime(eventData.horaevento),
-        location: eventData.lugarevento || 'Ubicación no especificada',
-        organizer: eventData.responsable_evento || 'Organizador no especificado',
-        attendees: eventData.participantes_esperados || 'No especificado',
-        status: (eventData.estado || 'pendiente').toLowerCase(),
-        imageUrl: eventData.imagenUrl || null,
-        objetivos: eventData.Objetivos || [],
-        resultados: eventData.Resultados || [],
-        recursos: eventData.Recursos || [],
-        tags: eventData.tags || [],
-        creador: eventData.creador ? {
-          nombre: `${eventData.creador.nombre} ${eventData.creador.apellidopat} ${eventData.creador.apellidomat}`,
-          email: eventData.creador.email,
-          role: eventData.creador.role
-        } : null
-      };
-
+  id: eventData.idevento || null,
+  title: eventData.nombreevento || 'Sin título',
+  date: formatDate(eventData.fechaevento),
+  time: formatTime(eventData.horaevento),
+  location: eventData.lugarevento || 'Ubicación no especificada',
+  organizer: eventData.responsable_evento || 'Organizador no especificado',
+  attendees: eventData.participantes_esperados || 'No especificado',
+  status: (eventData.estado || 'pendiente').toLowerCase(),
+  imageUrl: eventData.imagenUrl || null,
+  idfase: eventData.idfase || 1,
+  fases: eventData.fases || [],
+  
+  Clasificacion: eventData.Clasificacion || null,
+  subcategoria: eventData.subcategoria || null,
+  tiposEvento: eventData.TiposDeEvento || [],
+  
+  objetivos: eventData.Objetivos || [],
+  objetivosPDI: Array.isArray(eventData.ObjetivosPDI) 
+    ? eventData.ObjetivosPDI 
+    : typeof eventData.objetivos_pdi === 'string'
+      ? JSON.parse(eventData.objetivos_pdi || '[]')
+      : [],
+  
+  segmentos: eventData.segmentos || [],
+  argumentacion: eventData.argumentacion || 'Sin argumentación',
+  
+ resultados: (eventData.Resultados && eventData.Resultados.length > 0)
+  ? eventData.Resultados[0]
+  : {
+      participacion_esperada: null,
+      satisfaccion_esperada: null,
+      otros_resultados: null,
+      satisfaccion_real: null
+    },
+  recursos: eventData.Recursos || [],
+  comite: eventData.Comite || [],
+  presupuesto: eventData.Presupuesto || null,
+  tags: eventData.tags || [],
+  
+  creador: eventData.creador ? {
+    nombre: `${eventData.creador.nombre} ${eventData.creador.apellidopat} ${eventData.creador.apellidomat}`,
+    email: eventData.creador.email,
+    role: eventData.creador.role
+  } : null
+};
+     
       if (!transformedEvent.id) {
         throw new Error('El evento no tiene un ID válido.');
       }
@@ -190,6 +254,8 @@ const EventDetailScreen = () => {
     } finally {
       setLoading(false);
     }
+
+
   }, [eventId, router]);
 
   const fetchUserDetails = async (token) => {
@@ -206,6 +272,12 @@ const EventDetailScreen = () => {
   };
 
   useEffect(() => {
+     if (event) {
+    console.log('🔍 Evento completo:', event);
+    console.log('🔍 Fases:', event.fases);
+    console.log('🔍 Primera fase:', event.fases?.[0]);
+    console.log('🔍 nrofase:', event.fases?.[0]?.nrofase);
+  }
     if (eventId) {
       fetchEventDetails();
     } else {
@@ -304,64 +376,307 @@ const EventDetailScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {event.imageUrl && <Image source={{ uri: event.imageUrl }} style={styles.eventImage} />}
+    <View style={styles.screenContainer}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Detalles del Evento</Text>
+        <TouchableOpacity onPress={fetchEventDetails}>
+          <Ionicons name="refresh" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.eventTitle}>{event.title}</Text>
-        <Text style={styles.eventDescription}>{event.description}</Text>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+        {event.imageUrl && <Image source={{ uri: event.imageUrl }} style={styles.eventImage} />}
 
-        <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
-          <Text style={styles.detailText}>Fecha: {event.date}</Text>
+        <View style={styles.card}>
+          <Text style={styles.eventTitle}>{event.title}</Text>
+          
+        {event && (() => {
+        const phaseInfo = getCurrentPhaseFromFases([{ nrofase: event.idfase }]);
+        return (
+          <View style={[styles.phaseBadge, { backgroundColor: phaseInfo.color }]}>
+            <Ionicons name={phaseInfo.icon} size={16} color={COLORS.white} />
+            <Text style={styles.phaseBadgeText}>
+              Fase {phaseInfo.number}: {phaseInfo.label}
+            </Text>
+          </View>
+        );
+      })()}
+        </View>
+ <View style={styles.sectionCard}>
+          <View style={styles.detailRow}>
+            <Ionicons
+              name={event.status === 'aprobado' ? 'checkmark-circle-outline' : 'time-outline'}
+              size={20}
+              color={event.status === 'aprobado' ? COLORS.success : COLORS.warning}
+              style={styles.detailIcon}
+            />
+            <Text style={[
+              styles.detailText,
+              { color: event.status === 'aprobado' ? COLORS.success : COLORS.warning }
+            ]}>
+              Estado: {event.status}
+            </Text>
+          </View>
+        </View>
+        {/* Datos Generales */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Datos Generales</Text>
+          <View style={styles.detailRow}>
+            <Ionicons name="calendar-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Fecha: {event.date}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="time-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Hora: {event.time}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="location-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Ubicación: {event.location}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="business-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Organizador: {event.organizer}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <Ionicons name="people-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
+            <Text style={styles.detailText}>Asistentes: {event.attendees}</Text>
+          </View>
         </View>
 
-        <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
-          <Text style={styles.detailText}>Hora: {event.time}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
-          <Text style={styles.detailText}>Ubicación: {event.location}</Text>
-        </View>
-
-        <View style={styles.detailRow}>
-          <Ionicons name="business-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
-          <Text style={styles.detailText}>Organizador: {event.organizer}</Text>
-        </View>
-
+        {/* Creador */}
         {event.creador && (
-          <View style={styles.creatorContainer}>
-            <Text style={styles.creatorLabel}>Propuesto por:</Text>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Propuesto por</Text>
             <Text style={styles.creatorName}>{event.creador.nombre}</Text>
             <Text style={styles.creatorRole}>Rol: {event.creador.role}</Text>
             <Text style={styles.creatorEmail}>Email: {event.creador.email}</Text>
           </View>
         )}
 
-        <View style={styles.detailRow}>
-          <Ionicons name="people-outline" size={20} color={COLORS.primary} style={styles.detailIcon} />
-          <Text style={styles.detailText}>Asistentes: {event.attendees}</Text>
-        </View>
+        {/* Clasificación Estratégica */}
+        {event.Clasificacion && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Clasificación Estratégica</Text>
+            <Text style={styles.detailText}>
+              • {event.Clasificacion.nombreClasificacion} - {event.Clasificacion.nombresubcategoria}
+            </Text>
+          </View>
+        )}
 
-        <View style={styles.detailRow}>
-          <Ionicons
-            name={event.status === 'aprobado' ? 'checkmark-circle-outline' : 'time-outline'}
-            size={20}
-            color={event.status === 'aprobado' ? COLORS.success : COLORS.warning}
-            style={styles.detailIcon}
-          />
-          <Text style={[
-            styles.detailText,
-            { color: event.status === 'aprobado' ? COLORS.success : COLORS.warning }
-          ]}>
-            Estado: {event.status}
-          </Text>
-        </View>
+        {/* Tipos de Evento */}
+        {event.tiposEvento && event.tiposEvento.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Tipos de Evento</Text>
+            {event.tiposEvento.map((tipo, index) => (
+              <View key={index} style={styles.listItem}>
+                <Ionicons name="pricetag-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  {tipo.nombretipo || `Tipo ID ${tipo.idtipoevento}`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Objetivos Principales */}
+        {event.objetivos && event.objetivos.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Objetivos Principales</Text>
+            {event.objetivos.map((obj, index) => (
+              <View key={index} style={styles.listItem}>
+                <Ionicons name="bulb-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  {obj.nombre_objetivo || 'Sin tipo'} — {obj.texto_personalizado || 'Objetivo sin descripción'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Objetivos PDI Institucional */}
+        {event.objetivosPDI && event.objetivosPDI.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Objetivos del PDI Institucional</Text>
+            {event.objetivosPDI.map((pdi, index) => (
+              <View key={index} style={styles.listItem}>
+                <Text style={[styles.listText, { fontWeight: 'bold', color: COLORS.primary }]}>
+                  {index + 1}.
+                </Text>
+                <Text style={styles.listText}>{pdi}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Segmentos Objetivo del Evento - ¡MEJORADO! */}
+        {event.objetivos && event.objetivos.some(obj => obj.segmentos && obj.segmentos.length > 0) && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Segmentos Objetivo</Text>
+            {event.objetivos.map((obj, objIndex) => {
+              if (!obj.segmentos || obj.segmentos.length === 0) return null;
+              
+              return obj.segmentos.map((seg, segIndex) => (
+                <View key={`seg-${seg.idsegmento || segIndex}`} style={styles.segmentItem}>
+                  <View style={styles.segmentHeader}>
+                    <Ionicons name="person-outline" size={16} color={COLORS.primary} style={styles.segmentIcon} />
+                    <Text style={styles.segmentName}>
+                      {seg.nombre_segmento || `Segmento ID ${seg.idsegmento}`}
+                    </Text>
+                  </View>
+                  {seg.texto_personalizado && (
+                    <Text style={styles.segmentDescription}>
+                      {seg.texto_personalizado}
+                    </Text>
+                  )}
+                </View>
+              ));
+            })}
+          </View>
+        )}
+
+        {/* Resultados Esperados */}
+        {event.resultados && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Resultados Esperados</Text>
+            {event.resultados.participacion_esperada && (
+              <View style={styles.listItem}>
+                <Ionicons name="people-circle-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  Participación: {event.resultados.participacion_esperada}
+                </Text>
+              </View>
+            )}
+            {event.resultados.satisfaccion_esperada && (
+              <View style={styles.listItem}>
+                <Ionicons name="happy-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  Satisfacción: {event.resultados.satisfaccion_esperada}
+                </Text>
+              </View>
+            )}
+            {event.resultados.otros_resultados && (
+              <View style={styles.listItem}>
+                <Ionicons name="document-text-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                <Text style={styles.listText}>
+                  Otros: {event.resultados.otros_resultados}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Recursos Solicitados */}
+        {event.recursos && event.recursos.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Recursos Solicitados</Text>
+            
+            {/* Tecnológicos */}
+            {event.recursos.filter(r => r.recurso_tipo === 'tecnologico').length > 0 && (
+              <View style={styles.resourceCategory}>
+                <Text style={styles.resourceCategoryTitle}>Tecnológicos</Text>
+                {event.recursos
+                  .filter(r => r.recurso_tipo === 'tecnologico')
+                  .map((r, i) => (
+                    <View key={`tec-${i}`} style={styles.listItem}>
+                      <Ionicons name="hardware-chip-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                      <Text style={styles.listText}>
+                        {r.cantidad || 1} x {r.nombre_recurso}
+                      </Text>
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+            
+            {/* Mobiliario */}
+            {event.recursos.filter(r => r.recurso_tipo === 'mobiliario').length > 0 && (
+              <View style={styles.resourceCategory}>
+                <Text style={styles.resourceCategoryTitle}>Mobiliario</Text>
+                {event.recursos
+                  .filter(r => r.recurso_tipo === 'mobiliario')
+                  .map((r, i) => (
+                    <View key={`mob-${i}`} style={styles.listItem}>
+                      <Ionicons name="home-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                      <Text style={styles.listText}>
+                        {r.cantidad || 1} x {r.nombre_recurso}
+                      </Text>
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+            
+            {/* Vajilla */}
+            {event.recursos.filter(r => r.recurso_tipo === 'vajilla').length > 0 && (
+              <View style={styles.resourceCategory}>
+                <Text style={styles.resourceCategoryTitle}>Vajilla</Text>
+                {event.recursos
+                  .filter(r => r.recurso_tipo === 'vajilla')
+                  .map((r, i) => (
+                    <View key={`vaj-${i}`} style={styles.listItem}>
+                      <Ionicons name="restaurant-outline" size={16} color={COLORS.grayText} style={styles.listIcon} />
+                      <Text style={styles.listText}>
+                        {r.cantidad || 1} x {r.nombre_recurso}
+                      </Text>
+                    </View>
+                  ))
+                }
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Comité del Evento */}
+        {event.comite && event.comite.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Comité del Evento</Text>
+            {event.comite.map((miembro, index) => (
+              <View key={index} style={styles.committeeMember}>
+                <Text style={styles.committeeName}>
+                  {[miembro.nombre, miembro.apellidopat, miembro.apellidomat]
+                    .filter(Boolean).join(' ') || 'Miembro sin nombre'}
+                </Text>
+                <Text style={styles.committeeRole}>
+                  Rol: {miembro.role === 'academico' ? 'Académico' : miembro.role}
+                </Text>
+                <Text style={styles.committeeEmail}>Email: {miembro.email}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Presupuesto */}
+        {event.presupuesto && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Presupuesto</Text>
+            <View style={styles.budgetRow}>
+              <Text>Total Egresos:</Text>
+              <Text>Bs {(event.presupuesto.total_egresos || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.budgetRow}>
+              <Text>Total Ingresos:</Text>
+              <Text>Bs {(event.presupuesto.total_ingresos || 0).toFixed(2)}</Text>
+            </View>
+            <View style={styles.budgetRow}>
+              <Text style={{ fontWeight: 'bold' }}>Balance:</Text>
+              <Text style={{ 
+                fontWeight: 'bold',
+                color: (event.presupuesto.balance || 0) >= 0 ? COLORS.success : COLORS.logout
+              }}>
+                Bs {(event.presupuesto.balance || 0).toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Estado */}
+       
 
         <View style={styles.actionButtonsContainer}>
-          {event.status === 'aprobado' && (
+          {event.status === 'aprobado' && event.idfase === 1 && (
             <TouchableOpacity
               style={styles.nextStepButton}
               onPress={() => router.push(`/admin/ProgramacionEvento?idevento=${event.id}`)}
@@ -379,70 +694,165 @@ const EventDetailScreen = () => {
             <Text style={styles.editButtonText}>Editar Evento</Text>
           </TouchableOpacity>
         </View>
-
-        {event.objetivos && event.objetivos.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Objetivos:</Text>
-            {event.objetivos.map((objetivo, index) => (
-              <Text key={index} style={styles.objectiveText}>
-                • {objetivo.texto_personalizado || 'Objetivo sin descripción'}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        {event.resultados && event.resultados.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Resultados Esperados:</Text>
-            {event.resultados.map((resultado, index) => (
-              <View key={index}>
-                {resultado.participacion_esperada && (
-                  <Text style={styles.resultText}>
-                    • Participación: {resultado.participacion_esperada}
-                  </Text>
-                )}
-                {resultado.satisfaccion_esperada && (
-                  <Text style={styles.resultText}>
-                    • Satisfacción: {resultado.satisfaccion_esperada}
-                  </Text>
-                )}
-                {resultado.otros_resultados && (
-                  <Text style={styles.resultText}>
-                    • Otros: {resultado.otros_resultados}
-                  </Text>
-                )}
-              </View>
-            ))}
-          </View>
-        )}
-
-        {event.tags && event.tags.length > 0 && (
-          <View style={styles.tagsContainer}>
-            {event.tags.map((tag, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
-
 EventDetailScreen.options = {
   headerShown: false,
 };
 
 const styles = StyleSheet.create({
-  container: {
+  sectionCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.cardShadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  listIcon: {
+    marginRight: 12,
+    marginTop: 4,
+  },
+  listText: {
+    fontSize: 15,
+    color: COLORS.darkText,
+    flex: 1,
+    lineHeight: 20,
+  },
+  segmentItem: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+  },
+  segmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  segmentIcon: {
+    marginRight: 8,
+  },
+  segmentName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  segmentDescription: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    fontStyle: 'italic',
+    paddingLeft: 24,
+  },
+  resourceCategory: {
+    marginBottom: 12,
+  },
+  resourceCategoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginBottom: 8,
+    marginLeft: 28,
+  },
+  committeeMember: {
+    padding: 12,
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  committeeName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.darkText,
+    marginBottom: 4,
+  },
+  committeeRole: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    marginBottom: 4,
+  },
+  committeeEmail: {
+    fontSize: 14,
+    color: COLORS.grayText,
+    fontStyle: 'italic',
+  },
+  budgetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  phaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  phaseBadgeText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+ container: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  contentContainer: {
-    paddingBottom: 40,
-    alignItems: 'center',
-  },
+  screenContainer: {
+  flex: 1,
+  backgroundColor: COLORS.background,
+},
+header: {
+  backgroundColor: COLORS.primary, // Naranja #E95A0C
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 20,
+  paddingTop: Platform.OS === 'ios' ? 50 : 20, // Para evitar el notch en iOS
+  paddingBottom: 15,
+},
+headerTitle: {
+  color: COLORS.white,
+  fontSize: 18,
+  fontWeight: 'bold',
+},
+  phaseIndicator: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: COLORS.secondary, // Azul profesional (#2980b9)
+  paddingHorizontal: 14,
+  paddingVertical: 6,
+  borderRadius: 20,
+  alignSelf: 'flex-start',
+  marginBottom: 15,
+  marginTop: 5,
+},
+phaseIndicatorText: {
+  color: COLORS.white,
+  fontSize: 14,
+  fontWeight: '600',
+},
+ 
   centered: {
     flex: 1,
     justifyContent: 'center',

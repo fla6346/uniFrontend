@@ -1030,18 +1030,29 @@ const confirmSubmit = () => {
         })
         .filter(item => item !== null);
       if (tiposParaEnviar.length === 0) throw new Error('Debes seleccionar al menos un tipo de evento');
-       const objetivoParaEnviar = Object.keys(objetivos)
+       const objetivoParaEnviar = [];
+       Object.keys(objetivos)
       .filter(key => objetivos[key] === true && key !== 'otroTexto')
-      .map(key => {
-       if (key === 'otro' && objetivos.otroTexto.trim()) {
-      return {
-        id: OBJETIVOS_EVENTO_MAP[key],
-        texto_personalizado: objetivos.otroTexto.trim()
-      };
-    } else {
-      return OBJETIVOS_EVENTO_MAP[key];
-    }
+      .forEach(key => {
+          if (objetivos[key]) { // Si está seleccionado
+        objetivoParaEnviar.push(OBJETIVOS_EVENTO_MAP[key]);
+       }
       });
+      if (objetivos.otro && objetivos.otroTexto.trim()) {
+    objetivoParaEnviar.push({
+        id: OBJETIVOS_EVENTO_MAP.otro,
+        texto_personalizado: objetivos.otroTexto.trim()
+    });
+}
+if (objetivos.otro) {
+    const pdiObjetivos = objetivosPDI
+        .filter(o => o.trim() !== '') // Solo los que tienen texto
+        .map(texto => ({
+            id: OBJETIVOS_EVENTO_MAP.otro, // Todos estos van con el ID 6 ('otro')
+            texto_personalizado: texto.trim()
+        }));
+    objetivoParaEnviar.push(...pdiObjetivos); // Agregarlos al arreglo
+}
       if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo ');
         const segmentosParaEnviar = [];
     const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
@@ -1113,18 +1124,27 @@ const confirmSubmit = () => {
         total_ingresos: totalIngresos,
         balance: balance
       };
+      const todosLosObjetivos = [
+  ...objetivoParaEnviar,
+  // Añade los objetivos PDI como objetivos de tipo "otro"
+  ...objetivosPDI
+    .filter(texto => texto.trim() !== '')
+    .map(texto => ({
+      id: OBJETIVOS_EVENTO_MAP.otro, // Usa el ID para "otro"
+      texto_personalizado: texto.trim()
+    }))
+];
       const eventoPayload = {
          nombreevento: nombreevento.trim(),
       lugarevento: lugarevento.trim() || 'Por definir',
       fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
       horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'), // ✅ CORRECCIÓN AQUÍ
       argumentacion: argumentacion.trim() || null,
-      objetivos_pdi: objetivosPDI.filter(o => o.trim() !== '').length > 0 
-        ? JSON.stringify(objetivosPDI.filter(o => o.trim() !== '')) 
-        : null,
+     
+      
       resultados_esperados: JSON.stringify(resultadosEsperados),
       tipos_de_evento: tiposParaEnviar,
-      objetivos: objetivoParaEnviar,
+      objetivos: todosLosObjetivos,
       segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
       recursos_existentes: recursosExistentes.length > 0 ? recursosExistentes : null, // ✅ NUEVO
       recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
@@ -1139,7 +1159,12 @@ const confirmSubmit = () => {
       });
  console.log('Respuesta del servidor:', response.data);
   console.log('Respuesta del servidor:', response.data);
-Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.back() }]);
+      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [
+  {
+    text: 'OK',
+    onPress: () => router.replace('/')
+  }
+]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
       if (error.response) {

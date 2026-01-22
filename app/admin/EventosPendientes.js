@@ -84,8 +84,11 @@ const EventosPendientes = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  //const { area } = useLocalSearchParams();
-
+  const [userprofile, setUserprofile] = useState({
+    facultad: null,
+    nombre: '',
+    email: '',
+  });
 
    const fetchPendingEvents = useCallback(async () => {
     try {
@@ -95,11 +98,23 @@ const EventosPendientes = () => {
         router.replace('/LoginAdmin');
         return;
       }
-
-      const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
+      const responseP = await axios.get(`${API_BASE_URL}/profile`, {
         headers: { 'Authorization': `Bearer ${token}` },
+        timeout: 5000,
       });
 
+      const userProfile = responseP.data;
+      setUserprofile({
+        facultad: userProfile.facultad,
+        nombre: userProfile.nombre,
+        email: userProfile.email,
+      });
+      console.log('Perfil de usuario obtenido:', userProfile);
+      const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        //params: { facultad: userProfile.facultad },
+        timeout: 5000,
+      });
       setEvents(response.data || []);
     } catch (error) {
       console.error('Error al cargar eventos pendientes:', error);
@@ -242,8 +257,6 @@ useFocusEffect(
         </View>
         
         <View style={styles.submissionInfo}>
-          <Text style={styles.submittedBy}>Por: {item.submittedBy}</Text>
-          <Text style={styles.submittedDate}>{formatSubmittedDate(item.submittedDate)}</Text>
         </View>
       </View>
 

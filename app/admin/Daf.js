@@ -406,7 +406,7 @@ const daf = () => {
   const handlePrintEvent = (eventoId) => {
    router.push({
     pathname: '/admin/EventoDetalleImp',
-    params: { id: eventoId.toString() }
+    params: { eventId: eventoId.toString() }
   });
   };
 
@@ -617,7 +617,9 @@ const subirImagen = async () => {
         console.log("📊 Dashboard data:", dashboardRes.data); // ✅ Verifica datos del dashboard
       console.log("📅 Eventos recibidos:", eventsRes.data);
         const data = dashboardRes.data;
-        const events = eventsRes.data.map(event => {
+      const events = eventsRes.data
+        .filter(event => event.idfase === 2) // ← ¡Esta es la línea clave!
+        .map(event => {
           const estadoNormalizado = event.estado?.toLowerCase().includes('aprobado')
             ? 'Aprobado'
             : 'Pendiente';

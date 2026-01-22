@@ -167,29 +167,49 @@ const EventDetailScreen = () => {
         throw new Error('Datos de evento vacíos o inválidos del servidor.');
       }
 
-      const transformedEvent = {
-        id: eventData.idevento || null,
-        title: eventData.nombreevento || 'Sin título',
-        description: eventData.descripcion || 'Sin descripción disponible',
-        date: formatDate(eventData.fechaevento),
-        time: formatTime(eventData.horaevento),
-        location: eventData.lugarevento || 'Ubicación no especificada',
-        organizer: eventData.responsable_evento || 'Organizador no especificado',
-        attendees: eventData.participantes_esperados || 'No especificado',
-        status: eventData.estado || 'pendiente',
-        imageUrl: eventData.imagenUrl || null,
-        objetivos: eventData.Objetivos || [],
-        resultados: eventData.Resultados || [],
-        recursos: eventData.Recursos || [],
-        tags: eventData.tags || [],
-         academicoCreador: eventData.academicoCreador ? {
-    nombre:[eventData.academicoCreador.nombre,
-            eventData.academicoCreador.apellidopat || '',
-            eventData.academicoCreador.apellidomat || '',].filter(Boolean).join(' ') || eventData.academicoCreador.nombre || 'Usuario sin nombre',
-  email: eventData.academicoCreador.email,
-  role: eventData.academicoCreador.role
-} : null
-      };
+    const transformedEvent = {
+  id: eventData.idevento || null,
+  title: eventData.nombreevento || 'Sin título',
+  description: eventData.descripcion || 'Sin descripción disponible',
+  date: formatDate(eventData.fechaevento),
+  time: formatTime(eventData.horaevento),
+  location: eventData.lugarevento || 'Ubicación no especificada',
+  organizer: eventData.responsable_evento || 'Organizador no especificado',
+  attendees: eventData.participantes_esperados || 'No especificado',
+  status: eventData.estado || 'pendiente',
+  imageUrl: eventData.imagenUrl || null,
+  
+  // ✅ Objetivos con PDI y segmentos
+  objetivos: eventData.Objetivos || [],
+  
+  // ✅ Objetivos PDI independientes
+  objetivosPDI: Array.isArray(eventData.ObjetivosPDI) 
+    ? eventData.ObjetivosPDI 
+    : typeof eventData.objetivos_pdi === 'string'
+      ? JSON.parse(eventData.objetivos_pdi || '[]')
+      : [],
+  
+  resultados: (eventData.Resultados && eventData.Resultados.length > 0)
+    ? eventData.Resultados[0]
+    : { participacion_esperada: null, satisfaccion_esperada: null, otros_resultados: null },
+  
+  recursos: eventData.Recursos || [],
+  
+  comite: eventData.Comite || [],
+  
+  presupuesto: eventData.Presupuesto || null,
+  
+  tags: eventData.tags || [],
+  
+  academicoCreador: eventData.academicoCreador ? {
+    nombre: [eventData.academicoCreador.nombre,
+             eventData.academicoCreador.apellidopat || '',
+             eventData.academicoCreador.apellidomat || '']
+            .filter(Boolean).join(' ') || eventData.academicoCreador.nombre || 'Usuario sin nombre',
+    email: eventData.academicoCreador.email,
+    role: eventData.academicoCreador.role
+  } : null
+};
 
       if (!transformedEvent.id) {
         throw new Error('El evento no tiene un ID válido.');

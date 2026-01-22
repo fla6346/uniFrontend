@@ -195,6 +195,7 @@ const programacionEvento = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [isLoadingEventos, setIsLoadingEventos] = useState(false);
+  const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
   
   const [layoutsDisponibles, setLayoutsDisponibles] = useState([]);
   const [layoutSeleccionado, setLayoutSeleccionado] = useState(null);
@@ -219,24 +220,7 @@ const [cargandoLayouts, setCargandoLayouts] = useState(false);
     fechaFin: actividad.fechaFin.toISOString().split('T')[0],
   });
 
-  // === FUNCIÓN PARA GENERAR CROQUIS ===
-  const handleGenerarCroquis = async () => {
-    if (!authToken) {
-      Alert.alert('Error', 'Debes estar autenticado.');
-      return;
-    }
 
-    const eventoParaCroquis = {
-      nombreevento: nombreevento.trim(),
-      lugarevento: lugarevento.trim(),
-      fechaevento: formatToISODate(fechaHoraSeleccionada),
-      horaevento: formatToISOTime(fechaHoraSeleccionada),
-      actividadesPrevias: actividadesPrevias.map(a => ({ nombreActividad: a.nombreActividad })),
-      actividadesDurante: actividadesDurante.map(a => ({ nombreActividad: a.nombreActividad })),
-      actividadesPost: actividadesPost.map(a => ({ nombreActividad: a.nombreActividad })),
-    };
-
-  }
 
   // Manejo de fechas y validación
   const handleActividadDateChange = (index, field, event, selectedDate, setActividades) => {
@@ -263,20 +247,32 @@ const [cargandoLayouts, setCargandoLayouts] = useState(false);
   const validateForm = () => {
     const newErrors = {};
     if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es requerido.';
-    if (!idtipoevento) newErrors.idtipoevento = 'El tipo de evento es requerido.';
 
     const validateActivityList = (list, listName) => {
-      list.forEach((act, index) => {
-        if (!act.nombreActividad?.trim()) newErrors[`${listName}_${index}_nombre`] = 'Nombre de actividad requerido.';
-        if (!act.responsable?.trim()) newErrors[`${listName}_${index}_responsable`] = 'Responsable requerido.';
-      });
-    };
+    list.forEach((act, index) => {
+      if (!act.nombreActividad?.trim()) {
+        newErrors[`${listName}_${index}_nombre`] = 'Nombre de actividad requerido.';
+      }
+      if (!act.responsable?.trim()) {
+        newErrors[`${listName}_${index}_responsable`] = 'Responsable requerido.';
+      }
+    });
+  };
+     if (actividadesPrevias.length > 0) {
     validateActivityList(actividadesPrevias, 'Programación de Actividades Previas');
+  }
+  if (actividadesDurante.length > 0) {
     validateActivityList(actividadesDurante, 'Programación de Actividades Durante el Evento');
+  }
+  if (actividadesPost.length > 0) {
     validateActivityList(actividadesPost, 'Programación de Actividades Después del Evento');
+  }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  console.log('📊 Errores encontrados:', Object.keys(newErrors).length);
+  console.log('📋 Detalles de errores:', newErrors);
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
   };
 
   // Funciones de servicios y ambientes
@@ -339,7 +335,6 @@ const cargarLayouts = async (token) => {
   }
 };
 
-  // Carga inicial
   useEffect(() => {
     const initializeAndFetch = async () => {
   const token = await getTokenAsync();
@@ -351,36 +346,110 @@ const cargarLayouts = async (token) => {
     return;
   }
 
-  // 1. Primero cargar layouts
   await cargarLayouts(token);
 
-  // 2. Luego, si es edición, cargar evento
-  if (isEditing) {
-    setIsLoadingEventos(true);
-    try {
-      const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const evento = response.data;
+ if (isEditing) {
+  setIsLoadingEventos(true);
+  try {
+    const response = await axios.get(`${API_BASE_URL}/eventos/${idevento}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const evento = response.data;
 
-      // ... (todos tus set de estado)
+    // Asignar datos principales
+    setNombreevento(evento.nombreevento || '');
+    setLugarevento(evento.lugarevento || '');
+    setResponsable(evento.responsable_evento || '');
 
-      // Ahora SÍ layoutsDisponibles está disponible
-      if (evento.idlayout) {
-        const layoutEncontrado = layoutsDisponibles.find(l => l.idlayout === evento.idlayout);
-        setLayoutSeleccionado(layoutEncontrado || null);
+    // Fecha y hora
+    if (evento.fechaevento && evento.horaevento) {
+      const fechaCompleta = new Date(`${evento.fechaevento}T${evento.horaevento}`);
+      if (!isNaN(fechaCompleta.getTime())) {
+        setFechaHoraSeleccionada(fechaCompleta);
       }
-
-    } catch (error) {
-      console.error("Error al cargar el evento:", error);
-      Alert.alert("Error", "No se pudo cargar el evento.");
-      router.back();
-    } finally {
-      setIsLoadingEventos(false);
     }
-  }
 
-  // ... permisos de imagen, etc.
+    // Tipo de evento
+    setIdtipoevento(evento.idtipoevento?.toString() || '');
+
+    // Actividades
+    if (evento.actividadesPrevias && Array.isArray(evento.actividadesPrevias)) {
+      setActividadesPrevias(evento.actividadesPrevias.map((act, index) => ({
+        key: `act-prev-${index}-${Date.now()}`,
+        nombreActividad: act.nombreActividad || '',
+        responsable: act.responsable || '',
+        fechaInicio: new Date(act.fechaInicio),
+        fechaFin: new Date(act.fechaFin),
+        showDatePickerInicio: false,
+        showDatePickerFin: false,
+      })));
+    }
+
+    if (evento.actividadesDurante && Array.isArray(evento.actividadesDurante)) {
+      setActividadesDurante(evento.actividadesDurante.map((act, index) => ({
+        key: `act-durante-${index}-${Date.now()}`,
+        nombreActividad: act.nombreActividad || '',
+        responsable: act.responsable || '',
+        fechaInicio: new Date(act.fechaInicio),
+        fechaFin: new Date(act.fechaFin),
+        showDatePickerInicio: false,
+        showDatePickerFin: false,
+      })));
+    }
+
+    if (evento.actividadesPost && Array.isArray(evento.actividadesPost)) {
+      setActividadesPost(evento.actividadesPost.map((act, index) => ({
+        key: `act-post-${index}-${Date.now()}`,
+        nombreActividad: act.nombreActividad || '',
+        responsable: act.responsable || '',
+        fechaInicio: new Date(act.fechaInicio),
+        fechaFin: new Date(act.fechaFin),
+        showDatePickerInicio: false,
+        showDatePickerFin: false,
+      })));
+    }
+
+    // Servicios
+    if (evento.serviciosContratados && Array.isArray(evento.serviciosContratados)) {
+      setServiciosContratados(evento.serviciosContratados.map((serv, index) => ({
+        key: `servicio-${index}-${Date.now()}`,
+        nombreServicio: serv.nombreServicio || '',
+        caracteristica: serv.caracteristica || '',
+        fechaInicio: new Date(serv.fechaInicio),
+        observaciones: serv.observaciones || '',
+        showDatePickerInicio: false,
+      })));
+    }
+
+    // Ambientes
+    if (evento.ambientes && Array.isArray(evento.ambientes)) {
+      setAmbientes(evento.ambientes.map((amb, index) => ({
+        key: `ambiente-${index}-${Date.now()}`,
+        nombre: amb.nombre || '',
+        requisito: amb.requisito || '',
+        observaciones: amb.observaciones || '',
+      })));
+    }
+
+    // Layout
+    if (evento.idlayout) {
+      const layoutEncontrado = layoutsDisponibles.find(l => l.idlayout === evento.idlayout);
+      setLayoutSeleccionado(layoutEncontrado || null);
+    }
+
+    // Comité (si lo tienes)
+    if (evento.comite && Array.isArray(evento.comite)) {
+      setComiteSeleccionado(evento.comite); // Asegúrate de tener este estado definido
+    }
+
+  } catch (error) {
+    console.error("Error al cargar el evento:", error);
+    Alert.alert("Error", "No se pudo cargar el evento.");
+    router.back();
+  } finally {
+    setIsLoadingEventos(false);
+  }
+}
 };
     initializeAndFetch();
   }, [idevento]);
@@ -394,6 +463,20 @@ const cargarLayouts = async (token) => {
     );
   }
 const handleCrearEvento = async () => {
+   console.log('=== INICIO handleCrearEvento ===');
+  console.log('isEditing:', isEditing);
+  console.log('idevento:', idevento);
+  
+  // Validación del formulario
+  const validationResult = validateForm();
+  console.log('Resultado de validación:', validationResult);
+  console.log('Errores:', errors);
+  
+  if (!validationResult) {
+    console.log(' Validación falló');
+    Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo.");
+    return;
+  }
   if (!validateForm()) {
     Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo.");
     return;
@@ -402,6 +485,7 @@ const handleCrearEvento = async () => {
     Alert.alert("Error de Autenticación", "No estás autenticado.");
     return;
   }
+ console.log('✅ Validaciones pasadas, preparando payload...');
 
   setIsLoading(true);
   const payload = {
@@ -410,7 +494,7 @@ const handleCrearEvento = async () => {
     fechaevento: formatToISODate(fechaHoraSeleccionada),
     horaevento: formatToISOTime(fechaHoraSeleccionada),
     responsable: responsable.trim(),
-    idtipoevento: idtipoevento ? parseInt(idtipoevento, 10) : null,
+    //idtipoevento: idtipoevento ? parseInt(idtipoevento, 10) : null,
     actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
     actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
     actividadesPost: actividadesPost.map(formatActivityForSubmit),
@@ -418,15 +502,23 @@ const handleCrearEvento = async () => {
     ambientes,
     idlayout: layoutSeleccionado ? layoutSeleccionado.idlayout : null,
     comite: comiteSeleccionado,
+    nuevaFase:{
+      nrofase:2,
+    }
   };
+console.log('📦 Payload completo:', JSON.stringify(payload, null, 2));
+  console.log('Layout seleccionado:', layoutSeleccionado);
+  console.log('ID Layout en payload:', payload.idlayout);
 
   try {
     let response;
     if (isEditing) {
+       console.log(`🔄 Actualizando evento: PUT ${API_BASE_URL}/eventos/${idevento}`);
+      
       response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
         headers: { 'Authorization': `Bearer ${authToken}` },
       });
-      
+       console.log('✅ Respuesta del servidor (UPDATE):', response.data);
       Alert.alert('Éxito', 'Evento actualizado correctamente.');
     } else {
       response = await axios.post(`${API_BASE_URL}/eventos`, payload, {
@@ -466,18 +558,14 @@ const handleCrearEvento = async () => {
             <Text style={styles.infoLabel}>Lugar del Evento</Text>
             <Text style={styles.infoValue}>{lugarevento || 'No especificado'}</Text>
           </View>
+          
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Nombre del Responsable</Text>
-             <Text style={styles.infoValue}>
-                {params.nombre ? `${params.nombre} ${params.apellidopat || ''}` : 'Cargando...'}
-                  </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fecha y Hora</Text>
+            <Text style={styles.infoLabel}>Fecha</Text>
             <Text style={styles.infoValue}>
-              {formatToISODate(fechaHoraSeleccionada)} • {formatToISOTime(fechaHoraSeleccionada)}
+              {formatToISODate(fechaHoraSeleccionada)} 
             </Text>
           </View>
+          
         </View>
 
         <SeccionActividades
@@ -684,12 +772,15 @@ const handleCrearEvento = async () => {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-};
+}
 
 
 
 // --- ESTILOS (sin cambios) ---
 const styles = StyleSheet.create({
+  retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 15, borderWidth: 1, borderColor: '#e95a0c', borderRadius: 8, alignSelf: 'center', marginTop: 10, },
+  retryButtonText: { marginLeft: 8, color: '#e95a0c', fontSize: 16, fontWeight: '500', },
+  layoutsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', },
   keyboardAvoidingContainer: { flex: 1, backgroundColor: '#F4F7F9' },
   scrollView: { flex: 1 },
   scrollContentContainer: { padding: 20, paddingBottom: 60 },

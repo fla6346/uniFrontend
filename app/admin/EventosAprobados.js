@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Platform,
   Alert,
+  SectionList
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,40 +99,7 @@ const EventosAprobados = () => {
     const fallback = new Date(dateStr);
     return isNaN(fallback.getTime()) ? new Date(0) : fallback;
   };
-  const sanitizeEvent = (item, index) => {
-  if (!item || typeof item !== 'object') {
-    console.warn(`⚠️ Evento inválido en índice ${index}:`, item);
-    return null;
-  }
 
-  // Si no tiene id, asignar uno temporal
-  let eventId = item.id;
-  
-  if (eventId == null) {
-    // Intentar usar idevento como fallback
-    eventId = item.idevento;
-    if (eventId == null) {
-      console.warn(`⚠️ Evento sin id ni idevento en índice ${index}. Asignando ID temporal.`);
-      eventId = `temp-${index}-${Date.now()}`;
-    }
-  }
-
-  // Asegurar que sea string
-  const safeId = String(eventId).trim();
-
-  // Validar que no sea vacío o "undefined"
-  if (safeId === '' || safeId === 'undefined' || safeId === 'null') {
-    console.warn(`⚠️ ID inválido en índice ${index}: '${safeId}'. Asignando fallback.`);
-    eventId = `fallback-${index}`;
-  }
-
-  return {
-    ...item,
-    id: String(eventId), // ¡Forzar string!
-    // Opcional: eliminar idevento si no lo usas
-    // idevento: undefined
-  };
-};
 const getKeyForEvent = (item, index) => {
   if (!item || item.id == null || item.id === undefined || item.id === '') {
     console.warn('Evento sin ID válido en índice', index, ':', item);
@@ -139,7 +107,43 @@ const getKeyForEvent = (item, index) => {
   }
   return String(item.id);
 };
+const sanitizeEvent = (item, index) => {
+  if (!item || typeof item !== 'object') {
+    console.warn(`⚠️ Evento inválido en índice ${index}:`, item);
+    return null;
+  }
 
+  let eventId = item.id || item.idevento;
+  if (eventId == null) {
+    console.warn(`⚠️ Evento sin id ni idevento en índice ${index}. Asignando ID temporal.`);
+    eventId = `temp-${index}-${Date.now()}`;
+  }
+
+  let nrofase = 1;
+
+  if (typeof item.idfase === 'number') {
+    nrofase = item.idfase;
+  }
+  else if (Array.isArray(item.fase) && item.fase.length > 0) {
+    const maxFase = Math.max(...item.fase.map(f => f.nrofase).filter(n => typeof n === 'number'));
+    nrofase = isFinite(maxFase) ? maxFase : 1;
+  }
+  else if (item.fase && typeof item.fase === 'object' && !Array.isArray(item.fase)) {
+    nrofase = typeof item.fase.nrofase === 'number' ? item.fase.nrofase : 1;
+  }
+  else if (typeof item.nrofase === 'number') {
+    nrofase = item.nrofase;
+  }
+  else if (typeof item.faseNumber === 'number') {
+    nrofase = item.faseNumber;
+  }
+
+  return {
+    ...item,
+    id: String(eventId),
+    faseNumber: nrofase, 
+  };
+};
 const fetchApprovedEvents = useCallback(async () => {
   try {
     const token = await getTokenAsync();
@@ -168,7 +172,7 @@ const fetchApprovedEvents = useCallback(async () => {
 
     console.log(`✅ Eventos procesados: ${eventsData.length}`);
     eventsData.forEach((e, i) => {
-      console.log(`   [${i}] ID: ${e.id} | Title: ${e.title}`);
+      console.log(`   [${i}] ID: ${e.id} | Title: ${e.title} | Fase: ${e.faseNumber}`);
     });
 
     setEvents(eventsData);
@@ -192,6 +196,27 @@ const fetchApprovedEvents = useCallback(async () => {
   }
 }, [router]);
 
+const groupEventsByFase = (events) => {
+  const grouped = {};
+  events.forEach(event => {
+    const nrofase = event.faseNumber || 1;
+    const faseKey = `Fase ${nrofase}`;
+
+    if (!grouped[faseKey]) {
+      grouped[faseKey] = [];
+    }
+    grouped[faseKey].push(event);
+  });
+
+  // Convertir a array de secciones ordenado por número de fase
+  return Object.keys(grouped)
+    .sort((a, b) => {
+      const numA = parseInt(a.replace('Fase ', ''), 10);
+      const numB = parseInt(b.replace('Fase ', ''), 10);
+      return numA - numB;
+    })
+    .map(title => ({ title, data: grouped[title] }));
+};
   useEffect(() => {
     fetchApprovedEvents();
   }, [fetchApprovedEvents]);
@@ -302,7 +327,6 @@ const fetchApprovedEvents = useCallback(async () => {
           <Text style={styles.viewDetailsText}>Ver o actualizar detalles</Text>
           <Ionicons name="chevron-forward" size={16} color={COLORS.grayText} />
         </View>
-        // En el detalle del evento
 {item.additionalComments && (
   <View style={styles.detailSection}>
     <Text style={styles.detailLabel}>Comentarios del administrador:</Text>
@@ -371,28 +395,32 @@ const fetchApprovedEvents = useCallback(async () => {
         </View>
       )}
 
-      <FlatList
-        data={events}
-        renderItem={renderEventItem}
-        keyExtractor={(item) => String(item.id)}
-        style={styles.eventsList}
-        contentContainerStyle={styles.eventsListContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.accent]}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="checkmark-circle-outline" size={60} color={COLORS.grayText} />
-            <Text style={styles.emptyTitle}>Sin eventos aprobados</Text>
-            <Text style={styles.emptyText}>No hay eventos aprobados por el momento</Text>
-          </View>
-        }
-      />
+      <SectionList
+  sections={groupEventsByFase(events)}
+  keyExtractor={(item) => String(item.id)}
+  renderItem={renderEventItem}
+  renderSectionHeader={({ section: { title } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+  )}
+  contentContainerStyle={styles.eventsListContent}
+  showsVerticalScrollIndicator={false}
+  refreshControl={
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      colors={[COLORS.accent]}
+    />
+  }
+  ListEmptyComponent={
+    <View style={styles.emptyContainer}>
+      <Ionicons name="checkmark-circle-outline" size={60} color={COLORS.grayText} />
+      <Text style={styles.emptyTitle}>Sin eventos aprobados</Text>
+      <Text style={styles.emptyText}>No hay eventos aprobados por el momento</Text>
+    </View>
+  }
+/>
     </View>
   );
 };
@@ -408,6 +436,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
+  sectionHeader: {
+  backgroundColor: COLORS.background,
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  marginTop: 16,
+  marginBottom: 8,
+  marginLeft: 16,
+  marginRight: 16,
+  borderRadius: 8,
+  borderWidth: 1,
+  borderColor: COLORS.grayLight,
+},
+sectionTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: COLORS.primary,
+},
   loadingText: {
     marginTop: 16,
     fontSize: 16,

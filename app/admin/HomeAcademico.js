@@ -326,6 +326,8 @@ const HomeAcademicoScreen = () => {
   const [historicalData, setHistoricalData] = useState([]);
   const unreadCount = notifications.filter(notif => !notif.read).length;
   const [approvedEventsCount, setApprovedEventsCount] = useState('0');
+  const [comiteeEvents, setComiteeEvents] = useState([]);
+  const [loadingComitee, setLoadingComitee] = useState(false);
 const [userProfile, setUserProfile] = useState({
   nombre: '',
   apellidopat: '',
@@ -333,6 +335,23 @@ const [userProfile, setUserProfile] = useState({
   facultad: null,
   loading: true,
 });
+const fetchCommitteeEvents = useCallback(async () => {
+  setLoadingComitee(true);
+  try {
+    const token = await getTokenAsync();
+    if (!token) return;
+
+    const response = await axios.get(`${API_BASE_URL}/dashboard/my-committee-events`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    setComiteeEvents(response.data.events || []);
+  } catch (error) {
+    console.error('Error al cargar eventos como comité:', error);
+  } finally {
+    setLoadingComitee(false);
+  }
+}, []);
   const fetchDashboardData = useCallback(async () => {
     setLoadingDashboard(true);
     try {
@@ -343,7 +362,7 @@ const [userProfile, setUserProfile] = useState({
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
+      const response = await axios.get(`${API_BASE_URL}/dashboard/my-stats`, {
         headers: { 'Authorization': `Bearer ${token}` },
         timeout: 10000,
       });
@@ -356,13 +375,13 @@ const [userProfile, setUserProfile] = useState({
 
       setDashboardStats([
         { 
-          title: 'Usuarios Activos', 
-          value: data.activeUsers?.toLocaleString() || '0', 
-          icon: 'people-outline', 
-          color: COLORS.primary,
-          trend: 12.5,
-          description: 'Último mes'
-        },
+        title: 'Eventos Aprobados', 
+        value: data.estadoCounts?.aprobado?.toString() || '0', 
+        icon: 'checkmark-circle-outline', 
+        color: COLORS.success,
+        trend: null, // o calcula una tendencia si quieres
+        description: 'Total aprobados'
+      },
         { 
           title: 'Eventos Totales', 
           value: data.totalEvents?.toString() || '0', 
@@ -404,7 +423,7 @@ const [userProfile, setUserProfile] = useState({
     const token = await getTokenAsync();
     if (!token) return;
 
-    const response = await axios.get(`${API_BASE_URL}/dashboard/historical`, {
+    const response = await axios.get(`${API_BASE_URL}/dashboard/my-historical`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -433,7 +452,7 @@ const fetchUserProfile = useCallback(async () => {
       apellidopat: user.apellidopat || '',
       apellidomat: user.apellidomat || '',
       facultad: user.facultad || 'Sin facultad',
-      
+      id: user.id || null,
       loading: false,
     }
   );
@@ -457,7 +476,8 @@ useEffect(() => {
     await Promise.allSettled([
       fetchDashboardData(),
       fetchUserProfile(),
-      fetchHistoricalData()
+      fetchHistoricalData(),
+      fetchCommitteeEvents(),
     ]);
   };
 
@@ -670,7 +690,83 @@ const handleActionPress = (action) => {
   </View>
 )}
 </View>
+<View style={styles.committeeSection}>
+  <View style={styles.sectionHeaderMinimal}>
+    <Text style={styles.sectionTitleMinimal}>Mis Eventos como Comité</Text>
+    <Text style={styles.sectionSubtitleMinimal}>Eventos en los que participas como miembro del comité</Text>
+  </View>
 
+  {loadingComitee ? (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+      <Text style={styles.loadingText}>Cargando tus eventos como comité...</Text>
+    </View>
+  ) : comiteeEvents.length === 0 ? (
+    <View style={styles.emptyState}>
+      <Ionicons name="people-outline" size={40} color={COLORS.textTertiary} />
+      <Text style={styles.emptyStateText}>No eres miembro de ningún comité aún.</Text>
+    </View>
+  ) : (
+ <FlatList
+  data={comiteeEvents}
+  keyExtractor={(item) => item.idevento.toString()}
+  renderItem={({ item }) => (
+    <TouchableOpacity
+      style={styles.tableRow}
+      onPress={() => router.push(`/admin/EventDetailScreen?eventId=${item.idevento}`)}
+      activeOpacity={0.8}
+    >
+      {/* Estado - columna izquierda */}
+      <View style={styles.tableCellStatus}>
+        {item.estado && (
+          <View style={[
+            styles.statusBadge,
+            {
+              backgroundColor: 
+                item.estado === 'aprobado' ? COLORS.success + '20' :
+                item.estado === 'pendiente' ? COLORS.warning + '20' :
+                COLORS.accent + '20'
+            }
+          ]}>
+            <Text style={[
+              styles.statusText,
+              {
+                color: 
+                  item.estado === 'aprobado' ? COLORS.success :
+                  item.estado === 'pendiente' ? COLORS.warning :
+                  COLORS.accent
+              }
+            ]}>
+              {item.estado.charAt(0).toUpperCase() + item.estado.slice(1)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Nombre y descripción - columna central */}
+      <View style={styles.tableCellName}>
+        <Text style={styles.tableEventName} numberOfLines={1}>
+          {item.nombreevento || 'Sin título'}
+        </Text>
+        <Text style={styles.tableEventDescription} numberOfLines={1}>
+          {item.descripcion || 'Sin descripción'}
+        </Text>
+      </View>
+
+      {/* Badge "Como Comité" - columna derecha */}
+      <View style={styles.tableCellRole}>
+        <View style={styles.roleBadge}>
+          <Ionicons name="shield-checkmark" size={16} color={COLORS.primary} />
+          <Text style={styles.roleBadgeText}>Como Comité</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  )}
+  contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+  showsVerticalScrollIndicator={false}
+/>
+  )}
+</View>
         <View style={styles.actionsSectionMinimal}>
           <View style={styles.sectionHeaderMinimal}>
             <Text style={styles.sectionTitleMinimal}>Herramientas de Gestión</Text>
@@ -712,6 +808,162 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  committeeSection: {
+  width: '100%',
+  paddingHorizontal: 20,
+  marginTop: 40,
+  marginBottom: 60,
+},
+tableRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: COLORS.surface,
+  borderRadius: 12,
+  paddingVertical: 12,
+  paddingHorizontal: 16,
+  marginBottom: 8,
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.05,
+  shadowRadius: 2,
+  elevation: 1,
+  borderLeftWidth: 3,
+  borderLeftColor: COLORS.primary,
+},
+tableCellStatus: {
+  width: 80,
+  alignItems: 'flex-start',
+  justifyContent: 'center',
+},
+statusBadge: {
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 8,
+  minWidth: 60,
+  alignItems: 'center',
+},
+statusText: {
+  fontSize: 11,
+  fontWeight: '600',
+  textTransform: 'capitalize',
+  textAlign: 'center',
+},
+tableCellName: {
+  flex: 1,
+  marginLeft: 12,
+  marginRight: 12,
+},
+tableEventName: {
+  fontSize: 15,
+  fontWeight: '700',
+  color: COLORS.textPrimary,
+  marginBottom: 2,
+},
+tableEventDescription: {
+  fontSize: 12,
+  color: COLORS.textTertiary,
+},
+tableCellRole: {
+  width: 90,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+roleBadge: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 4,
+  backgroundColor: COLORS.primaryLight,
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 12,
+},
+roleBadgeText: {
+  fontSize: 11,
+  fontWeight: '600',
+  color: COLORS.primary,
+},
+eventCard: {
+  backgroundColor: COLORS.surface,
+  borderRadius: 16,
+  padding: 16,
+  marginBottom: 12,
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 8,
+  elevation: 4,
+  borderLeftWidth: 4,
+  borderLeftColor: COLORS.primary,
+},
+eventCardHeader: {
+  flexDirection: 'row',
+  alignItems: 'flex-start',
+  gap: 12,
+  marginBottom: 8,
+},
+eventCardTextContainer: {
+  flex: 1,
+},
+eventTitle: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: COLORS.textPrimary,
+  flex: 1,
+},
+eventSubtitle: {
+  fontSize: 12,
+  color: COLORS.textSecondary,
+  marginTop: 2,
+},
+eventDescription: {
+  fontSize: 14,
+  color: COLORS.textTertiary,
+  lineHeight: 20,
+  marginBottom: 8,
+},
+eventRoleBadge: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 6,
+  backgroundColor: COLORS.primaryLight,
+  borderRadius: 20,
+  paddingHorizontal: 12,
+  paddingVertical: 4,
+  alignSelf: 'flex-start',
+},
+eventStatusBadge: {
+  position: 'absolute',
+  top: 8,
+  right: 8,
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 12,
+  minWidth: 70,
+  alignItems: 'center',
+},
+eventStatusText: {
+  fontSize: 11,
+  fontWeight: '600',
+  textTransform: 'capitalize',
+},
+eventRoleBadgeText: {
+  fontSize: 12,
+  fontWeight: '600',
+  color: COLORS.primary,
+},
+eventRoleBadge: {
+  backgroundColor: COLORS.primaryLight,
+  borderRadius: 8,
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  alignSelf: 'flex-start',
+  marginTop: 8,
+},
+eventRoleBadgeText: {
+  fontSize: 10,
+  fontWeight: '600',
+  color: COLORS.primary,
+},
   scrollView: {
     flex: 1,
   },
