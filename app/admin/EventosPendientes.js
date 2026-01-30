@@ -10,12 +10,15 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
@@ -29,22 +32,26 @@ const API_BASE_URL = determinedApiBaseUrl;
 const TOKEN_KEY = 'adminAuthToken';
 
 const COLORS = {
-  accent: '#FF6B35',        
-  secondary: '#F7931E',     
-  primary: '#FF6B35',       
-  background: '#FFF8F5',    
-  surface: '#ffffff',
-  success: '#27ae60',
-  warning: '#f39c12',
+  primary: '#E95A0C',
+  primaryLight: '#FF7A3D',
+  accent: '#4CAF50',
+  background: '#F8F9FA',
+  surface: '#FFFFFF',
+  success: '#2E7D32',
+  warning: '#FFA726',
+  danger: '#E53935',
   info: '#3498db',
   purple: '#9b59b6',
-  white: '#fff',
-  grayLight: '#ecf0f1',
-  grayText: '#64748b',
-  darkText: '#1e293b',
+  blue: '#2196F3',
+  white: '#FFFFFF',
+  grayLight: '#E0E0E0',
+  grayMedium: '#BDBDBD',
+  grayText: '#757575',
+  darkText: '#212121',
   cardShadow: '#000000',
-  orangeLight: '#FFE4D6',   
-  orangeDark: '#E55A2B',    
+  border: '#E8E8E8',
+  pendingOrange: '#FF9800',
+  pendingLight: '#FFF3E0',
 };
 
 const getTokenAsync = async () => {
@@ -79,6 +86,17 @@ const deleteTokenAsync = async () => {
   }
 };
 
+const formatSubmittedDate = (date) => {
+  const now = new Date();
+  const submittedDate = new Date(date);
+  const diff = Math.floor((now - submittedDate) / 1000);
+
+  if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
+  const days = Math.floor(diff / 86400);
+  return `Hace ${days} día${days > 1 ? 's' : ''}`;
+};
+
 const EventosPendientes = () => {
   const router = useRouter();
   const [events, setEvents] = useState([]);
@@ -90,7 +108,7 @@ const EventosPendientes = () => {
     email: '',
   });
 
-   const fetchPendingEvents = useCallback(async () => {
+  const fetchPendingEvents = useCallback(async () => {
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -98,6 +116,7 @@ const EventosPendientes = () => {
         router.replace('/LoginAdmin');
         return;
       }
+
       const responseP = await axios.get(`${API_BASE_URL}/profile`, {
         headers: { 'Authorization': `Bearer ${token}` },
         timeout: 5000,
@@ -109,10 +128,9 @@ const EventosPendientes = () => {
         nombre: userProfile.nombre,
         email: userProfile.email,
       });
-      console.log('Perfil de usuario obtenido:', userProfile);
+
       const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        //params: { facultad: userProfile.facultad },
         timeout: 5000,
       });
       setEvents(response.data || []);
@@ -129,11 +147,13 @@ const EventosPendientes = () => {
       setRefreshing(false);
     }
   }, [router]);
-useFocusEffect(
-  useCallback(() => {
-    fetchPendingEvents();
-  }, [fetchPendingEvents])
-);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPendingEvents();
+    }, [fetchPendingEvents])
+  );
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchPendingEvents();
@@ -147,34 +167,37 @@ useFocusEffect(
   };
 
   const handleQuickAction = async (eventId, action) => {
+    const actionText = action === 'aprobar' ? 'aprobar' : 'rechazar';
     Alert.alert(
-      `${action} Evento`,
-      `¿Estás seguro de que deseas ${action.toLowerCase()} este evento?`,
+      `${action === 'aprobar' ? 'Aprobar' : 'Rechazar'} Evento`,
+      `¿Estás seguro de que deseas ${actionText} este evento?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Confirmar',
+          style: action === 'aprobar' ? 'default' : 'destructive',
           onPress: async () => {
             try {
               const token = await getTokenAsync();
               
-               await axios.put(`${API_BASE_URL}/eventos/${eventId}/${action.toLowerCase()}`, {}, {
-                 headers: { 'Authorization': `Bearer ${token}` }
-               });
+              await axios.put(`${API_BASE_URL}/eventos/${eventId}/${action}`, {}, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
 
-              Alert.alert('Éxito', `Evento ${action.toLowerCase()} correctamente`);
-              
               // Actualizar la lista
               setEvents(prev => prev.filter(event => event.id !== eventId));
-              if(action==='aprobar'){
-                Alert.alert('Éxito', 'Evento aprobado correctamente', [
-                { text: 'Ver eventos aceptados', onPress: () => router.replace('/admin/EventosAceptados') },
-                { text: 'Volver', onPress: () => router.back(), style: 'cancel' }
-]);
+
+              if (action === 'aprobar') {
+                Alert.alert('✓ Evento Aprobado', 'El evento ha sido aprobado exitosamente', [
+                  { text: 'Ver eventos aprobados', onPress: () => router.replace('/admin/EventosAceptados') },
+                  { text: 'OK', style: 'cancel' }
+                ]);
+              } else {
+                Alert.alert('✓ Evento Rechazado', 'El evento ha sido rechazado');
               }
             } catch (error) {
-              console.error('error al procesar',error);
-              Alert.alert('Error', `No se pudo ${action.toLowerCase()} el evento`);
+              console.error('Error al procesar:', error);
+              Alert.alert('Error', `No se pudo ${actionText} el evento`);
             }
           }
         }
@@ -182,124 +205,178 @@ useFocusEffect(
     );
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'alta': return COLORS.accent;     
-      case 'media': return COLORS.warning;   
-      case 'baja': return COLORS.info;       
-      default: return COLORS.grayText;
-    }
-  };
-
-  const getPriorityText = (priority) => {
-    switch (priority) {
-      case 'alta': return 'Alta';
-      case 'media': return 'Media';
-      case 'baja': return 'Baja';
-      default: return 'Normal';
-    }
-  };
-
-  const formatSubmittedDate = (date) => {
-    const now = new Date();
-    const submittedDate = new Date(date);
-    const diff = Math.floor((now - submittedDate) / 1000);
-
-    if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`;
-    if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`;
-    const days = Math.floor(diff / 86400);
-    return `Hace ${days} día${days > 1 ? 's' : ''}`;
-  };
-
   const renderEventItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.eventCard}
-      onPress={() => handleEventPress(item)}
-      activeOpacity={0.7}
-    >
+    <View style={styles.eventCard}>
+      {/* Header con Badge de Pendiente */}
       <View style={styles.eventHeader}>
-        <View style={styles.eventTitleContainer}>
-          <Text style={styles.eventTitle}>{item.title}</Text>
-          <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '15' }]}>
-            <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
-              {getPriorityText(item.priority)}
-            </Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.eventTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <View style={styles.idBadge}>
+            <Text style={styles.idText}>#{item.id}</Text>
           </View>
         </View>
-        
-        
-      </View>
-
-      <Text style={styles.eventDescription} numberOfLines={2}>
-        {item.description}
-      </Text>
-     
-      <View style={styles.eventDetails}>
-        <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={16} color={COLORS.accent} />
-          <Text style={styles.detailText}>{item.date} - {item.time}</Text>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={16} color={COLORS.accent} />
-          <Text style={styles.detailText} numberOfLines={1}>{item.location}</Text>
-        </View>
-        
-        <View style={styles.detailRow}>
-          <Ionicons name="person-outline" size={16} color={COLORS.accent} />
-          <Text style={styles.detailText}>Organiza: {item.organizer}</Text>
+        <View style={styles.pendingBadge}>
+          <Ionicons name="time" size={14} color={COLORS.white} />
+          <Text style={styles.pendingText}>Pendiente</Text>
         </View>
       </View>
 
-      <View style={styles.eventFooter}>
-        <View style={styles.categoryContainer}>
+      {/* Descripción */}
+      {item.description && item.description !== 'Sin descripción' && (
+        <Text style={styles.eventDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
+      )}
+
+      {/* Información en dos columnas */}
+      <View style={styles.infoGrid}>
+        <View style={styles.infoRow}>
+          <Ionicons name="calendar-outline" size={16} color={COLORS.grayText} />
+          <Text style={styles.infoText}>{item.date}</Text>
+        </View>
+        
+        <View style={styles.infoRow}>
+          <Ionicons name="time-outline" size={16} color={COLORS.grayText} />
+          <Text style={styles.infoText}>{item.time}</Text>
+        </View>
+      </View>
+
+      <View style={styles.infoGrid}>
+        <View style={styles.infoRow}>
+          <Ionicons name="location-outline" size={16} color={COLORS.grayText} />
+          <Text style={styles.infoText} numberOfLines={1}>
+            {item.location}
+          </Text>
+        </View>
+        
+        <View style={styles.infoRow}>
+          <Ionicons name="person-outline" size={16} color={COLORS.grayText} />
+          <Text style={styles.infoText} numberOfLines={1}>
+            {item.organizer}
+          </Text>
+        </View>
+      </View>
+
+      {/* Área del usuario que envió */}
+      {item.area && (
+        <View style={styles.areaContainer}>
+          <Ionicons name="business-outline" size={14} color={COLORS.primary} />
+          <Text style={styles.areaText}>{item.area}</Text>
+        </View>
+      )}
+
+      {/* Footer con fecha de envío */}
+      <View style={styles.footerContainer}>
+        <View style={styles.submissionInfo}>
+          <Text style={styles.submittedBy}>{item.submittedBy}</Text>
+          <Text style={styles.submittedDate}>
+            {formatSubmittedDate(item.submittedDate)}
+          </Text>
+        </View>
+
+        <View style={styles.categoryBadge}>
           <Text style={styles.categoryText}>{item.category}</Text>
         </View>
-        
-        <View style={styles.submissionInfo}>
-        </View>
       </View>
 
-      <View style={styles.viewDetailsPrompt}>
-        <Text style={styles.viewDetailsText}>Toca para ver detalles completos</Text>
-        <Ionicons name="chevron-forward" size={16} color={COLORS.grayText} />
+      {/* Botones de Acción */}
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.viewButton]}
+          onPress={() => handleEventPress(item)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="eye-outline" size={18} color={COLORS.blue} />
+          <Text style={[styles.actionButtonText, { color: COLORS.blue }]}>
+            Ver Detalles
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.rejectButton]}
+          onPress={() => handleQuickAction(item.id, 'rechazar')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
+          <Text style={[styles.actionButtonText, { color: COLORS.danger }]}>
+            Rechazar
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.approveButton]}
+          onPress={() => handleQuickAction(item.id, 'aprobar')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.white} />
+          <Text style={[styles.actionButtonText, { color: COLORS.white }]}>
+            Aprobar
+          </Text>
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Cargando eventos pendientes...</Text>
       </View>
     );
   }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       
+      {/* Header */}
       <View style={styles.header}>
-        
-        <Text style={styles.headerTitle}>Eventos Pendientes</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-          <Ionicons name="refresh" size={24} color={COLORS.white} />
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>Eventos Pendientes</Text>
+          <Text style={styles.headerSubtitle}>
+            {events.length} {events.length === 1 ? 'evento' : 'eventos'} por revisar
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.refreshButton} 
+          onPress={onRefresh}
+          disabled={refreshing}
+        >
+          <Ionicons 
+            name="refresh" 
+            size={24} 
+            color={COLORS.white}
+            style={refreshing && styles.rotating}
+          />
         </TouchableOpacity>
       </View>
 
+      {/* Banner de Resumen */}
       {events.length > 0 && (
         <View style={styles.summaryBanner}>
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
-          <Text style={styles.summaryText}>
-            {events.length} evento{events.length !== 1 ? 's' : ''} pendiente{events.length !== 1 ? 's' : ''}
-          </Text>
+          <View style={styles.summaryIconContainer}>
+            <Ionicons name="hourglass-outline" size={24} color={COLORS.pendingOrange} />
+          </View>
+          <View style={styles.summaryTextContainer}>
+            <Text style={styles.summaryTitle}>Revisión Requerida</Text>
+            <Text style={styles.summarySubtitle}>
+              {events.length} evento{events.length !== 1 ? 's' : ''} esperando aprobación
+            </Text>
+          </View>
         </View>
       )}
 
+      {/* Lista de Eventos */}
       <FlatList
         data={events}
         renderItem={renderEventItem}
-        keyExtractor={(item) => item.id.toString()} 
+        keyExtractor={(item) => `pending-${item.id}`}
         style={styles.eventsList}
         contentContainerStyle={styles.eventsListContent}
         showsVerticalScrollIndicator={false}
@@ -307,20 +384,24 @@ useFocusEffect(
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[COLORS.accent]}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
           />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="checkmark-circle-outline" size={60} color={COLORS.grayText} />
-            <Text style={styles.emptyTitle}>Sin eventos aprobados</Text>
-            <Text style={styles.emptyText}>No hay eventos aprobados por el momento</Text>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="checkmark-done-circle-outline" size={80} color={COLORS.grayMedium} />
+            </View>
+            <Text style={styles.emptyTitle}>¡Todo al día!</Text>
+            <Text style={styles.emptyText}>
+              No hay eventos pendientes de aprobación
+            </Text>
           </View>
         }
       />
     </View>
   );
- 
 };
 
 const styles = StyleSheet.create({
@@ -338,74 +419,124 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: COLORS.grayText,
+    fontWeight: '500',
   },
+
+  // Header
   header: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    shadowColor: COLORS.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingTop: Platform.OS === 'ios' ? 50 : 16,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.cardShadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   backButton: {
     padding: 8,
+    marginRight: 8,
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.white,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 16,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
   },
   refreshButton: {
     padding: 8,
+    marginLeft: 8,
   },
+  rotating: {
+    transform: [{ rotate: '180deg' }],
+  },
+
+  // Summary Banner
   summaryBanner: {
-    backgroundColor: COLORS.orangeLight,
+    backgroundColor: COLORS.white,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
     borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
+    borderLeftColor: COLORS.pendingOrange,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.cardShadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  summaryText: {
-    marginLeft: 12,
-    fontSize: 14,
-    color: COLORS.orangeDark,
-    fontWeight: '600',
+  summaryIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.pendingLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
+  summaryTextContainer: {
+    flex: 1,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.darkText,
+    marginBottom: 2,
+  },
+  summarySubtitle: {
+    fontSize: 13,
+    color: COLORS.grayText,
+  },
+
+  // Event List
   eventsList: {
     flex: 1,
   },
   eventsListContent: {
     padding: 16,
   },
+
+  // Event Card
   eventCard: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
     ...Platform.select({
       ios: {
         shadowColor: COLORS.cardShadow,
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.08,
         shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 2,
       },
     }),
   },
@@ -415,123 +546,188 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 12,
   },
-  eventTitleContainer: {
+  titleContainer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginRight: 12,
   },
   eventTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
     color: COLORS.darkText,
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 8,
   },
-  priorityBadge: {
-    alignSelf: 'flex-start',
+  idBadge: {
+    backgroundColor: COLORS.background,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
-  priorityText: {
+  idText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: COLORS.primary,
   },
-  eventActions: {
+  pendingBadge: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: COLORS.pendingOrange,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-  approveButton: {
-    backgroundColor: COLORS.success,
-  },
-  rejectButton: {
-    backgroundColor: COLORS.accent,
+  pendingText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.white,
   },
   eventDescription: {
     fontSize: 14,
     color: COLORS.grayText,
     lineHeight: 20,
-    marginBottom: 16,
-  },
-  eventDetails: {
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  detailText: {
-    fontSize: 14,
-    color: COLORS.darkText,
-    marginLeft: 8,
-    flex: 1,
-  },
-  eventFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
     marginBottom: 12,
   },
-  categoryContainer: {
-    backgroundColor: COLORS.orangeLight,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+
+  // Info Grid
+  infoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    gap: 12,
   },
-  categoryText: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 6,
+  },
+  infoText: {
+    fontSize: 13,
+    color: COLORS.grayText,
+    fontWeight: '500',
+    flex: 1,
+  },
+
+  // Area
+  areaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 12,
+    gap: 4,
+  },
+  areaText: {
     fontSize: 12,
-    color: COLORS.orangeDark,
     fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  // Footer
+  footerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    marginBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   submissionInfo: {
-    alignItems: 'flex-end',
+    flex: 1,
   },
   submittedBy: {
     fontSize: 12,
-    color: COLORS.grayText,
     fontWeight: '500',
+    color: COLORS.grayText,
   },
   submittedDate: {
     fontSize: 11,
-    color: COLORS.grayText,
+    color: COLORS.grayMedium,
     marginTop: 2,
   },
-  viewDetailsPrompt: {
+  categoryBadge: {
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+
+  // Action Buttons
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.grayLight,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
   },
-  viewDetailsText: {
-    fontSize: 12,
-    color: COLORS.grayText,
-    marginRight: 4,
+  viewButton: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.blue,
   },
+  rejectButton: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.danger,
+  },
+  approveButton: {
+    backgroundColor: COLORS.accent,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Empty State
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: COLORS.success,
-    marginTop: 16,
+    color: COLORS.darkText,
     marginBottom: 8,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.grayText,
     textAlign: 'center',
+    lineHeight: 22,
   },
 });
 

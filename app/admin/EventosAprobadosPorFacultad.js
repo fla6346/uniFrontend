@@ -368,7 +368,11 @@ const EventosAprobadosPorFacultad = () => {
             <Text style={styles.statLabel}>Facultades</Text>
           </View>
           
-         
+          <View style={[styles.statCard, { backgroundColor: COLORS.blue }]}>
+            <Ionicons name="trending-up" size={24} color={COLORS.white} />
+            <Text style={styles.statNumber}>{upcomingCount}</Text>
+            <Text style={styles.statLabel}>Próximos</Text>
+          </View>
         </View>
       )}
 

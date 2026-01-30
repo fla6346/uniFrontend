@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import Chatbot from '../chatbot';
 
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
@@ -413,11 +414,12 @@ const HomeAdministradorScreen = () => {
   const [isBannerExpanded, setIsBannerExpanded] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [eventosPorEstado, setEventosPorEstado] = useState(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const [eventosPorDia, setEventosPorDia] = useState(null);
   const [tiempoPromedioAprobacion, setTiempoPromedioAprobacion] = useState('0');
   const [usuariosNuevosEsteMes, setUsuariosNuevosEsteMes] = useState('0');
-  
+  const [eventosPorFacultad,setEventosPorFacultad] = useState(null);
   const unreadCount = notifications.filter(notif => !notif.read).length;
   const [eventosPorMes, setEventosPorMes] = useState(null);
   const [dashboardStats, setDashboardStats] = useState([
@@ -610,6 +612,21 @@ if (data.eventosPorMes && Array.isArray(data.eventosPorMes)) {
   }
 }, []);
 
+const fetchNotifications = useCallback(async () => {
+  try {
+    const token = await getTokenAsync();
+    if (!token) return;
+
+    const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setNotifications(Array.isArray(response.data) ? response.data : []);
+  } catch (error) {
+    console.error('Error al cargar notificaciones:', error);
+    // Opcional: Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
+  }
+}, []);
 useEffect(() => {
   const validateSession = async () => {
     const token = await getTokenAsync();
@@ -618,12 +635,12 @@ useEffect(() => {
       router.replace('/');
       return;
     }
-    // Si hay token, cargar datos
     fetchDashboardData();
+    fetchNotifications();
   };
 
   validateSession();
-}, [router]);
+}, [router,fetchDashboardData,fetchNotifications]);
   const { cardWidth: actionsCardWidth } = useMemo(() => {
     const availableWidth = windowWidth - 40;
     let numColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH_ACTIONS + CARD_MARGIN));
@@ -679,6 +696,7 @@ useEffect(() => {
       badge: 'Nuevo',
       badgeColor: COLORS.accent,
     },
+    
   ];
 
   const handleActionPress = (route) => {
@@ -752,7 +770,58 @@ useEffect(() => {
             </View>
           )}
 
-    
+   {/* Panel de Notificaciones */}
+{showNotifications && (
+  <View style={styles.notificationOverlay}>
+    <View style={styles.notificationModal}>
+      <View style={styles.notificationHeader}>
+        <Text style={styles.notificationTitle}>Notificaciones</Text>
+        <TouchableOpacity onPress={() => setShowNotifications(false)}>
+          <Ionicons name="close-outline" size={24} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {notifications.length === 0 ? (
+        <Text style={styles.noNotificationsText}>No tienes notificaciones nuevas</Text>
+      ) : (
+        <ScrollView style={styles.notificationsList}>
+          {notifications.map((notif) => (
+            <TouchableOpacity
+              key={notif.id}
+              style={[
+                styles.notificationItem,
+                { backgroundColor: notif.read ? COLORS.surface : COLORS.primaryLight }
+              ]}
+              onPress={async () => {
+                if (notif.idEvento) {
+                  router.push(`/admin/evento/${notif.idEvento}`);
+                }
+                // Marcar como leído (opcional, si tu backend lo soporta)
+                await markAsRead(notif.id);
+                setShowNotifications(false);
+              }}
+            >
+              <View style={styles.notificationContent}>
+                <Text style={[
+                  styles.notificationMessage,
+                  { fontWeight: notif.read ? '400' : '600' }
+                ]}>
+                  {notif.mensaje}
+                </Text>
+                <Text style={styles.notificationTime}>
+                  {new Date(notif.createdAt).toLocaleDateString()}
+                </Text>
+              </View>
+              {!notif.read && (
+                <View style={styles.unreadIndicator} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  </View>
+)} 
 {eventosPorEstado && Array.isArray(eventosPorEstado) && eventosPorEstado.length > 0 ? (
   <View style={{ width: '100%', alignItems: 'center', marginTop: 20, paddingHorizontal: 10 }}>
     <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Distribución de Eventos</Text>
@@ -824,31 +893,6 @@ useEffect(() => {
   </View>
 )}
 
-{eventosPorMes && (
-  <View style={{ width: '100%', alignItems: 'center', marginTop: 30, paddingHorizontal: 10 }}>
-    <Text style={[styles.sectionTitleMinimal, { marginBottom: 15 }]}>Eventos por Mes</Text>
-    <LineChart
-      data={eventosPorMes}
-      width={windowWidth - 40}
-      height={220}
-      chartConfig={{
-        backgroundGradientFrom: COLORS.surface,
-        backgroundGradientTo: COLORS.surface,
-        decimalPlaces: 0,
-        color: (opacity = 1) => COLORS.primary,
-        labelColor: (opacity = 1) => COLORS.textSecondary,
-        style: { borderRadius: 16 },
-        propsForDots: {
-          r: "4",
-          strokeWidth: "2",
-          stroke: COLORS.primary,
-        },
-      }}
-      bezier
-      style={{ marginVertical: 8, borderRadius: 16 }}
-    />
-  </View>
-)}
 {/* Alertas */}
           <View style={{ width: '100%', marginTop: 30 }}>
             
@@ -927,6 +971,31 @@ useEffect(() => {
         isExpanded={isBannerExpanded}
         onToggleExpanded={() => setIsBannerExpanded(!isBannerExpanded)}
       />
+      {!isBannerExpanded && (
+  <TouchableOpacity
+    style={styles.chatFab}
+    onPress={() => setIsChatOpen(true)}
+    activeOpacity={0.8}
+  >
+    <Ionicons name="chatbubble-ellipses" size={24} color={COLORS.white} />
+  </TouchableOpacity>
+)}
+{/* Modal del chatbot */}
+{isChatOpen && (
+  <View style={styles.chatOverlay}>
+    <View style={styles.chatModal}>
+      <View style={styles.chatHeader}>
+        <Text style={styles.chatTitle}>Asistente UFT</Text>
+        <TouchableOpacity onPress={() => setIsChatOpen(false)}>
+          <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.chatContainer}>
+        <Chatbot />
+      </View>
+    </View>
+  </View>
+)}
     </View>
   );
 };
@@ -1240,6 +1309,138 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  notificationOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  justifyContent: 'flex-start',
+  paddingTop: StatusBar.currentHeight || 0,
+  zIndex: 1000,
+},
+notificationModal: {
+  backgroundColor: COLORS.white,
+  marginHorizontal: 16,
+  borderRadius: 16,
+  maxHeight: '70%',
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.2,
+  shadowRadius: 8,
+  elevation: 10,
+},
+notificationHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 16,
+  paddingVertical: 12,
+  borderBottomWidth: 1,
+  borderColor: COLORS.border,
+},
+notificationTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: COLORS.textPrimary,
+},
+notificationsList: {
+  flex: 1,
+},
+notificationItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  padding: 16,
+  borderBottomWidth: 1,
+  borderColor: COLORS.border,
+},
+notificationContent: {
+  flex: 1,
+},
+notificationMessage: {
+  fontSize: 14,
+  color: COLORS.textPrimary,
+  marginBottom: 4,
+},
+notificationTime: {
+  fontSize: 12,
+  color: COLORS.textTertiary,
+},
+unreadIndicator: {
+  width: 10,
+  height: 10,
+  borderRadius: 5,
+  backgroundColor: COLORS.accent,
+  marginLeft: 12,
+},
+noNotificationsText: {
+  textAlign: 'center',
+  padding: 24,
+  color: COLORS.textSecondary,
+  fontSize: 14,
+},
+chatFab: {
+  position: 'absolute',
+  bottom: 80, // por encima del dock
+  left: 20,
+  width: 56,
+  height: 56,
+  borderRadius: 28,
+  backgroundColor: COLORS.primary,
+  justifyContent: 'center',
+  alignItems: 'center',
+  shadowColor: COLORS.shadow,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.3,
+  shadowRadius: 6,
+  elevation: 8,
+},
+chatOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  justifyContent: 'flex-start',
+  paddingTop: StatusBar.currentHeight || 0,
+  zIndex: 2000,
+},
+chatModal: {
+  width: '90%',
+  maxWidth: 400,
+  height: '85%',
+  backgroundColor: '#F4F7F9',
+  borderTopRightRadius: 20,
+  borderBottomRightRadius: 20,
+  marginLeft: 'auto', // Para que quede a la derecha
+  // Si quieres que salga desde la IZQUIERDA, usa marginRight: 'auto' y marginLeft: 0
+  shadowColor: '#000',
+  shadowOffset: { width: -4, height: 0 },
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  elevation: 10,
+},
+chatHeader: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 16,
+  paddingVertical: 12,
+  backgroundColor: COLORS.surface,
+  borderBottomWidth: 1,
+  borderColor: COLORS.border,
+  borderTopRightRadius: 20,
+},
+chatTitle: {
+  fontSize: 18,
+  fontWeight: '700',
+  color: COLORS.textPrimary,
+},
+chatContainer: {
+  flex: 1,
+},
 });
 
 export default HomeAdministradorScreen;

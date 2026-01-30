@@ -8,13 +8,14 @@ import { Stack, useRouter } from 'expo-router'; // CORRECCIÓN: Importar useRout
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 
-// URL de tu servidor Rasa
+// Solo para desarrollo local
+const LOCAL_IP = '192.168.1.35'; // ⚠️ Reemplaza con tu IP real (ipconfig / ifconfig)
+
 const RASA_SERVER_URL = Platform.select({
-  android: 'http://10.0.2.2:5005',
-  ios: 'http://localhost:5005',
+  android: __DEV__ ? `http://${LOCAL_IP}:5005` : 'https://tu-servidor-rasa.com',
+  ios: __DEV__ ? `http://${LOCAL_IP}:5005` : 'https://tu-servidor-rasa.com',
   web: 'http://localhost:5005',
 });
-
 const SENDER_ID = "default_user";
 
 const Chatbot = () => {

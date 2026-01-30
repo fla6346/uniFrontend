@@ -1,4 +1,3 @@
-// LoginScreen.js
 import React, { useState } from 'react';
 import {
   TouchableOpacity,
@@ -12,16 +11,15 @@ import {
   ImageBackground
 } from 'react-native';
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store'; // <--- IMPORTA SecureStore
+import * as SecureStore from 'expo-secure-store'; 
 import { useRouter, Stack } from 'expo-router';
 
-// --- LÓGICA PARA DETERMINAR LA URL BASE DE LA API ---
 let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else if (Platform.OS === 'ios') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else { // web y otros
+} else { 
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }
 const API_BASE_URL = determinedApiBaseUrl;
@@ -49,9 +47,9 @@ const LoginScreen = () => {
 
     setLoading(true);
     const trimmedEmail = email.trim();
-    const trimmedPassword = contrasenia.trim(); // Usa la variable de estado 'contrasenia'
+    const trimmedPassword = contrasenia.trim(); 
 
-    const apiUrl = `${API_BASE_URL}/auth/login`; // Endpoint de login general
+    const apiUrl = `${API_BASE_URL}/auth/login`;
 
     console.log("Plataforma detectada:", Platform.OS);
     console.log("URL de API seleccionada:", API_BASE_URL);
@@ -108,16 +106,21 @@ console.log('Token guardado correctamente:', tokenVerificado);
             
           case 'student':
             targetRoute = '../admin/HomeEstudiante';
-            routeParams = { nombre: user.nombre };
+            routeParams = { nombre: user.nombre || '',
+               idUsuario: user.id || '',
+              apellidopat: user.apellidopat || '',
+              apellidomat: user.apellidomat || '' ,
+              userProfile: JSON.stringify(user)
+            };
             break;
             
           case 'daf':
-            targetRoute = '/admin/Daf'; // Necesitarás crear esta pantalla
+            targetRoute = '/admin/Daf'; 
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
             
           case 'comunicacion':
-            targetRoute = '../admin/HomeComunicacion'; // Necesitarás crear esta pantalla
+            targetRoute = '../admin/HomeComunicacion'; 
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
               case 'academico':
@@ -126,7 +129,7 @@ console.log('Token guardado correctamente:', tokenVerificado);
             break;
             
           case 'TI':
-            targetRoute = '../admin/HomeTI'; // Necesitarás crear esta pantalla
+            targetRoute = '../admin/HomeTI'; 
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
             
@@ -140,8 +143,8 @@ console.log('Token guardado correctamente:', tokenVerificado);
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
             
-          case 'Serv. Estudiatil': // Nota: El valor debe coincidir exactamente con lo que envía el backend
-            targetRoute = '../admin/HomeServiciosEstudiantiles'; // Necesitarás crear esta pantalla
+          case 'Serv. Estudiatil': 
+            targetRoute = '../admin/HomeServiciosEstudiantiles'; 
             routeParams = { nombre: user.nombre, idUsuario: user.id };
             break;
             
@@ -177,14 +180,16 @@ console.log('Token guardado correctamente:', tokenVerificado);
     
   };
 
-  
+    const handleRegisterStudent = () => {
+    router.push('../admin/RegistroEstudianteScreen');
+  };
+
     return (
   <ImageBackground
-    source={require('../../assets/images/photo1.jpg')} // ⚠️ Asegúrate de que la ruta sea correcta
+    source={require('../../assets/images/photo1.jpg')} 
     style={styles.background}
     resizeMode="cover"
   >
-    {/* Overlay semitransparente para legibilidad */}
     <View style={styles.overlay} />
 
     <View style={styles.content}>
@@ -219,6 +224,14 @@ console.log('Token guardado correctamente:', tokenVerificado);
         ) : (
           <Text style={styles.buttonText}>Ingresar</Text>
         )}
+      </TouchableOpacity>
+      <TouchableOpacity
+       onPress={handleRegisterStudent}
+        style={styles.registerLinkContainer}
+      >
+         <Text style={styles.registerLinkText}>
+            ¿No tienes cuenta? <Text style={styles.registerLinkHighlight}>Crear cuenta de estudiante</Text>
+          </Text>
       </TouchableOpacity>
     </View>
   </ImageBackground>
@@ -342,6 +355,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
+  },
+    registerLinkContainer: {
+    marginTop: 25,
+    paddingVertical: 10,
+  },
+  registerLinkText: {
+    color: '#ffffff',
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '400',
+  },
+  registerLinkHighlight: {
+    color: '#FFD700', // Dorado para destacar
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
 
