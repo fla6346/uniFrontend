@@ -106,31 +106,26 @@ console.log('Token guardado correctamente:', tokenVerificado);
             
           case 'student':
             targetRoute = '../admin/HomeEstudiante';
-            routeParams = { nombre: user.nombre || '',
-               idUsuario: user.id || '',
-              apellidopat: user.apellidopat || '',
-              apellidomat: user.apellidomat || '' ,
-              userProfile: JSON.stringify(user)
-            };
+            routeParams ={};
             break;
             
           case 'daf':
             targetRoute = '/admin/Daf'; 
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
+            routeParams ={};
             break;
             
           case 'comunicacion':
             targetRoute = '../admin/HomeComunicacion'; 
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
+          routeParams ={};
             break;
               case 'academico':
             targetRoute = '/admin/HomeAcademico'; 
-            routeParams = { nombre: user.nombre };
+            routeParams = {};
             break;
             
           case 'TI':
             targetRoute = '../admin/HomeTI'; 
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
+           routeParams ={};
             break;
             
           case 'recursos':

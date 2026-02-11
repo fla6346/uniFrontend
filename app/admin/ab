@@ -53,7 +53,6 @@ const getToken = async () => {
       return localStorage.getItem(TOKEN_KEY);
     } else {
       return await SecureStore.getItemAsync(TOKEN_KEY);
-     
     }
   } catch (error) {
     console.error('Error obteniendo token:', error);
@@ -120,6 +119,7 @@ const StudentActionCard = ({ title, description, icon, color, onPress }) => {
 const EventCard = ({ event, onPress }) => {
   return (
     <TouchableOpacity style={styles.eventCard} onPress={onPress}>
+      {/* Header con fecha y categoría */}
       <View style={styles.eventHeader}>
         <View style={[styles.eventBadge, { backgroundColor: event.categoryColor + '15' }]}>
           <Text style={[styles.eventBadgeText, { color: event.categoryColor }]}>
@@ -224,6 +224,7 @@ const EventCard = ({ event, onPress }) => {
     </TouchableOpacity>
   );
 };
+
 const HomeEstudianteScreen = () => {
   const router = useRouter();
   
@@ -241,7 +242,8 @@ const HomeEstudianteScreen = () => {
   });
   const [error, setError] = useState(null);
 
-   useEffect(() => {
+  // ✅ FIRST: Load user data from storage
+  useEffect(() => {
     let isMounted = true;
 
     const loadUserData = async () => {
@@ -306,6 +308,7 @@ const HomeEstudianteScreen = () => {
     };
   }, []);
 
+  // ✅ SECOND: Verify token
   useEffect(() => {
     let isMounted = true;
 
@@ -346,19 +349,47 @@ const HomeEstudianteScreen = () => {
     setError(null);
     setLoading(true);
     setStudentData(null);
-    // Recargar eventos manteniendo la lógica actual
-    if (idUsuario && userData) {
-      fetchEventsDirect();
-    }
+    fetchData();
   };
 
-  // ✅ NUEVA FUNCIÓN: Cargar eventos directamente (sin depender de studentData)
-  const fetchEventsDirect = async () => {
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('Token no disponible');
+  // ✅ Helper: Calculate stats from events
+  const calculateStats = (eventList) => {
+    const today = new Date();
+    const upcoming = eventList.filter((e) => {
+      try {
+        // Manejo robusto de fechas
+        const dateStr = e.date;
+        if (!dateStr || dateStr === 'Invalid Date') return false;
+        
+        let eventDate;
+        if (dateStr.includes('/')) {
+          // Formato DD/MM/YYYY
+          const [day, month, year] = dateStr.split('/');
+          eventDate = new Date(`${year}-${month}-${day}`);
+        } else if (dateStr.includes('-')) {
+          // Formato YYYY-MM-DD
+          eventDate = new Date(dateStr);
+        } else {
+          return false;
+        }
+        
+        return eventDate >= today;
+      } catch {
+        return false;
+      }
+    }).length;
 
-      console.log('📡 Cargando eventos directamente: GET /eventos/aprobados-por-facultad');
+    setStats({
+      eventsCount: eventList.length,
+      upcomingEvents: upcoming,
+      completedEvents: eventList.length - upcoming,
+    });
+  };
+
+  // ✅ Helper: Fallback to load all approved events
+  const fetchEventsFallback = async (token) => {
+    try {
+      console.log('🔄 Trying fallback: GET /eventos/aprobados-por-facultad');
       
       const response = await axios.get(
         `${API_BASE_URL}/eventos/aprobados-por-facultad`,
@@ -368,27 +399,200 @@ const HomeEstudianteScreen = () => {
         }
       );
 
-      // ✅ CORRECCIÓN CLAVE: Actualizar stats con el conteo real de eventos
-      setStats(prev => ({
-        ...prev,
-        eventsCount: response.data.length // <-- ¡ESTO HACE QUE SE VEAN LOS NÚMEROS!
-      }));
+      const formattedEvents = response.data.map((event) => {
+        // Ajusta los campos según tu API real
+        const fecha = new Date(event.fecha_inicio || event.fechaevento || event.fecha);
+        
+        return {
+          id: event.idevento || event.id,
+          title: event.nombre || event.titulo || event.nombreevento || 'Evento sin título',
+          date: fecha.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+          time: fecha.toLocaleTimeString('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }),
+          location: event.ubicacion || event.lugar || 'Por definir',
+          category: event.tipo_evento || event.categoria || 'Evento',
+          categoryColor: getCategoryColor(event.tipo_evento || 'evento'),
+          status: getStatus(event.estado || 'aprobado'),
+          statusColor: getStatusColor(event.estado || 'aprobado'),
+          organizador: event.organizador || event.responsable || 'Sin organizador',
+          facultad: event.facultad_nombre || 'Sin facultad',
+          modalidad: event.modalidad || 'presencial',
+          // Añade cualquier otro campo que necesites
+        };
+      });
 
-      setEvents(response.data);
-      console.log('✅ Eventos cargados:', response.data.length);
-      
+      setEvents(formattedEvents);
+      calculateStats(formattedEvents);
+      console.log('✅ Fallback events loaded:', formattedEvents.length);
+      return true;
     } catch (err) {
-      console.error('❌ Error cargando eventos:', err.response?.data || err.message);
-      setError('No se pudieron cargar los eventos');
+      console.error('❌ Fallback also failed:', err.message);
+      return false;
+    }
+  };
+
+  // ✅ THIRD: Fetch student data and events
+  const fetchData = async () => {
+    if (!idUsuario || !userData) {
+      console.log('⏳ Waiting for user data...');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const token = await getToken();
+      if (!token) throw new Error('Token no disponible');
+
+      // 1. Fetch student data
+      console.log('📡 Calling API: GET /api/estudiantes/' + idUsuario);
+      const studentResponse = await axios.get(
+        `${API_BASE_URL}/estudiantes/${idUsuario}`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` },
+          timeout: 10000
+        }
+      );
+      
+      const student = studentResponse.data;
+      setStudentData(student);
+      console.log('✅ Student data loaded:', student);
+
+      // 2. Fetch carrera/facultad info if available
+      if (student.idcarrera) {
+        try {
+          console.log('📡 Fetching carrera:', student.idcarrera);
+          const carreraResponse = await axios.get(`${API_BASE_URL}/carreras/${student.idcarrera}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            timeout: 5000
+          });
+          setCarreraInfo(carreraResponse.data);
+        } catch (err) {
+          console.warn('⚠️ Could not load carrera:', err.message);
+        }
+      }
+
+      if (student.idfacultad) {
+        try {
+          console.log('📡 Fetching facultad:', student.idfacultad);
+          const facultadResponse = await axios.get(`${API_BASE_URL}/facultades/${student.idfacultad}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            timeout: 5000
+          });
+          setFacultadInfo(facultadResponse.data);
+        } catch (err) {
+          console.warn('⚠️ Could not load facultad:', err.message);
+        }
+      }
+
+      // 3. Fetch events by faculty
+      let eventsLoaded = false;
+      
+      if (student.idfacultad) {
+        try {
+          console.log('📡 Calling: GET /api/eventos/facultad/' + student.idfacultad);
+          const eventsResponse = await axios.get(
+            `${API_BASE_URL}/eventos/facultad/${student.idfacultad}`,
+            {
+              headers: { 'Authorization': `Bearer ${token}` },
+              timeout: 10000,
+            }
+          );
+
+          const formattedEvents = eventsResponse.data.map((event) => {
+            // Ajusta estos campos según la estructura REAL de tu API
+            const fechaInicio = event.fecha_inicio || event.fechaevento || event.fecha;
+            const fecha = new Date(fechaInicio);
+            
+            // Validar fecha
+            if (isNaN(fecha)) {
+              console.warn('⚠️ Invalid date for event:', event);
+              return null;
+            }
+
+            return {
+              id: event.idevento || event.id,
+              title: event.nombre || event.titulo || event.nombreevento || 'Evento sin título',
+              date: fecha.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              }),
+              time: fecha.toLocaleTimeString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              }),
+              location: event.ubicacion || event.lugar || 'Por definir',
+              category: event.tipo_evento || event.categoria || 'Evento',
+              categoryColor: getCategoryColor(event.tipo_evento || 'evento'),
+              status: getStatus(event.estado || 'aprobado'),
+              statusColor: getStatusColor(event.estado || 'aprobado'),
+              organizador: event.organizador || event.responsable || 'Sin organizador',
+              facultad: event.facultad_nombre || 'Sin facultad',
+              modalidad: event.modalidad || 'presencial',
+              // Añade cualquier otro campo que necesites
+            };
+          }).filter(event => event !== null); // Filtrar eventos con fechas inválidas
+
+          if (formattedEvents.length > 0) {
+            setEvents(formattedEvents);
+            calculateStats(formattedEvents);
+            console.log('✅ Events loaded by faculty:', formattedEvents.length);
+            eventsLoaded = true;
+          }
+        } catch (err) {
+          console.warn('⚠️ Faculty events failed:', err.message);
+        }
+      }
+
+      // Fallback si no se cargaron eventos por facultad
+      if (!eventsLoaded) {
+        console.log('🔄 No events loaded by faculty, trying fallback...');
+        const fallbackSuccess = await fetchEventsFallback(token);
+        if (!fallbackSuccess) {
+          setEvents([]);
+          setStats({ eventsCount: 0, upcomingEvents: 0, completedEvents: 0 });
+          setError('No se pudieron cargar eventos disponibles');
+        }
+      }
+
+    } catch (err) {
+      console.error('❌ Error in combined fetch:', err.response?.data || err.message);
+      
+      const errorMsg = err.response?.data?.message || 
+                      err.message || 
+                      'Error al cargar la información';
+      
+      setError(errorMsg);
+      
+      // Intentar fallback de eventos aunque falle student data
+      const token = await getToken();
+      if (token) {
+        await fetchEventsFallback(token);
+      }
+      
+      Alert.alert(
+        'Error',
+        `${errorMsg}\n\n¿Tu cuenta está correctamente configurada como estudiante?`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Reemplazar el useEffect problemático con uno simplificado
   useEffect(() => {
     if (idUsuario && userData) {
-      fetchEventsDirect();
+      fetchData();
     }
   }, [idUsuario, userData]);
 
@@ -530,7 +734,7 @@ const HomeEstudianteScreen = () => {
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Eventos de tu Facultad</Text>
-        <TouchableOpacity onPress={() => router.push('/estudiante/eventos/${event.id}')}>
+        <TouchableOpacity onPress={() => router.push('/estudiante/eventos')}>
           <Text style={styles.seeAll}>Ver todos</Text>
         </TouchableOpacity>
       </View>
@@ -568,9 +772,9 @@ const HomeEstudianteScreen = () => {
         <View style={styles.eventsList}>
           {events.map(event => (
             <EventCard 
-              key={event.id?.toString() || event.idevento?.toString() || Math.random().toString()} 
+              key={event.id?.toString() || event.title} 
               event={event} 
-              onPress={() => router.push(`/estudiante/eventos/${event.idevento || event.id}`)} 
+              onPress={() => router.push(`/estudiante/eventos/${event.id}`)} 
             />
           ))}
         </View>
