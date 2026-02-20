@@ -214,7 +214,6 @@ const UsuarioAcademico = () => {
 
     let filtered = users;
 
-    // Filtro por término de búsqueda
     if (searchTerm !== '') {
       filtered = filtered.filter(user =>
         (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -222,7 +221,6 @@ const UsuarioAcademico = () => {
       );
     }
 
-    // Filtro por rol
     if (filterRole !== 'all') {
       filtered = filtered.filter(user => user.role === filterRole);
     }

@@ -21,13 +21,44 @@ import apiClient from '../../src/api/axiosConfig';
 import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
+const isWeb = Platform.OS === 'web';
+
+// Mapeo de carrera a facultad
+const CARRERA_A_FACULTAD = {
+  '1': '5',   // Derecho → Ciencias Jurídicas
+  '2': '3',   // Psicología → Ciencias de la Salud
+  '3': '4',   // Periodismo → Diseño y Tecnología
+  '4': '2',   // Administración de Empresas → Ciencias Económicas
+  '5': '2',   // Administración de Hotelería y Turismo → Ciencias Económicas
+  '6': '2',   // Contaduría Pública → Ciencias Económicas
+  '7': '2',   // Ingeniería Comercial → Ciencias Económicas
+  '8': '2',   // Ingeniería Económica → Ciencias Económicas
+  '9': '2',   // Ingeniería Económica y Financiera → Ciencias Económicas
+  '10': '4',  // Arquitectura → Diseño y Tecnología
+  '11': '4',  // Diseño Gráfico → Diseño y Tecnología
+  '12': '4',  // Publicidad y Marketing → Diseño y Tecnología
+  '13': '3',  // Bioquímica y Farmacia → Ciencias de la Salud
+  '14': '3',  // Enfermería → Ciencias de la Salud
+  '15': '3',  // Medicina → Ciencias de la Salud
+  '16': '3',  // Odontología → Ciencias de la Salud
+  '17': '1',  // Ingeniería de Sistemas → Ingeniería
+};
+
+const NOMBRES_FACULTADES = {
+  '1': 'Facultad de Ingeniería',
+  '2': 'Facultad de Ciencias Económicas',
+  '3': 'Facultad de Ciencias de la Salud',
+  '4': 'Facultad de Diseño y Tecnología',
+  '5': 'Facultad de Ciencias Jurídicas',
+};
 
 const CrearUsuarioA = () => {
   const router = useRouter();
 
+  // Estados para dropdown de ROL
   const [open, setOpen] = useState(false); 
   const [role, setRole] = useState(null); 
-  const [items, setItems] = useState([ 
+  const [items] = useState([ 
     { label: 'Administrador', value: 'admin', icon: () => <Ionicons name="shield-checkmark" size={20} color="#e74c3c" /> },
     { label: 'Admisiones', value: 'admisiones', icon: () => <Ionicons name="school" size={20} color="#3498db" /> },
     { label: 'Estudiante', value: 'student', icon: () => <Ionicons name="person" size={20} color="#2ecc71" /> },
@@ -40,20 +71,28 @@ const CrearUsuarioA = () => {
     { label: 'Servicios Estudiantiles', value: 'servicios', icon: () => <Ionicons name="help-circle" size={20} color="#16a085" /> },    
   ]);
 
+  // Estados para dropdown de FACULTAD
   const [facultadSeleccionada, setFacultadSeleccionada] = useState(null); 
   const [openFacultad, setOpenFacultad] = useState(false);
-  const [opcionesFacultad, setOpcionesFacultad] = useState([]);
+  const [opcionesFacultad, setOpcionesFacultad] = useState([
+    { label: 'Facultad de Ingeniería', value: '1' },
+    { label: 'Facultad de Ciencias Económicas', value: '2' },
+    { label: 'Facultad de Ciencias de la Salud', value: '3' },
+    { label: 'Facultad de Diseño y Tecnología', value: '4' },
+    { label: 'Facultad de Ciencias Jurídicas', value: '5' },
+  ]);
 
+  // Estados para dropdown de CARRERA
   const [openCarrera, setOpenCarrera] = useState(false);
-  const [carreraSeleccionada, setCarreraSeleccionada] = useState(null); // ✅ Corregido a singular
+  const [carreraSeleccionada, setCarreraSeleccionada] = useState(null);
   const [carrerasDocente, setCarrerasDocente] = useState([]);
-  const [opcionesCarrera, setOpcionesCarrera] = useState([
+  const [opcionesCarrera] = useState([ 
       { label: 'Derecho', value: '1' },
       { label: 'Psicología', value: '2' },
       { label: 'Periodismo', value: '3' },
       { label: 'Administración de Empresas', value: '4' },
       { label: 'Administración de Hotelería y Turismo', value: '5' },
-      { label: 'Contaduría Pública', value: '6' }, // ✅ ID 6 existe
+      { label: 'Contaduría Pública', value: '6' },
       { label: 'Ingeniería Comercial', value: '7' },
       { label: 'Ingeniería Económica', value: '8' },
       { label: 'Ingeniería Económica y Financiera', value: '9' },
@@ -94,37 +133,20 @@ const CrearUsuarioA = () => {
   useEffect(() => {
     const fetchFacultades = async () => {
       try {
-        console.log('Fetching facultades...');
         const response = await apiClient.get('/facultades');
-        console.log('Facultades response:', response.data);
         
-        if (response.data && Array.isArray(response.data)) {
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
           const facultadesFormateadas = response.data.map(facultad => ({
             label: facultad.nombre,
             value: facultad.facultad_id.toString()
           }));
-          console.log('Facultades formateadas:', facultadesFormateadas);
           setOpcionesFacultad(facultadesFormateadas);
+          console.log('Facultades cargadas desde API:', facultadesFormateadas);
         } else {
-          console.log('No hay facultades o formato incorrecto');
-          setOpcionesFacultad([
-            { label: 'Facultad de Ingeniería', value: '1' },
-            { label: 'Facultad de Ciencias Económicas', value: '2' },
-            { label: 'Facultad de Ciencias de la Salud', value: '3' },
-            { label: 'Facultad de Diseño y Tecnología', value: '4' },
-            { label: 'Facultad de Ciencias Jurídicas', value: '5' },
-          ]);
+          console.log('Usando facultades por defecto');
         }
       } catch (error) {
-        console.error('Error al obtener las Facultades', error);
-        setOpcionesFacultad([
-          { label: 'Facultad de Ingeniería', value: '1' },
-          { label: 'Facultad de Ciencias Económicas', value: '2' },
-          { label: 'Facultad de Ciencias de la Salud', value: '3' },
-          { label: 'Facultad de Diseño y Tecnología', value: '4' },
-          { label: 'Facultad de Ciencias Jurídicas', value: '5' },
-        ]);
-        Alert.alert('Aviso', 'Se cargaron facultades por defecto. Verifica la conexión con el servidor.');
+        console.log('Error al cargar facultades, usando valores por defecto');
       }
     };
     fetchFacultades();
@@ -155,17 +177,33 @@ const CrearUsuarioA = () => {
   }, []);
 
   useEffect(() => {
-  if (role !== 'docente') {
-    setCarrerasDocente([]);
-  }
-  if (role !== 'student' && role !== 'academico') {
-    setCarreraSeleccionada(null);
-  }
-}, [role]);
-useEffect(() => {
-  setOpenCarrera(false);
-  setOpenFacultad(false);
-}, [role]);
+    // Limpiar estados cuando cambia el rol
+    if (role !== 'docente') {
+      setCarrerasDocente([]);
+    }
+    if (role !== 'student' && role !== 'academico') {
+      setCarreraSeleccionada(null);
+    }
+    if (role !== 'academico') {
+      setFacultadSeleccionada(null);
+    }
+    // Cerrar todos los dropdowns
+    setOpenCarrera(false);
+    setOpenFacultad(false);
+    setOpen(false);
+  }, [role]);
+
+  // ✅ Auto-seleccionar facultad cuando role es academico
+  useEffect(() => {
+    if (role === 'academico' && carreraSeleccionada) {
+      const facultadId = CARRERA_A_FACULTAD[carreraSeleccionada];
+      if (facultadId) {
+        console.log(`Carrera ${carreraSeleccionada} seleccionada → Auto-seleccionando facultad ${facultadId} (${NOMBRES_FACULTADES[facultadId]})`);
+        setFacultadSeleccionada(facultadId);
+        setOpenFacultad(false);
+      }
+    }
+  }, [carreraSeleccionada, role]);
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({
@@ -215,7 +253,7 @@ useEffect(() => {
         if (roleNeedsCarreras(role)) {
           const carreraValida = role === 'docente' ? 
             (carrerasDocente && carrerasDocente.length > 0) : 
-            carreraSeleccionada; // ✅ Usar carreraSeleccionada (singular)
+            carreraSeleccionada;
             
           if (!carreraValida) {
             if (role === 'student') {
@@ -229,7 +267,7 @@ useEffect(() => {
         }
         if(role === 'academico'){
           if( !facultadSeleccionada){
-            newErrors.facultad = 'Debe Seleccionar la facultaad para el director ';
+            newErrors.facultad = 'Debe Seleccionar la facultad para el director';
           }
         }
         break;
@@ -255,7 +293,7 @@ useEffect(() => {
     setIsLoading(true);
     console.log("=== DIAGNÓSTICO ===");
     console.log("Role seleccionado:", role);
-    console.log("Carrera seleccionada:", carreraSeleccionada); // ✅ Singular
+    console.log("Carrera seleccionada:", carreraSeleccionada);
     console.log("Carreras docente:", carrerasDocente);
     console.log("Facultad seleccionada:", facultadSeleccionada);
     try {
@@ -270,7 +308,6 @@ useEffect(() => {
         habilitado: formData.habilitado ? 1 : 0,
       };
 
-      // ✅ CORREGIDO: Lógica separada y correcta
       if (roleNeedsCarreras(role)) {
         if (role === 'student' || role === 'academico') {
           if (carreraSeleccionada) {
@@ -284,7 +321,7 @@ useEffect(() => {
       }
 
       if (role === 'academico' && facultadSeleccionada) {
-        newUserPayload.idfacultad = parseInt(facultadSeleccionada);
+        newUserPayload.facultad_id = parseInt(facultadSeleccionada);
       }
      
       console.log("FRONTEND - Payload enviado:", JSON.stringify(newUserPayload, null, 2));
@@ -309,9 +346,9 @@ useEffect(() => {
                   habilitado: true,
                 });
                 setRole(null);
-                setCarreraSeleccionada(null); // ✅ Reset correcto
+                setCarreraSeleccionada(null);
                 setCarrerasDocente([]);
-                setFacultadSeleccionada(null); // ✅ Reset correcto
+                setFacultadSeleccionada(null);
                 setCurrentStep(1);
                 
                 router.replace('/login') 
@@ -350,7 +387,7 @@ useEffect(() => {
                   stepToRevert = Math.min(stepToRevert, 1);
                 } else if (['email', 'contrasenia'].includes(fieldPath)) {
                   stepToRevert = Math.min(stepToRevert, 2);
-                } else if (['role', 'carrera', 'facultad_id', 'idcarrera', 'facultad_id', 'carreras_ids'].some(f => fieldPath.includes(f))) {
+                } else if (['role', 'carrera', 'facultad_id', 'idcarrera', 'idfacultad', 'carreras_ids'].some(f => fieldPath.includes(f))) {
                   stepToRevert = Math.min(stepToRevert, 3);
                 }
               }
@@ -536,24 +573,23 @@ useEffect(() => {
       <Text style={styles.label}>
         Rol <Text style={styles.required}>*</Text>
       </Text>
-      <View style={[styles.dropdownContainer, { zIndex: 5000 }]}>
+      <View style={[styles.dropdownContainer, { zIndex: isWeb ? 3000 : 3000 }]}>
         <DropDownPicker
           open={open}
           value={role}
           items={items}
           setOpen={setOpen}
           setValue={setRole}
-          setItems={setItems}
           placeholder="Selecciona un rol"
           style={[styles.dropdown, errors.role && styles.inputError]}
           dropDownContainerStyle={[
             styles.dropdownList,
             { 
-              zIndex: 5000, 
-              elevation: 5000,
+              zIndex: isWeb ? 3000 : 3000, 
+              elevation: isWeb ? 0 : 3000,
             }
           ]}
-          listMode="SCROLLVIEW"
+          listMode={isWeb ? "FLATLIST" : "SCROLLVIEW"}
           textStyle={styles.dropdownText}
           placeholderStyle={styles.dropdownPlaceholder}
           onOpen={() => {
@@ -564,9 +600,7 @@ useEffect(() => {
           showArrowIcon={true}
           showTickIcon={true}
           itemSeparator={true}
-          itemSeparatorStyle={{
-            backgroundColor: "#f0f0f0"
-          }}
+          itemSeparatorStyle={{ backgroundColor: "#f0f0f0" }}
         />
       </View>
       {errors.role && <Text style={styles.errorText}>{errors.role}</Text>}
@@ -575,37 +609,70 @@ useEffect(() => {
         <View style={styles.conditionalContainer}>
           <Text style={styles.label}>
             {role === 'student' && 'Carrera del Estudiante'}
-            {role === 'academico' && 'Carrera a Dirigir'} {/* ✅ CORRECCIÓN */}
+            {role === 'academico' && 'Carrera a Dirigir'}
             {role === 'docente' && 'Carreras donde Enseña'}
             <Text style={styles.required}> *</Text>
           </Text>
-          <View style={[styles.dropdownContainer, { zIndex: 2000 }]}>
+          
+          {/* ✅ Badge informativo solo para Director de Carrera */}
+          {role === 'academico' && (
+            <View style={styles.roleBadgeContainer}>
+              <View style={styles.roleBadge}>
+                <Ionicons name="person-circle" size={20} color="#8e44ad" />
+                <Text style={styles.roleBadgeText}>Rol: Director de Carrera</Text>
+              </View>
+              <Text style={styles.roleInfoText}>
+                Selecciona la carrera y la facultad se asignará automáticamente
+              </Text>
+            </View>
+          )}
+          
+          <View style={[styles.dropdownContainer, { 
+            marginBottom: openCarrera ? 280 : 20,
+            zIndex: role === 'academico' ? 2000 : 1500
+          }]}>
             <DropDownPicker
               multiple={role === 'docente'}
               min={1}
               max={role === 'docente' ? 5 : 1}
               open={openCarrera}
-              // ✅ CORREGIDO: Estados correctos
               value={role === 'docente' ? carrerasDocente : carreraSeleccionada}
               items={opcionesCarrera}
               setOpen={setOpenCarrera}
-              // ✅ CORREGIDO: Funciones correctas
               setValue={role === 'docente' ? setCarrerasDocente : setCarreraSeleccionada}
-              setItems={setOpcionesCarrera}
               placeholder={
                 role === 'student' ? 'Selecciona la carrera del estudiante' :
                 role === 'academico' ? 'Selecciona la carrera a dirigir' : 
                 'Selecciona las carreras donde enseñará'
               }
-              style={[styles.dropdown, errors.carrera && styles.inputError]}
-              dropDownContainerStyle={styles.dropdownList}
-              listMode="SCROLLVIEW"
+              style={[
+                styles.dropdown, 
+                role === 'academico' && styles.carreraDropdown,
+                errors.carrera && styles.inputError
+              ]}
+              dropDownContainerStyle={[
+                styles.dropdownList,
+                { 
+                  zIndex: role === 'academico' ? 2000 : 1500, 
+                  elevation: role === 'academico' ? 2000 : 1500,
+                  maxHeight: 250,
+                }
+              ]}
+              listMode={isWeb ? "FLATLIST" : "SCROLLVIEW"}
               textStyle={styles.dropdownText}
               placeholderStyle={styles.dropdownPlaceholder}
               multipleText={role === 'docente' ? "%d carreras seleccionadas" : undefined}
               onOpen={() => {
                 setOpen(false);
                 setOpenFacultad(false);
+              }}
+              searchable={role === 'academico'}
+              searchPlaceholder={role === 'academico' ? "Buscar carrera..." : undefined}
+              showArrowIcon={true}
+              showTickIcon={true}
+              itemSeparator={true}
+              itemSeparatorStyle={{
+                backgroundColor: "#f0f0f0"
               }}
             />
           </View>
@@ -614,7 +681,7 @@ useEffect(() => {
           <View style={styles.roleInfoContainer}>
             <Text style={styles.roleInfoText}>
               {role === 'student' && '💡 El estudiante será asignado a esta carrera'}
-              {role === 'academico' && '💡 Este usuario será el director de la carrera seleccionada'} {/* ✅ CORRECCIÓN */}
+              {role === 'academico' && '💡 Este usuario será el director de la carrera seleccionada'}
               {role === 'docente' && '💡 El docente podrá enseñar en las carreras seleccionadas'}
             </Text>
           </View>
@@ -627,7 +694,10 @@ useEffect(() => {
             Seleccionar Facultad <Text style={styles.required}>*</Text>
           </Text>
           
-          <View style={[styles.dropdownContainer, { zIndex: 2000 }]}>
+          <View style={[styles.dropdownContainer, { 
+            marginTop: 5,
+            zIndex: role === 'academico' ? 1000 : 1000
+          }]}>
             <DropDownPicker
               multiple={false}
               open={openFacultad}
@@ -635,23 +705,31 @@ useEffect(() => {
               items={opcionesFacultad}
               setOpen={setOpenFacultad}
               setValue={setFacultadSeleccionada}
-              setItems={setOpcionesFacultad}
               placeholder="Selecciona la facultad a dirigir"
               style={[styles.dropdown, errors.facultad && styles.inputError]}
               dropDownContainerStyle={[
                 styles.dropdownList,
                 { 
-                  zIndex: 2000, 
-                  elevation: 2000,
+                  zIndex: 1000, 
+                  elevation: 1000,
+                  maxHeight: 200,
                 }
               ]}
-              listMode="SCROLLVIEW"
+              listMode={isWeb ? "FLATLIST" : "SCROLLVIEW"}
               textStyle={styles.dropdownText}
               placeholderStyle={styles.dropdownPlaceholder}
               onOpen={() => {
                 setOpen(false);
                 setOpenCarrera(false);
               }}
+              disabled={role === 'academico' && !!carreraSeleccionada}
+              disabledStyle={role === 'academico' && !!carreraSeleccionada ? {
+                backgroundColor: '#f0f0f0',
+              } : {}}
+              disabledTextStyle={role === 'academico' && !!carreraSeleccionada ? {
+                color: '#666',
+                fontWeight: '600',
+              } : {}}
               searchable={false}
               showArrowIcon={true}
               showTickIcon={true}
@@ -662,6 +740,16 @@ useEffect(() => {
             />
           </View>
           {errors.facultad && <Text style={styles.errorText}>{errors.facultad}</Text>}
+          
+          {/* ✅ Badge de selección automática solo para Director de Carrera */}
+          {role === 'academico' && carreraSeleccionada && facultadSeleccionada && (
+            <View style={styles.autoSelectionBadge}>
+              <Ionicons name="checkmark-circle" size={18} color="#27ae60" />
+              <Text style={styles.autoSelectionText}>
+                {NOMBRES_FACULTADES[facultadSeleccionada]} (asignada automáticamente)
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -752,7 +840,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingBottom: 150,
   },
   header: {
     paddingVertical: 20,
@@ -809,7 +897,7 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     paddingVertical: 20,
-     paddingBottom: 80,
+    paddingBottom: 200,
   },
   conditionalContainer: {
     marginTop: 20,
@@ -900,7 +988,6 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     marginBottom: 15,
-    zIndex:9999,
   },
   dropdown: {
     backgroundColor: '#fff',
@@ -909,13 +996,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minHeight: 50,
   },
+  carreraDropdown: {
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
   dropdownList: {
     backgroundColor: '#fff',
     borderColor: '#ddd',
     borderWidth: 1,
     borderRadius: 12,
-    zIndex:9999,
-    elevation:9999,
   },
   dropdownText: {
     fontSize: 16,
@@ -959,6 +1052,50 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: '#e95a0c',
   },
+  roleInfoText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  roleBadgeContainer: {
+    backgroundColor: '#f5f0ff',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#8e44ad',
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#8e44ad',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  roleBadgeText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  autoSelectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f8f5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#27ae60',
+  },
+  autoSelectionText: {
+    fontSize: 14,
+    color: '#27ae60',
+    marginLeft: 8,
+    fontWeight: '500',
+  },
   switchDescription: {
     fontSize: 14,
     color: '#666',
@@ -967,6 +1104,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingTop: 30,
+    paddingBottom: 20,
     gap: 15,
   },
   primaryButton: {

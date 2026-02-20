@@ -614,28 +614,46 @@ const subirImagen = async () => {
             timeout: 10000,
           })
         ]);
-        console.log("📊 Dashboard data:", dashboardRes.data); // ✅ Verifica datos del dashboard
-      console.log("📅 Eventos recibidos:", eventsRes.data);
+       console.log("📊 Dashboard data:", dashboardRes.data);
+console.log("📋 Total eventos recibidos:", eventsRes.data?.length || 0);
+
+if (eventsRes.data && eventsRes.data.length > 0) {
+  console.log("🔍 Primer evento:", eventsRes.data[0]);
+  console.log("🔍 Campos del primer evento:", Object.keys(eventsRes.data[0]));
+  console.log("🔍 Valores únicos de idfase:", [...new Set(eventsRes.data.map(e => e.idfase))]);
+}
+
         const data = dashboardRes.data;
       const events = eventsRes.data
-        .filter(event => event.idfase === 2) // ← ¡Esta es la línea clave!
-        .map(event => {
-          const estadoNormalizado = event.estado?.toLowerCase().includes('aprobado')
-            ? 'Aprobado'
-            : 'Pendiente';
+        .filter(event => {
+    const passesFilter = event.idfase === 2;
+    if (!passesFilter) {
+      console.log(`❌ Filtrado: ${event.nombreevento || 'Sin nombre'} - idfase: ${event.idfase}`);
+    }
+    return passesFilter;
+  })
+  .map(event => {
+    const estadoNormalizado = event.estado?.toLowerCase().includes('aprobado')
+      ? 'Aprobado'
+      : 'Pendiente';
 
-          return {
-            id: event.idevento,
-            title: event.nombreevento || 'Sin título',
-            date: event.fechaevento ? new Date(event.fechaevento).toLocaleDateString('es-ES') : 'N/A',
-            time: event.horaevento || 'N/A',
-            state: estadoNormalizado,
-            creator: event.academicoCreador
-              ? `${event.academicoCreador.nombre || ''} ${event.academicoCreador.apellidopat || ''}`.trim()
-              : 'Desconocido'
-          };
-        });
-
+    return {
+      id: event.idevento,
+      title: event.nombreevento || 'Sin título',
+      date: event.fechaevento ? new Date(event.fechaevento).toLocaleDateString('es-ES') : 'N/A',
+      time: event.horaevento || 'N/A',
+      state: estadoNormalizado,
+      creator: event.academicoCreador
+        ? `${event.academicoCreador.nombre || ''} ${event.academicoCreador.apellidopat || ''}`.trim()
+        : 'Desconocido'
+    };
+  });
+console.log("✅ Eventos después del filtro:", events.length);
+console.log("📊 Stats procesados:", {
+  activeUsers: data.activeUsers,
+  totalEvents: data.totalEvents,
+  pendingContent: data.pendingContent
+});
         setDashboardStats([
           { title: 'Usuarios Activos', value: data.activeUsers?.toLocaleString() || '0', icon: 'people-outline', color: COLORS.primary, trend: 12.5, description: 'Último mes' },
           { title: 'Eventos Totales', value: data.totalEvents?.toString() || '0', icon: 'calendar-outline', color: COLORS.info, trend: -3.2, description: 'Último mes' },

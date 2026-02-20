@@ -23,158 +23,212 @@ if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }
 const API_BASE_URL = determinedApiBaseUrl;
-/*useEffect(() => {
-  const unsubscribe = router.beforeRemove?.((e) => {
-    // Evita volver a pantallas protegidas desde el login
-    e.preventDefault();
-  });
 
-  return () => {
-    if (unsubscribe) unsubscribe();
-  };
-}, [router]);*/
 const LoginScreen = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [contrasenia, setPassword] = useState(''); // 'contrasenia' es la variable de estado
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email.trim() || !contrasenia.trim()) {
-      Alert.alert('Error', 'Por favor, ingresa tu correo y contraseña.');
-      return;
-    }
+ const handleLogin = async () => {
+  if (!email.trim() || !contrasenia.trim()) {
+    Alert.alert('Error', 'Por favor, ingresa tu correo y contraseña.');
+    return;
+  }
 
-    setLoading(true);
-    const trimmedEmail = email.trim();
-    const trimmedPassword = contrasenia.trim(); 
+  setLoading(true);
+  const trimmedEmail = email.trim();
+  const trimmedPassword = contrasenia.trim(); 
+  const apiUrl = `${API_BASE_URL}/auth/login`;
 
-    const apiUrl = `${API_BASE_URL}/auth/login`;
+  console.log("🔐 Intentando login con:", { email: trimmedEmail });
 
-    console.log("Plataforma detectada:", Platform.OS);
-    console.log("URL de API seleccionada:", API_BASE_URL);
-    console.log("URL completa para axios:", apiUrl);
-    console.log("Datos que se PREPARAN para enviar al backend:", { email: trimmedEmail, password: trimmedPassword });
+  try {
+    const response = await axios.post(apiUrl, {
+      email: trimmedEmail,
+      password: trimmedPassword,
+    }, { timeout: 10000 });
 
+    console.log("✅ Respuesta del servidor:", response.data);
 
-    try {
-      const response = await axios.post(apiUrl, {
-        email: trimmedEmail,
-        password: trimmedPassword, // Asegúrate que el backend espera 'password'
-      }, {
-        timeout: 10000,
-      });
+    if (response.status === 200 && response.data.token && response.data.user) {
+      const { token, user } = response.data;
+      
+      // 🔥 DEFINIR CLAVES SEGÚN EL ROL DEL USUARIO
+      let TOKEN_KEY, USER_DATA_KEY;
+      
+      switch (user.role) {
+        case 'admin':
+          TOKEN_KEY = 'adminAuthToken';
+          USER_DATA_KEY = 'adminUserData';
+          break;
+        case 'student':
+          TOKEN_KEY = 'studentAuthToken';    // ← ¡Esta es la clave que busca HomeEstudiante!
+          USER_DATA_KEY = 'studentUserData';  // ← ¡Esta es la clave que busca HomeEstudiante!
+          break;
+        case 'academico':
+          TOKEN_KEY = 'adminAuthToken';
+          USER_DATA_KEY = 'adminUserData';
+          break;
+        case 'daf':
+          TOKEN_KEY = 'adminAuthToken';
+          USER_DATA_KEY = 'adminUserData';
+          break;
+        case 'comunicacion':
+          TOKEN_KEY = 'comunicacionAuthToken';
+          USER_DATA_KEY = 'comunicacionUserData';
+          break;
+        case 'TI':
+          TOKEN_KEY = 'tiAuthToken';
+          USER_DATA_KEY = 'tiUserData';
+          break;
+        case 'recursos':
+          TOKEN_KEY = 'recursosAuthToken';
+          USER_DATA_KEY = 'recursosUserData';
+          break;
+        case 'Admisiones':
+          TOKEN_KEY = 'admisionesAuthToken';
+          USER_DATA_KEY = 'admisionesUserData';
+          break;
+        case 'Serv. Estudiatil':
+          TOKEN_KEY = 'serviciosEstudiantilesAuthToken';
+          USER_DATA_KEY = 'serviciosEstudiantilesUserData';
+          break;
+        default:
+          console.warn("⚠️ Rol no reconocido:", user.role);
+          TOKEN_KEY = 'authToken';
+          USER_DATA_KEY = 'userData';
+      }
 
-      console.log("Respuesta del servidor (login):", response.data);
-
-      if (response.status === 200 && response.data.token && response.data.user) {
-        const { token, user } = response.data;
-        
-        const TOKEN_KEY = 'adminAuthToken';
-        if (Platform.OS === 'web') {
-          localStorage.setItem(TOKEN_KEY, token);
-        } else {
-          await SecureStore.setItemAsync(TOKEN_KEY, token);
+      // 🔥 LIMPIAR TODAS LAS CLAVES POSIBLES ANTES DE GUARDAR (evita datos mezclados)
+      const allKeys = [
+        'adminAuthToken', 'adminUserData',
+        'studentAuthToken', 'studentUserData', 
+        'academicoAuthToken', 'academicoUserData',
+        'dafAuthToken', 'dafUserData',
+        'comunicacionAuthToken', 'comunicacionUserData',
+        'tiAuthToken', 'tiUserData',
+        'recursosAuthToken', 'recursosUserData',
+        'admisionesAuthToken', 'admisionesUserData',
+        'serviciosEstudiantilesAuthToken', 'serviciosEstudiantilesUserData'
+      ];
+      
+      console.log('🧹 Limpiando claves anteriores...');
+      if (Platform.OS === 'web') {
+        allKeys.forEach(key => localStorage.removeItem(key));
+      } else {
+        for (const key of allKeys) {
+          await SecureStore.deleteItemAsync(key);
         }
-        const tokenVerificado = Platform.OS === 'web' 
-  ? localStorage.getItem(TOKEN_KEY)
-  : await SecureStore.getItemAsync(TOKEN_KEY);
+      }
 
-console.log('Token guardado correctamente:', tokenVerificado);
+      console.log(`💾 Guardando datos con claves: ${TOKEN_KEY} / ${USER_DATA_KEY}`);
+      if (Platform.OS === 'web') {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem(USER_DATA_KEY, JSON.stringify(user));
+      } else {
+        await SecureStore.setItemAsync(TOKEN_KEY, token);
+        await SecureStore.setItemAsync(USER_DATA_KEY, JSON.stringify(user));
+      }
 
-        const USER_DATA_KEY = 'userData';
-        try {
-            if (Platform.OS === 'web') {
-                localStorage.setItem(USER_DATA_KEY, JSON.stringify(user));
-            } else {
-                await SecureStore.setItemAsync(USER_DATA_KEY, JSON.stringify(user));
-            }
-            console.log('Datos del usuario guardados.');
-        } catch (e) {
-            console.error("Error guardando userData:", e);
-        }
+      // 🔥 VERIFICAR QUE SE GUARDÓ CORRECTAMENTE
+      const verifySave = async () => {
+        const savedToken = Platform.OS === 'web' 
+          ? localStorage.getItem(TOKEN_KEY)
+          : await SecureStore.getItemAsync(TOKEN_KEY);
+        const savedUser = Platform.OS === 'web'
+          ? localStorage.getItem(USER_DATA_KEY)
+          : await SecureStore.getItemAsync(USER_DATA_KEY);
         
-        console.log('Login exitoso. Usuario:', user);
-        
-         let targetRoute = '/';
-        let routeParams = {};
-        switch (user.role) {
-          case 'admin':
-            targetRoute = '../admin/HomeAdministradorScreen';
-            routeParams = { nombre: user.nombre };
-            break;
-            
-          case 'student':
-            targetRoute = '../admin/HomeEstudiante';
-            routeParams ={};
-            break;
-            
-          case 'daf':
-            targetRoute = '/admin/Daf'; 
-            routeParams ={};
-            break;
-            
-          case 'comunicacion':
-            targetRoute = '../admin/HomeComunicacion'; 
-          routeParams ={};
-            break;
-              case 'academico':
-            targetRoute = '/admin/HomeAcademico'; 
-            routeParams = {};
-            break;
-            
-          case 'TI':
-            targetRoute = '../admin/HomeTI'; 
-           routeParams ={};
-            break;
-            
-          case 'recursos':
-            targetRoute = '../admin/HomeRecursosHumanos'; // Necesitarás crear esta pantalla
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
-            break;
-            
-          case 'Admisiones':
-            targetRoute = '../admin/HomeAdmisiones';
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
-            break;
-            
-          case 'Serv. Estudiatil': 
-            targetRoute = '../admin/HomeServiciosEstudiantiles'; 
-            routeParams = { nombre: user.nombre, idUsuario: user.id };
-            break;
-            
-          default:
-            console.warn("Rol de usuario no reconocido:", user.role);
-            Alert.alert('Acceso', 'Tu rol no tiene una interfaz asignada.');
-            targetRoute = '/';
-            break;
-      } 
-       router.replace({
-          pathname: targetRoute,
-          params: routeParams
+        console.log('✅ Verificación de guardado:', {
+          role: user.role,
+          tokenSaved: !!savedToken,
+          userSaved: !!savedUser,
+          userId: savedUser ? JSON.parse(savedUser).id : null,
+          facultad_id: savedUser ? JSON.parse(savedUser).facultad_id : null
         });
-      } else {
-        Alert.alert('Login Fallido', response.data.message || 'Respuesta inesperada del servidor.');
-      }
-    } catch (err) {
-       console.error("Error completo en handleLogin:", err.toJSON ? err.toJSON() : err);
-      if (err.response) {
-        console.error("Error data:", err.response.data);
-        console.error("Error status:", err.response.status);
-        Alert.alert('Login Fallido', `${err.response.data.message || err.response.data.error || 'Credenciales inválidas.'} (Status: ${err.response.status})`);
-      } else if (err.request) {
-        console.error("Error request (sin respuesta del servidor):", err.request);
-        Alert.alert('Error de Red', 'No se pudo conectar al servidor. Verifica tu conexión y la URL del servidor.');
-      } else {
-        console.error("Error general:", err.message);
-        Alert.alert('Error', 'Ocurrió un error inesperado: ' + err.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-    
-  };
+      };
+      await verifySave();
+      
+      console.log('✨ Login exitoso. Usuario:', {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        facultad_id: user.facultad_id
+      });
+      
+      let targetRoute = '/';
+      let routeParams = {};
+      
+      switch (user.role) {
+        case 'admin':
+          targetRoute = '/admin/HomeAdministradorScreen';
+          routeParams = { nombre: user.nombre };
+          break;
+        case 'student':
+          targetRoute = '/admin/HomeEstudiante';  // ← Ajusta a tu ruta real de Expo Router
+          routeParams = {};
+          break;
+        case 'academico':
+          targetRoute = '/admin/HomeAcademico';   // ← Ajusta a tu ruta real
+          routeParams = {nombre: user.nombre};
+          break;
+        case 'daf':
+          targetRoute = '/admin/Daf'; 
+          break;
+        case 'comunicacion':
+          targetRoute = '/admin/HomeComunicacion'; 
+          break;
+        case 'TI':
+          targetRoute = '/admin/HomeTI'; 
+          break;
+        case 'recursos':
+          targetRoute = '/admin/HomeRecursosHumanos';
+          routeParams = { nombre: user.nombre, idUsuario: user.id };
+          break;
+        case 'Admisiones':
+          targetRoute = '/admin/HomeAdmisiones';
+          routeParams = { nombre: user.nombre, idUsuario: user.id };
+          break;
+        case 'Serv. Estudiatil': 
+          targetRoute = '/admin/HomeServiciosEstudiantiles'; 
+          routeParams = { nombre: user.nombre, idUsuario: user.id };
+          break;
+        default:
+          console.warn("⚠️ Rol no reconocido:", user.role);
+          Alert.alert('Acceso', 'Tu rol no tiene una interfaz asignada.');
+          targetRoute = '/';
+          break;
+      } 
+      console.log('🔄 Redirigiendo a:', targetRoute, 'con params:', routeParams);
 
+      setTimeout(() => {
+        try {
+          console.log('🚀 Ejecutando redirección...');
+          router.replace({ pathname: targetRoute, params: routeParams });
+        } catch (error) {
+          console.error('❌ Error en redirección:', error);
+          Alert.alert('Error', 'No se pudo redirigir. Intenta nuevamente.');
+        }
+      }, 200);
+      
+    } else {
+      Alert.alert('Login Fallido', response.data.message || 'Respuesta inesperada del servidor.');
+    }
+  } catch (err) {
+    console.error("❌ Error en handleLogin:", err.response?.data || err.message);
+    
+    if (err.response) {
+      Alert.alert('Login Fallido', `${err.response.data.message || err.response.data.error || 'Credenciales inválidas.'} (Status: ${err.response.status})`);
+    } else if (err.request) {
+      Alert.alert('Error de Red', 'No se pudo conectar al servidor. Verifica tu conexión.');
+    } else {
+      Alert.alert('Error', 'Ocurrió un error inesperado: ' + err.message);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
     const handleRegisterStudent = () => {
     router.push('../admin/RegistroEstudianteScreen');
   };

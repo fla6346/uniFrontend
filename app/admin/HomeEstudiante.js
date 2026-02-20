@@ -352,40 +352,107 @@ const HomeEstudianteScreen = () => {
     }
   };
 
-  // ✅ NUEVA FUNCIÓN: Cargar eventos directamente (sin depender de studentData)
-  const fetchEventsDirect = async () => {
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('Token no disponible');
+const fetchEventsDirect = async () => {
+  try {
+    const token = await getToken();
+    if (!token) throw new Error('Token no disponible');
 
-      console.log('📡 Cargando eventos directamente: GET /eventos/aprobados-por-facultad');
+    let facultadId = userData?.facultad_id;
+    
+    if (!facultadId) {
+      console.log('⚠️ facultad_id no encontrado en userData, intentando refresh...');
       
-      const response = await axios.get(
-        `${API_BASE_URL}/eventos/aprobados-por-facultad`,
-        {
+      try {
+        const meResponse = await axios.get(`${API_BASE_URL}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` },
-          timeout: 10000
+          timeout: 5000
+        });
+        
+        const freshFacultadId = meResponse.data?.user?.facultad_id || meResponse.data?.facultad_id;
+        
+        if (freshFacultadId) {
+          console.log('✅ facultad_id obtenido de /auth/me:', freshFacultadId);
+          setUserData(prev => {
+            const updated = { ...prev, facultad_id: freshFacultadId };
+            if (Platform.OS === 'web') {
+              localStorage.setItem(USER_DATA_KEY, JSON.stringify(updated));
+            } else {
+              SecureStore.setItemAsync(USER_DATA_KEY, JSON.stringify(updated));
+            }
+            return updated;
+          });
+          facultadId = freshFacultadId;
         }
+      } catch (meError) {
+        console.warn('⚠️ No se pudo refrescar datos:', meError.message);
+      }
+    }
+
+    if (!facultadId) {
+      console.error('❌ facultad_id aún no disponible después de refresh');
+      setError('Tu perfil no tiene facultad asignada. Contacta al administrador.');
+      setLoading(false);
+      return;
+    }
+
+    console.log('📡 Request: GET /eventos/aprobados-por-facultad?id=', facultadId);
+    
+    const response = await axios.get(
+      `${API_BASE_URL}/eventos/aprobados-por-facultad`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` },
+        params: { facultad_id: facultadId }, 
+        timeout: 10000
+      }
+    );
+
+    console.log('📡 Request URL:', `${API_BASE_URL}/eventos/aprobados-por-facultad?facultad_id=${facultadId}`);
+      console.log('📦 Eventos recibidos (total):', response.data.length);
+      const eventosFase2 = response.data.filter(evento => {
+      if (evento.idfase === 2) return true;
+      
+      if (evento.fase?.nrofase === 2) return true;
+      if (Array.isArray(evento.fase) && evento.fase[0]?.nrofase === 2) return true;
+      
+      if (evento.idfase === '2' || evento.fase?.nrofase === '2') return true;
+      
+      return false;
+    });
+      console.log('🔍 Primeros 3 eventos:');
+      response.data.slice(0, 3).forEach((evt, i) => {
+        console.log(`  ${i+1}. "${evt.nombreevento || evt.title}" - facultad_id: ${evt.facultad_id || evt.facultad?.id || 'N/A'}`);
+      });
+
+      // ✅ Verifica si TODOS tienen tu facultad_id
+      const todosDeMiFacultad = response.data.every(evt => 
+        evt.facultad_id === facultadId || evt.facultad?.id === facultadId
       );
 
-      // ✅ CORRECCIÓN CLAVE: Actualizar stats con el conteo real de eventos
-      setStats(prev => ({
-        ...prev,
-        eventsCount: response.data.length // <-- ¡ESTO HACE QUE SE VEAN LOS NÚMEROS!
-      }));
-
-      setEvents(response.data);
-      console.log('✅ Eventos cargados:', response.data.length);
-      
-    } catch (err) {
-      console.error('❌ Error cargando eventos:', err.response?.data || err.message);
-      setError('No se pudieron cargar los eventos');
-    } finally {
-      setLoading(false);
+      if (!todosDeMiFacultad) {
+        console.warn('⚠️ El backend NO está filtrando por facultad_id');
+      }
+          
+    setStats(prev => ({ ...prev, eventsCount: eventosFase2.length }));
+    setEvents(eventosFase2);
+    
+  } catch (err) {
+    console.error('❌ Error cargando eventos:', {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data
+    });
+    
+    if (err.response?.status === 400 && err.response?.data?.message?.includes('facultad')) {
+      setError('Tu perfil no tiene facultad asignada. Contacta al administrador.');
+    } else if (err.response?.status === 404) {
+      setError('Endpoint de eventos no encontrado.');
+    } else {
+      setError('No se pudieron cargar los eventos. Verifica tu conexión.');
     }
-  };
-
-  // ✅ Reemplazar el useEffect problemático con uno simplificado
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     if (idUsuario && userData) {
       fetchEventsDirect();

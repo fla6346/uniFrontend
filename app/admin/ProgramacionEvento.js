@@ -199,7 +199,8 @@ const programacionEvento = () => {
   
   const [layoutsDisponibles, setLayoutsDisponibles] = useState([]);
   const [layoutSeleccionado, setLayoutSeleccionado] = useState(null);
-const [cargandoLayouts, setCargandoLayouts] = useState(false);
+  const [cargandoLayouts, setCargandoLayouts] = useState(false);
+  
   const { idevento } = params;
   const isEditing = !!idevento;
 
@@ -488,13 +489,16 @@ const handleCrearEvento = async () => {
  console.log('✅ Validaciones pasadas, preparando payload...');
 
   setIsLoading(true);
+   const fasePayload = {
+    nrofase: 2,
+    ...(isEditing && idevento && { idevento: parseInt(idevento, 10) })
+  };
   const payload = {
     nombreevento: nombreevento.trim(),
     lugarevento: lugarevento.trim(),
     fechaevento: formatToISODate(fechaHoraSeleccionada),
     horaevento: formatToISOTime(fechaHoraSeleccionada),
     responsable: responsable.trim(),
-    //idtipoevento: idtipoevento ? parseInt(idtipoevento, 10) : null,
     actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
     actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
     actividadesPost: actividadesPost.map(formatActivityForSubmit),
@@ -502,9 +506,8 @@ const handleCrearEvento = async () => {
     ambientes,
     idlayout: layoutSeleccionado ? layoutSeleccionado.idlayout : null,
     comite: comiteSeleccionado,
-    nuevaFase:{
-      nrofase:2,
-    }
+    nuevaFase:fasePayload
+    
   };
 console.log('📦 Payload completo:', JSON.stringify(payload, null, 2));
   console.log('Layout seleccionado:', layoutSeleccionado);

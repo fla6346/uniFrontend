@@ -289,7 +289,7 @@ const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpand
   );
 };
 
-const MinimalHeader = ({ nombreUsuario,facultad, unreadCount, onNotificationPress }) => {
+const MinimalHeader = ({ nombreUsuario, facultad, unreadCount, onNotificationPress }) => {
   const getCurrentGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Buenos días';
@@ -299,13 +299,15 @@ const MinimalHeader = ({ nombreUsuario,facultad, unreadCount, onNotificationPres
 
   return (
     <View style={styles.minimalHeaderContainer}>
-     
       <View style={styles.minimalHeaderGreeting}>
         <Text style={styles.minimalGreetingText}>{getCurrentGreeting()},</Text>
         <Text style={styles.minimalUserNameText}>{nombreUsuario}</Text>
       </View>
       
-        <Text style={styles.minimalUserFacultyText}>{facultad}</Text>
+      <Text style={styles.minimalUserFacultyText}>
+        {facultad || 'Sin facultad asignada'} {/* ✅ CORREGIDO */}
+      </Text>
+      
       <Text style={styles.minimalHeaderTitle}>Panel de Usuario Académico</Text>
     </View>
   );
@@ -435,28 +437,32 @@ const fetchCommitteeEvents = useCallback(async () => {
 const fetchUserProfile = useCallback(async () => {
   try {
     const token = await getTokenAsync();
-    console.log('Token usado para /profile', token)
     if (!token) {
       router.replace('/');
       return;
     }
 
     const response = await axios.get(`${API_BASE_URL}/profile`, {
-      
-      headers: {'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}` },
       timeout: 8000,
     });
+    
     const user = response.data;
+    
+    // ✅ CORRECCIÓN: Verifica si el backend devuelve "Sin facultad" literal
+    const facultad = user.facultad === "Sin facultad" 
+      ? "Sin facultad asignada" 
+      : user.facultad;
+    
     setUserProfile({
       nombre: user.nombre || '',
       apellidopat: user.apellidopat || '',
       apellidomat: user.apellidomat || '',
-      facultad: user.facultad || 'Sin facultad',
+      facultad: facultad, // Ya incluye el mensaje corregido
       id: user.id || null,
       loading: false,
-    }
-  );
-  console.log('Perfil recibido:', response);
+    });
+    console.log('Perfil recibido:', response);
   } catch (error) {
     console.error('Error al cargar perfil de usuario:', error);
     Alert.alert('Error', 'No se pudo cargar tu información personal.');
@@ -466,13 +472,12 @@ const fetchUserProfile = useCallback(async () => {
 useEffect(() => {
   const checkAuthAndLoadData = async () => {
     const token = await getTokenAsync();
+
     if (!token) {
-      // Si no hay token, redirigir inmediatamente al login
       router.replace('/');
       return;
     }
 
-    // Si hay token, cargar todos los datos
     await Promise.allSettled([
       fetchDashboardData(),
       fetchUserProfile(),
@@ -483,7 +488,6 @@ useEffect(() => {
 
   checkAuthAndLoadData();
 }, [fetchDashboardData, fetchUserProfile, fetchHistoricalData, router]);
-  // Cálculo para dashboard
   const { columns: dashboardColumns, cardWidth: dashboardCardWidth } = useMemo(() => {
     let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH_DASHBOARD + CARD_MARGIN));
     numColumns = Math.min(numColumns, MAX_COLUMNS_DASHBOARD);
@@ -493,7 +497,6 @@ useEffect(() => {
     return { columns: cols, cardWidth: Math.max(width, MIN_CARD_WIDTH_DASHBOARD) };
   }, [windowWidth]);
 
-  // Cálculo para acciones
   const { columns: actionsColumns, cardWidth: actionsCardWidth } = useMemo(() => {
     let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH_ACTIONS + CARD_MARGIN));
     numColumns = Math.min(numColumns, MAX_COLUMNS_ACTIONS);
@@ -536,8 +539,6 @@ useEffect(() => {
     route: '/admin/EventosPendientes',
     color: COLORS.warning,
     description: 'Revisión y aprobación de eventos',
-    //`${pendingContentCount} pendientes`, 
-    //data.estadoCounts.pendiente?.toString() || '0',
     badgeColor: COLORS.warning,
   },
   {

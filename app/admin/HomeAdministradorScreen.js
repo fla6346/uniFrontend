@@ -101,14 +101,12 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary, lineWidt
   const minValue = Math.min(...values, 0);
   const valueRange = maxValue - minValue || 1;
   
-  // Calcular puntos para la línea
   const points = values.map((value, index) => {
     const x = padding.left + (index / (values.length - 1)) * chartWidth;
     const y = padding.top + chartHeight - ((value - minValue) / valueRange) * chartHeight;
     return { x, y, value, label: labels[index] };
   });
   
-  // Crear path para la línea con curvas Bézier
   let linePath = '';
   points.forEach((point, index) => {
     if (index === 0) {
@@ -120,13 +118,11 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary, lineWidt
     }
   });
   
-  // Crear path para el área bajo la línea
   const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
   
   return (
     <View style={{ backgroundColor: COLORS.surface, borderRadius: 16, padding: 16 }}>
       <Svg width={width} height={height}>
-        {/* Líneas de fondo horizontales */}
         {[0, 0.25, 0.5, 0.75, 1].map((percent, i) => {
           const y = padding.top + chartHeight * (1 - percent);
           return (
@@ -153,14 +149,12 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary, lineWidt
           );
         })}
         
-        {/* Área bajo la línea */}
         <Path
           d={areaPath}
           fill={color}
           fillOpacity={0.1}
         />
         
-        {/* Línea principal */}
         <Path
           d={linePath}
           stroke={color}
@@ -170,7 +164,6 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary, lineWidt
           strokeLinejoin="round"
         />
         
-        {/* Puntos en la línea */}
         {points.map((point, index) => (
           <G key={`point-${index}`}>
             <Circle
@@ -190,7 +183,6 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary, lineWidt
           </G>
         ))}
         
-        {/* Etiquetas del eje X */}
         {points.map((point, index) => (
           <SvgText
             key={`label-${index}`}
