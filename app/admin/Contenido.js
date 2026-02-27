@@ -17,15 +17,29 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// Configuración de API
 let determinedApiBaseUrl;
-if (Platform.OS === 'android') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+
+if (Platform.OS === 'web') {
+  // ✅ Verificar que window existe antes de usarlo
+  if (typeof window !== 'undefined' && window.location) {
+    const origin = window.location.origin;
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      determinedApiBaseUrl = 'http://localhost:3001/api';
+    } else {
+      determinedApiBaseUrl = `${origin}/api`;
+    }
+  } else {
+    // Fallback si window no está disponible
+    determinedApiBaseUrl = 'http://localhost:3001/api';
+  }
+} else if (Platform.OS === 'android') {
+  determinedApiBaseUrl = 'http://10.0.2.2:3001/api';
 } else if (Platform.OS === 'ios') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
+  determinedApiBaseUrl = 'http://localhost:3001/api';
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }
+
 const API_BASE_URL = determinedApiBaseUrl;
 const TOKEN_KEY = 'adminAuthToken';
 
@@ -49,7 +63,11 @@ const COLORS = {
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
     try {
-      return localStorage.getItem(TOKEN_KEY);
+      // ✅ Verificar que window y localStorage existen
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(TOKEN_KEY);
+      }
+      return null;
     } catch (e) {
       return null;
     }

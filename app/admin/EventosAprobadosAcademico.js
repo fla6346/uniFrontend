@@ -106,7 +106,7 @@ const EventosAprobadosDaf = () => {
         attendees: event.participantes_esperados || 'No especificado',
         status: event.estado || 'aprobado',
         category: 'General',
-        submittedDate: event.createdAt || event.fechaevento,
+        submittedDate: event.created_at || event.fechaevento,
         submittedBy: event.responsable_evento || 'Sistema',
       }));
 

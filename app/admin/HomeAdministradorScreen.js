@@ -428,6 +428,7 @@ const fetchDashboardData = useCallback(async () => {
   setLoadingDashboard(true);
   try {
     const token = await getTokenAsync();
+    console.log('🔑 Token obtenido:', token);
     if (!token) {
       console.warn('No hay token disponible');
       setLoadingDashboard(false);

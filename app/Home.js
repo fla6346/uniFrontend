@@ -15,10 +15,10 @@ import {
   FlatList
 } from 'react-native';
 const windowWidth=Dimensions.get('window').width;
-const CAROUSEL_ITEM_WIDTH = windowWidth * 0.4; 
-const CAROUSEL_SPACING = (windowWidth - CAROUSEL_ITEM_WIDTH) / 2; 
-
-
+const CAROUSEL_ITEM_WIDTH = windowWidth * 0.75; 
+const ITEM_MARGIN = 10; // Margen entre items
+const SNAP_TO_INTERVAL = CAROUSEL_ITEM_WIDTH + (ITEM_MARGIN * 2);
+const CAROUSEL_SPACING = (windowWidth - CAROUSEL_ITEM_WIDTH) / 2;
 const placeholderImages = {
   banner: require('../assets/images/ind.jpg'), 
   category1: require('../assets/images/der.jpg'),
@@ -72,8 +72,8 @@ const Home = () => {
 
   const onScrollCategory = (event) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / (CAROUSEL_ITEM_WIDTH + 20));
-    setActiveCategoryIndex(index);
+    const index = Math.round(contentOffsetX / SNAP_TO_INTERVAL);
+    setActiveCategoryIndex(Math.min(index, categories.length - 1));
   };
 
   const onScrollFeatured = (event) => {
@@ -124,7 +124,10 @@ const Home = () => {
             data={categories}
             renderItem={({ item }) => (
               <Link key={item.id} href={`/CategoryDetail/${item.id}`} asChild>
-                <TouchableOpacity style={styles.categoryCarouselItem}>
+                <TouchableOpacity style={[
+                  styles.categoryCarouselItem,
+                  { width: CAROUSEL_ITEM_WIDTH, marginHorizontal: ITEM_MARGIN }
+                ]}>
                   <Image
                     source={item.image}
                     style={styles.categoryCarouselImage}
@@ -140,7 +143,10 @@ const Home = () => {
             pagingEnabled
             snapToInterval={CAROUSEL_ITEM_WIDTH + 20}
             decelerationRate="fast"
-            contentContainerStyle={styles.carouselContentContainer}
+            contentContainerStyle={
+            { paddingHorizontal: windowWidth-CAROUSEL_ITEM_WIDTH / 2 ,
+              paddingBottom: 10 }
+            } // Centrar el primer y último item
             onScroll={onScrollCategory}
             scrollEventThrottle={16}
           />
@@ -165,7 +171,10 @@ const Home = () => {
             data={featuredItems}
             renderItem={({ item }) => (
               <Link key={item.id} href={`/ItemDetail/${item.id}`} asChild>
-                <TouchableOpacity style={styles.featuredCarouselItem}>
+                <TouchableOpacity style={[
+                  styles.featuredCarouselItem,
+                  { width: CAROUSEL_ITEM_WIDTH, marginHorizontal: ITEM_MARGIN }
+                ]}>
                   <Image
                     source={item.image}
                     style={styles.featuredCarouselImage}
@@ -203,12 +212,12 @@ const Home = () => {
         </View>
       </ScrollView>
       {/* Botones flotantes (si los necesitas) */}
-      {/* <TouchableOpacity style={styles.chatbotButton} onPress={() => router.push('/chatbot')}>
+       <TouchableOpacity style={styles.chatbotButton} onPress={() => router.push('/chatbot')}>
         <Text style={styles.chatbotButtonText}>Chat</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.LoginButton} onPress={() => router.push('/login')}>
         <Text style={styles.chatbotButtonText}>Login</Text>
-      </TouchableOpacity> */}
+      </TouchableOpacity> 
     </View>
   );
 };
@@ -303,8 +312,6 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   categoryCarouselItem: {
-    width: CAROUSEL_ITEM_WIDTH,
-    marginHorizontal: 5,
     alignItems: 'center',
     backgroundColor: '#fff',
     borderRadius: 15,
@@ -348,8 +355,6 @@ const styles = StyleSheet.create({
 
   // NUEVOS ESTILOS para el Carrusel de Eventos Destacados
   featuredCarouselItem: {
-    width: CAROUSEL_ITEM_WIDTH,
-    marginHorizontal: 10,
     backgroundColor: '#fff',
     borderRadius: 15,
     overflow: 'hidden',

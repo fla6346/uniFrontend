@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router'; // Hooks de Expo Router
 // import axios from 'axios'; // Descomenta cuando uses API real
@@ -75,13 +76,10 @@ const MOCK_EVENTS_DATA = {
 const CategoryDetailScreen = () => {
   const router = useRouter();
   const { categoryId: categoryIdParam } = useLocalSearchParams(); // Obtiene el 'categoryId' de la URL
-
   const [facultyDetails, setFacultyDetails] = useState(null);
   const [facultyEvents, setFacultyEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Convertir categoryIdParam a número para la comparación y uso
   const categoryId = parseInt(categoryIdParam, 10);
 
   useEffect(() => {
@@ -93,39 +91,57 @@ const CategoryDetailScreen = () => {
 
     setLoading(true);
     setError(null);
-
+  
     // Simular carga de datos (reemplazar con llamada a API en el futuro)
     const loadData = async () => {
       try {
-        // --- Lógica para API Real (ejemplo conceptual) ---
-        // const facultyResponse = await axios.get(`http://TU_API/faculties/${categoryId}`);
-        // const eventsResponse = await axios.get(`http://TU_API/events?facultyId=${categoryId}`);
-        // setFacultyDetails(facultyResponse.data);
-        // setFacultyEvents(eventsResponse.data);
-        // -----------------------------------------------
-
-        // --- Usando Datos Simulados ---
-        await new Promise(resolve => setTimeout(resolve, 700)); // Simular delay de red
-
+        // 🔹 OPCIÓN A: Usar datos simulados (recomendado para desarrollo)
+        await new Promise(resolve => setTimeout(resolve, 700));
+        
         const foundFaculty = ALL_FACULTIES_DATA.find(fac => fac.id === categoryId);
         
         if (foundFaculty) {
           setFacultyDetails(foundFaculty);
-          setFacultyEvents(MOCK_EVENTS_DATA[categoryId] || []); // Obtener eventos para esta facultad
+          setFacultyEvents(MOCK_EVENTS_DATA[categoryId] || []);
         } else {
           setError('Facultad no encontrada.');
         }
-        // -----------------------------
+        
+        /* 
+        // 🔹 OPCIÓN B: Usar API real (descomenta cuando esté listo)
+        // Requiere: import axios from 'axios';
+        const [facultyRes, eventsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/facultades/${categoryId}`),
+          fetch(`${API_BASE_URL}/eventos?facultad_id=${categoryId}`)
+        ]);
+        
+        if (!facultyRes.ok || !eventsRes.ok) {
+          throw new Error('Error al cargar datos de la API');
+        }
+        
+        const facultyData = await facultyRes.json();
+        const eventsData = await eventsRes.json();
+        
+        setFacultyDetails(facultyData);
+        setFacultyEvents(eventsData);
+        */
+        
       } catch (err) {
-        console.error(`Error fetching data for faculty ${categoryId}:`, err);
-        setError('Error al cargar los datos de la facultad.');
+        console.error(`Error:`, err);
+        // Fallback a datos simulados si falla la API
+        const foundFaculty = ALL_FACULTIES_DATA.find(fac => fac.id === categoryId);
+        if (foundFaculty) {
+          setFacultyDetails(foundFaculty);
+          setFacultyEvents(MOCK_EVENTS_DATA[categoryId] || []);
+        } else {
+          setError('Error al cargar los datos.');
+        }
       } finally {
         setLoading(false);
       }
     };
-
-    loadData();
-  }, [categoryId]); // Re-ejecutar si categoryId cambia
+     loadData();
+    }, [categoryId]);
 
   if (loading) {
     return (
