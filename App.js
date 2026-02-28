@@ -15,7 +15,8 @@ import BackendTestScreen from './screens/LoginScreen';
 SplashScreenExpo.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'https://proyectcp.onrender.com/api'; // URL de producción en Render
+//'http://localhost:3001/api';
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
