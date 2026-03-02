@@ -5,14 +5,14 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 // 1. Lógica de URL centralizada
-let determinedApiBaseUrl;
-if (Platform.OS === 'android' || Platform.OS === 'ios') {
+API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+let determinedApiBaseUrl = API_BASE_URL;
+/*if (Platform.OS === 'android' || Platform.OS === 'ios') {
   // IP de tu PC en la red local para dispositivos físicos y emuladores
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api'; 
 } else { // web
   determinedApiBaseUrl = 'http://localhost:3001/api';
-}
-
+}*/
 const apiClient = axios.create({
   baseURL: determinedApiBaseUrl,
 });

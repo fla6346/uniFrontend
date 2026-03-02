@@ -5,13 +5,13 @@ import { View, Text, StyleSheet, SafeAreaView, Button, Linking, Alert, Platform 
 
 // --- LÓGICA API --- (Es importante definirla aquí también)
 let determinedApiBaseUrl;
-if (Platform.OS === 'android') {
+/*if (Platform.OS === 'android') {
   // Si usas un dispositivo físico, reemplaza '10.0.2.2' con la IP de tu computadora
   determinedApiBaseUrl = 'http://10.0.2.2:3001/api'; 
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
-}
-const API_BASE_URL = determinedApiBaseUrl;
+}*/
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 // --------------------
 
 const Estadistica = () => {

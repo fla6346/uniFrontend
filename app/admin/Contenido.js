@@ -19,7 +19,7 @@ import * as SecureStore from 'expo-secure-store';
 
 let determinedApiBaseUrl;
 
-if (Platform.OS === 'web') {
+/*if (Platform.OS === 'web') {
   // ✅ Verificar que window existe antes de usarlo
   if (typeof window !== 'undefined' && window.location) {
     const origin = window.location.origin;
@@ -38,9 +38,9 @@ if (Platform.OS === 'web') {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
-}
+}*/
 
-const API_BASE_URL = determinedApiBaseUrl;
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
 const COLORS = {

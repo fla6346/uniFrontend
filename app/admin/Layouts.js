@@ -20,14 +20,14 @@ import * as SecureStore from 'expo-secure-store';
 
 // Configuración de API (CORREGIDA)
 let determinedApiBaseUrl;
-if (Platform.OS === 'android') {
+/*if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else if (Platform.OS === 'ios') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api'; // ✅ Web usa localhost
-}
-const API_BASE_URL = determinedApiBaseUrl;
+}*/
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
 const COLORS = {
   primary: '#E95A0C',

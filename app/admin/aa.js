@@ -12,15 +12,15 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import dayjs from 'dayjs';
 
 // --- CONFIGURACIÓN API ---
-let determinedApiBaseUrl;
+/*let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://10.0.2.2:3001/api';
 } else if (Platform.OS === 'ios') {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 } else { // web y otros
   determinedApiBaseUrl = 'http://localhost:3001/api';
-}
-const API_BASE_URL = determinedApiBaseUrl;
+}*/
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
 // --- CONFIGURACIÓN DE IDIOMA PARA CALENDARIO ---
 LocaleConfig.locales['es'] = {

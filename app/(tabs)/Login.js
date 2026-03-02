@@ -14,7 +14,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store'; 
 import { useRouter, Stack } from 'expo-router';
 
-let determinedApiBaseUrl;
+/*let determinedApiBaseUrl;
 if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else if (Platform.OS === 'ios') {
@@ -22,7 +22,9 @@ if (Platform.OS === 'android') {
 } else { 
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }
-const API_BASE_URL = determinedApiBaseUrl;
+*/
+const API_BASE_URL =  'https://unibackend-1-izpi.onrender.com';
+;
 
 const LoginScreen = () => {
   const router = useRouter();

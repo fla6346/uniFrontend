@@ -22,14 +22,14 @@ const { width } = Dimensions.get('window');
 
 // Configuración de API
 let determinedApiBaseUrl;
-if (Platform.OS === 'android') {
+/*if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else if (Platform.OS === 'ios') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
-}
-const API_BASE_URL = determinedApiBaseUrl;
+}*/
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
 const COLORS = {
