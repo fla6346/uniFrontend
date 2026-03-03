@@ -22,7 +22,7 @@ import { useRouter, Stack } from 'expo-router';
       determinedApiBaseUrl = 'http://localhost:3001/api';
   }
   */
- const API_BASE_URL =  'https://unibackend-1-izpi.onrender.com';
+ const API_BASE_URL =  'https://unibackend-1-izpi.onrender.com/api'; // Cambia esto a tu URL de backend
  let determinedApiBaseUrl= API_BASE_URL;
 ;
 
