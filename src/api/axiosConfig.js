@@ -1,24 +1,22 @@
-// src/api/axiosConfig.js (Recordatorio de cómo debería ser)
+// src/api/axiosConfig.js
 
 import axios from 'axios';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-// 1. Lógica de URL centralizada
-API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
-let determinedApiBaseUrl = API_BASE_URL;
-/*if (Platform.OS === 'android' || Platform.OS === 'ios') {
-  // IP de tu PC en la red local para dispositivos físicos y emuladores
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api'; 
-} else { // web
-  determinedApiBaseUrl = 'http://localhost:3001/api';
-}*/
+// ✅ 1. URL corregida (sin espacios y con const)
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+
 const apiClient = axios.create({
-  baseURL: determinedApiBaseUrl,
+  baseURL: API_BASE_URL.trim(), // ✅ .trim() por seguridad extra
+  timeout: 10000, // ✅ Agrega timeout para manejar errores de red
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// 2. Lógica de Token centralizada (Interceptor)
-const TOKEN_KEY = 'adminAuthToken'; // O la clave que uses
+// ✅ 2. Interceptor de token (tu código está bien)
+const TOKEN_KEY = 'adminAuthToken';
 
 apiClient.interceptors.request.use(
   async (config) => {
@@ -34,7 +32,19 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
+  (error) => Promise.reject(error)
+);
+
+// ✅ 3. Interceptor de respuesta para debug (opcional pero útil)
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('❌ Error en API:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data
+    });
     return Promise.reject(error);
   }
 );
