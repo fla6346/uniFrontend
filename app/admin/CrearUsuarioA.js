@@ -22,7 +22,6 @@ import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-
 // Mapeo de carrera a facultad
 const CARRERA_A_FACULTAD = {
   '1': '5',   // Derecho → Ciencias Jurídicas
