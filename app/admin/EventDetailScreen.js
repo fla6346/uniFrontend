@@ -151,7 +151,7 @@ const EventDetailScreen = () => {
       }
       const [eventResponse, userResponse]= await Promise.all([
        
-       await axios.get( `${API_BASE_URL}/eventos/${numericId}`, {
+       axios.get( `${API_BASE_URL}/eventos/${numericId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetchUserDetails(token)
@@ -179,10 +179,8 @@ const EventDetailScreen = () => {
   status: eventData.estado || 'pendiente',
   imageUrl: eventData.imagenUrl || null,
   
-  // ✅ Objetivos con PDI y segmentos
   objetivos: eventData.Objetivos || [],
   
-  // ✅ Objetivos PDI independientes
   objetivosPDI: Array.isArray(eventData.ObjetivosPDI) 
     ? eventData.ObjetivosPDI 
     : typeof eventData.objetivos_pdi === 'string'
@@ -400,7 +398,6 @@ const handleRejectEvent=()=>{
           </View>
         )}
 
-        {/* Mostrar resultados esperados si existen */}
         {event.resultados && event.resultados.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resultados Esperados:</Text>
@@ -473,7 +470,7 @@ const handleRejectEvent=()=>{
     try {
       const token = await getTokenAsync();
       if (!token) throw new Error('Token inválido');
-      await axios.put(
+      axios.put(
         `${API_BASE_URL}/eventos/${event.id}/approve`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
@@ -501,7 +498,7 @@ const handleRejectEvent=()=>{
     try {
       const token = await getTokenAsync();
       if (!token) throw new Error('Token inválido');
-      await axios.put(
+      axios.put(
         `${API_BASE_URL}/eventos/${event.id}/reject`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
