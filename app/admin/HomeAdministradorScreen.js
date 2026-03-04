@@ -348,7 +348,7 @@ const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpand
 return (
     <Animated.View style={[styles.dock, { height: dockHeight }]}>
       <Pressable onPress={onToggleExpanded} style={styles.dockToggle}>
-        <Animated.View style={{ transform: [{ rotate }] }}>
+        <Animated.View style={{ transform: [{ rotateInterpolate }] }}>
           <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
         </Animated.View>
         <Text style={styles.dockToggleText}>Menú rápido</Text>
