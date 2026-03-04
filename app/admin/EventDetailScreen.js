@@ -122,125 +122,126 @@ const EventDetailScreen = () => {
   const [showApproveAlert, setShowApproveAlert]= useState(false);
   const[showRejectAlert,setShowRejectAlert]= useState(false);
 
-  const fetchEventDetails = useCallback(async () => {
+ const fetchEventDetails = useCallback(async () => {
+  let processedEventId = Array.isArray(eventId) ? eventId[0] : eventId;
+  
+  if (typeof processedEventId === 'string' && processedEventId.startsWith('event-')) {
+    processedEventId = processedEventId.replace('event-', '');
+  } 
+  
+  const numericId = Number(processedEventId);
+  
+  if (isNaN(numericId) || !processedEventId) {
+    const validationError = 'ID de evento inválido.';
+    console.error('Frontend: ID inválido:', processedEventId);
+    setError(validationError);
+    setLoading(false);
+    return;
+  }
 
-      let processedEventId = Array.isArray(eventId) ? eventId[0] : eventId;
-    if (typeof processedEventId === 'string' && processedEventId.startsWith('event-')) {
-      processedEventId = processedEventId.replace('event-', '');
-
-    } 
-    const numericId = Number(processedEventId);
-    if (isNaN(numericId) || !processedEventId) {
-      const validationError = 'ID de evento inválido.';
-      console.log('Frontend: ID inválido. Error:', validationError);
-      setError(validationError);
-      setLoading(false);
-      console.log('--- Frontend: fetchEventDetails END (Invalid ID) ---');
+  setLoading(true);
+  setError(null);
+  
+  try {
+    const token = await getTokenAsync();
+    
+    if (!token) {
+      Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
+      await deleteTokenAsync();
+      router.replace('/LoginAdmin');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getTokenAsync();
-      if (!token) {
-        Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
-        await deleteTokenAsync();
-        router.replace('/Login');
-        return;
+    console.log('🔍 Fetching event:', numericId);
+    
+    const eventResponse = await axios.get(
+      `${API_BASE_URL}/eventos/${numericId}`, 
+      {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
       }
-      const [eventResponse, userResponse]= await Promise.all([
-       
-       axios.get( `${API_BASE_URL}/eventos/${numericId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetchUserDetails(token)
-      ]);
+    );
 
-
-      console.log('Frontend: Successful response status:', eventResponse.status);
-      console.log('Frontend: Data received (first 200 chars):', JSON.stringify(eventResponse.data).substring(0, 200));
-      
-      const eventData = eventResponse.data;
-      console.log('Frontend: Data received usuarios:', JSON.stringify(userResponse));
-      if (!eventData || typeof eventData !== 'object'|| Object.keys(eventData).length === 0) {
-        throw new Error('Datos de evento vacíos o inválidos del servidor.');
-      }
+    console.log('✅ Event response status:', eventResponse.status);
+    console.log('📦 Event data:', eventResponse.data);
+    
+    const eventData = eventResponse.data;
+    
+    if (!eventData || typeof eventData !== 'object') {
+      throw new Error('Datos de evento inválidos del servidor.');
+    }
 
     const transformedEvent = {
-  id: eventData.idevento || null,
-  title: eventData.nombreevento || 'Sin título',
-  description: eventData.descripcion || 'Sin descripción disponible',
-  date: formatDate(eventData.fechaevento),
-  time: formatTime(eventData.horaevento),
-  location: eventData.lugarevento || 'Ubicación no especificada',
-  organizer: eventData.responsable_evento || 'Organizador no especificado',
-  attendees: eventData.participantes_esperados || 'No especificado',
-  status: eventData.estado || 'pendiente',
-  imageUrl: eventData.imagenUrl || null,
-  
-  objetivos: eventData.Objetivos || [],
-  
-  objetivosPDI: Array.isArray(eventData.ObjetivosPDI) 
-    ? eventData.ObjetivosPDI 
-    : typeof eventData.objetivos_pdi === 'string'
-      ? JSON.parse(eventData.objetivos_pdi || '[]')
-      : [],
-  
-  resultados: (eventData.Resultados && eventData.Resultados.length > 0)
-    ? eventData.Resultados[0]
-    : { participacion_esperada: null, satisfaccion_esperada: null, otros_resultados: null },
-  
-  recursos: eventData.Recursos || [],
-  
-  comite: eventData.Comite || [],
-  
-  presupuesto: eventData.Presupuesto || null,
-  
-  tags: eventData.tags || [],
-  
-  academicoCreador: eventData.academicoCreador ? {
-    nombre: [eventData.academicoCreador.nombre,
-             eventData.academicoCreador.apellidopat || '',
-             eventData.academicoCreador.apellidomat || '']
-            .filter(Boolean).join(' ') || eventData.academicoCreador.nombre || 'Usuario sin nombre',
-    email: eventData.academicoCreador.email,
-    role: eventData.academicoCreador.role
-  } : null
-};
+      id: eventData.idevento || numericId,
+      title: eventData.nombreevento || 'Sin título',
+      description: eventData.descripcion || 'Sin descripción disponible',
+      date: formatDate(eventData.fechaevento),
+      time: formatTime(eventData.horaevento),
+      location: eventData.lugarevento || 'Ubicación no especificada',
+      organizer: eventData.responsable_evento || 'Organizador no especificado',
+      attendees: eventData.participantes_esperados || 'No especificado',
+      status: eventData.estado || 'pendiente',
+      imageUrl: eventData.imagenUrl || null,
+      objetivos: eventData.Objetivos || [],
+      objetivosPDI: Array.isArray(eventData.ObjetivosPDI) 
+        ? eventData.ObjetivosPDI 
+        : typeof eventData.objetivos_pdi === 'string'
+          ? JSON.parse(eventData.objetivos_pdi || '[]')
+          : [],
+      resultados: (eventData.Resultados && eventData.Resultados.length > 0)
+        ? eventData.Resultados[0]
+        : { participacion_esperada: null, satisfaccion_esperada: null, otros_resultados: null },
+      recursos: eventData.Recursos || [],
+      comite: eventData.Comite || [],
+      presupuesto: eventData.Presupuesto || null,
+      tags: eventData.tags || [],
+      academicoCreador: eventData.academicoCreador ? {
+        nombre: [
+          eventData.academicoCreador.nombre,
+          eventData.academicoCreador.apellidopat || '',
+          eventData.academicoCreador.apellidomat || ''
+        ].filter(Boolean).join(' ') || 'Usuario sin nombre',
+        email: eventData.academicoCreador.email || 'No disponible',
+        role: eventData.academicoCreador.role || 'academico'
+      } : null
+    };
 
-      if (!transformedEvent.id) {
-        throw new Error('El evento no tiene un ID válido.');
-      }
-console.log('Datos del evento transformados:', transformedEvent);
-      setEvent(transformedEvent);
-      console.log('Frontend: Event details set successfully.');
-    } catch (err) {
-      console.error('Frontend: Error loading event details:', err);
-      if (err.response) {
-        console.error('Frontend: Error response status:', err.response.status);
-        console.error('Frontend: Error response data:', err.response.data);
-      } else if (err.request) {
-        console.error('Frontend: No response received:', err.request);
-      } else {
-        console.error('Frontend: Error setting up request:', err.message);
-      }
-
-      let errorMessage = `Error al cargar evento: ${err.message}`;
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        Alert.alert('Acceso Denegado', 'No tienes permiso para ver este recurso o tu sesión ha expirado.');
+    console.log('✨ Transformed event:', transformedEvent);
+    setEvent(transformedEvent);
+    
+  } catch (err) {
+    console.error('❌ Error loading event:', err);
+    
+    if (err.response) {
+      console.error('Status:', err.response.status);
+      console.error('Data:', err.response.data);
+      
+      if (err.response.status === 401 || err.response.status === 403) {
+        Alert.alert('Acceso Denegado', 'No tienes permiso o tu sesión expiró.');
         await deleteTokenAsync();
         router.replace('/LoginAdmin');
-        errorMessage = 'Sesión expirada. Redirigiendo...';
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Evento no encontrado. Verifica si el ID es correcto (ej: 12345).';
+        return;
+      } else if (err.response.status === 404) {
+        setError('Evento no encontrado. Verifica el ID.');
+      } else if (err.response.status === 500) {
+        setError('Error del servidor. Intente más tarde.');
+      } else {
+        setError(`Error ${err.response.status}: ${err.response.data?.message || err.message}`);
       }
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-      console.log('--- Frontend: fetchEventDetails END ---');
+    } else if (err.request) {
+      console.error('No response:', err.request);
+      setError('No hay respuesta del servidor. Verifica tu conexión.');
+    } else {
+      console.error('Error:', err.message);
+      setError(`Error: ${err.message}`);
     }
-  }, [eventId, router]);
+  } finally {
+    setLoading(false);
+  }
+}, [eventId, router]);
 
   const fetchUserDetails= async(token)=>{
     try{
@@ -470,21 +471,33 @@ const handleRejectEvent=()=>{
     try {
       const token = await getTokenAsync();
       if (!token) throw new Error('Token inválido');
-      axios.put(
+      
+      console.log('Aprobando evento:', event.id);
+      
+      const response = await axios.put(
         `${API_BASE_URL}/eventos/${event.id}/approve`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
+      
+      console.log('Respuesta:', response.data);
       Alert.alert('Éxito', 'Evento aprobado correctamente');
       router.back();
     } catch (error) {
-      console.error('Approve error:', error);
-      Alert.alert('Error', 'No se pudo aprobar el evento: ' + (error.message || 'Error desconocido'));
+      console.error('Error al aprobar:', error);
+      Alert.alert(
+        'Error', 
+        `No se pudo aprobar: ${error.response?.data?.message || error.message || 'Error desconocido'}`
+      );
     }
   }}
 />
 
-{/* Alerta para rechazar */}
 <CustomAlert
   visible={showRejectAlert}
   title="¿Rechazar evento?"
@@ -498,16 +511,29 @@ const handleRejectEvent=()=>{
     try {
       const token = await getTokenAsync();
       if (!token) throw new Error('Token inválido');
-      axios.put(
+      
+      console.log('Rechazando evento:', event.id);
+      
+      const response = await axios.put(
         `${API_BASE_URL}/eventos/${event.id}/reject`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
       );
+      
+      console.log('Respuesta:', response.data);
       Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
       router.back();
     } catch (error) {
-      console.error('Reject error:', error);
-      Alert.alert('Error', 'No se pudo rechazar el evento: ' + (error.message || 'Error desconocido'));
+      console.error('Error al rechazar:', error);
+      Alert.alert(
+        'Error', 
+        `No se pudo rechazar: ${error.response?.data?.message || error.message || 'Error desconocido'}`
+      );
     }
   }}
 />
