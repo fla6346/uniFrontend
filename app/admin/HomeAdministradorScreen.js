@@ -42,8 +42,8 @@ const COLORS = {
 
 const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const CARD_MARGIN = 12;
-const MIN_CARD_WIDTH_ACTIONS = 200;
-const MAX_COLUMNS_ACTIONS = 3;
+const MIN_CARD_WIDTH_ACTIONS = 140;
+const MAX_COLUMNS_ACTIONS = 4;
 
 // ─── Line Chart ───────────────────────────────────────────────────────────────
 const CustomLineChart = ({ data, width, height, color = COLORS.primary }) => {
@@ -853,15 +853,19 @@ const styles = StyleSheet.create({
   // Tools
   toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_MARGIN, justifyContent: 'space-between' },
   managementToolCardMinimal: {
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 20,
-    shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5,
-    minHeight: 130, borderWidth: 1, maxWidth: '100%',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16, 
+    padding: 14,
+    shadowColor: COLORS.shadow, 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 5,
+    minHeight: 110, borderWidth: 1, maxWidth: '100%',
   },
   managementToolCardHeaderMinimal: { flexDirection: 'column', gap: 12 },
-  managementToolCardIconMinimal: { width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  managementToolCardIconMinimal: { width:44 , height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   managementToolCardTextContainerMinimal: { flex: 1 },
-  managementToolCardTitleMinimal: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6, lineHeight: 22 },
-  managementToolCardDescriptionMinimal: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
+  managementToolCardTitleMinimal: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6, lineHeight: 22 },
+  managementToolCardDescriptionMinimal: { fontSize: 11, color: COLORS.textSecondary, lineHeight: 18 },
   managementToolCardBadgeMinimal: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, position: 'absolute', top: 20, right: 20 },
   managementToolCardBadgeTextMinimal: { fontSize: 11, fontWeight: '700', color: COLORS.white },
 

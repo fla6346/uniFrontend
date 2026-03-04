@@ -1,363 +1,143 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Alert,
-  ActivityIndicator,
-  Pressable,
-  Animated,
-  useWindowDimensions,
-  Platform,
+  StyleSheet, View, Text, ScrollView, TouchableOpacity,
+  StatusBar, Alert, ActivityIndicator, Pressable, Animated,
+  useWindowDimensions, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 
-let determinedApiBaseUrl;
-/*if (Platform.OS === 'android') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else if (Platform.OS === 'ios') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else {
-  determinedApiBaseUrl = 'http://localhost:3001/api';
-}*/
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
-    try {
-      return localStorage.getItem(TOKEN_KEY);
-    } catch (e) {
-      return null;
-    }
+    try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
   } else {
-    try {
-      return await SecureStore.getItemAsync(TOKEN_KEY);
-    } catch (e) {
-      return null;
-    }
+    try { return await SecureStore.getItemAsync(TOKEN_KEY); } catch { return null; }
   }
 };
 
 const deleteTokenAsync = async () => {
   if (Platform.OS === 'web') {
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-    } catch (e) {}
+    try { localStorage.removeItem(TOKEN_KEY); } catch {}
   } else {
-    try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
-    } catch (e) {}
+    try { await SecureStore.deleteItemAsync(TOKEN_KEY); } catch {}
   }
 };
 
 const COLORS = {
-  primary: '#E95A0C',
-  primaryLight: '#FFEDD5',
-  secondary: '#4B5563',
-  accent: '#EF4444',
-  success: '#10B981',
-  warning: '#F59E0B',
-  info: '#3B82F6',
-  background: '#F9FAFB',
-  surface: '#FFFFFF',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  textTertiary: '#9CA3AF',
-  border: '#E5E7EB',
-  divider: '#D1D5DB',
-  shadow: 'rgba(0, 0, 0, 0.05)',
-  white: '#FFFFFF',
-  black: '#000000',
+  primary: '#E95A0C', primaryLight: '#FFEDD5', secondary: '#4B5563',
+  accent: '#EF4444', success: '#10B981', warning: '#F59E0B',
+  info: '#3B82F6', background: '#F9FAFB', surface: '#FFFFFF',
+  textPrimary: '#1F2937', textSecondary: '#6B7280', textTertiary: '#9CA3AF',
+  border: '#E5E7EB', divider: '#F3F4F6', white: '#FFFFFF', black: '#000000',
 };
 
-const DashboardCard = ({ title, value, icon, color, trend, description }) => {
-  const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
-  const trendIcon = trend > 0 ? 'arrow-up' : 'arrow-down';
-
-  return (
-    <View style={styles.dashboardCardMinimal}>
-      <View style={styles.dashboardCardHeaderMinimal}>
-        <Ionicons name={icon} size={24} color={color} />
-        <Text style={styles.dashboardCardValueMinimal}>{value}</Text>
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+const DashboardCard = ({ title, value, icon, color, description }) => (
+  <View style={[styles.kpiCard, { borderTopColor: color }]}>
+    <View style={styles.kpiTopRow}>
+      <View style={[styles.kpiIconWrap, { backgroundColor: color + '15' }]}>
+        <Ionicons name={icon} size={20} color={color} />
       </View>
-      <Text style={styles.dashboardCardTitleMinimal}>{title}</Text>
-      {trend && (
-        <View style={styles.dashboardCardTrendMinimal}>
-          <Ionicons name={trendIcon} size={14} color={trendColor} />
-          <Text style={[styles.dashboardCardTrendTextMinimal, { color: trendColor }]}>
-            {Math.abs(trend)}% {trend > 0 ? 'más' : 'menos'}
-          </Text>
-        </View>
-      )}
-      {description && (
-        <Text style={styles.dashboardCardDescriptionMinimal}>{description}</Text>
-      )}
+      <Text style={styles.kpiValue}>{value}</Text>
     </View>
-  );
-};
+    <Text style={styles.kpiTitle}>{title}</Text>
+    {description && <Text style={styles.kpiDesc}>{description}</Text>}
+  </View>
+);
 
+// ─── Action Card ──────────────────────────────────────────────────────────────
 const ActionCardLarge = ({ action, onPress, index }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 400,
-      delay: index * 80,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim, index]);
-
-  const onPressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      speed: 100,
-      bounciness: 8,
-    }).start();
-  };
-
-  const onPressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 100,
-      bounciness: 8,
-    }).start();
-  };
+    Animated.timing(fadeAnim, { toValue: 1, duration: 350, delay: index * 70, useNativeDriver: true }).start();
+  }, []);
 
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      accessibilityRole="button"
-      accessibilityLabel={`Acción: ${action.title}`}
-      style={{ marginBottom: 16, width: '100%' }}
+      onPressIn={() => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, speed: 100 }).start()}
+      onPressOut={() => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 100 }).start()}
     >
-      <Animated.View
-        style={[
-          styles.actionCardLarge,
-          {
-            transform: [{ scale: scaleAnim }],
-            opacity: fadeAnim,
-          },
-        ]}
-      >
-        <View style={[styles.actionCardLargeIcon, { backgroundColor: action.color + '15' }]}>
-          <Ionicons name={action.iconName} size={32} color={action.color} />
+      <Animated.View style={[styles.actionCard, { transform: [{ scale: scaleAnim }], opacity: fadeAnim }]}>
+        <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
+          <Ionicons name={action.iconName} size={28} color={action.color} />
         </View>
-        <View style={styles.actionCardLargeContent}>
-          <View style={styles.actionCardLargeTitleContainer}>
-            <Text style={styles.actionCardLargeTitle}>{action.title}</Text>
+        <View style={styles.actionContent}>
+          <View style={styles.actionTitleRow}>
+            <Text style={styles.actionTitle}>{action.title}</Text>
             {action.badge && (
-              <View style={[styles.actionCardLargeBadge, { backgroundColor: action.badgeColor || COLORS.primary }]}>
-                <Text style={styles.actionCardLargeBadgeText}>{action.badge}</Text>
+              <View style={[styles.actionBadge, { backgroundColor: action.badgeColor || COLORS.primary }]}>
+                <Text style={styles.actionBadgeText}>{action.badge}</Text>
               </View>
             )}
           </View>
-          {action.description && (
-            <Text style={styles.actionCardLargeDescription}>{action.description}</Text>
-          )}
+          {action.description && <Text style={styles.actionDesc}>{action.description}</Text>}
         </View>
-        <Ionicons name="chevron-forward-outline" size={24} color={COLORS.textTertiary} />
+        <Ionicons name="chevron-forward-outline" size={20} color={COLORS.textTertiary} />
       </Animated.View>
     </Pressable>
   );
 };
 
-const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpanded }) => {
-  const dockHeight = useRef(new Animated.Value(60)).current;
-  const expandedHeight = 200;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(dockHeight, {
-        toValue: isExpanded ? expandedHeight : 60,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: isExpanded ? 1 : 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [isExpanded]);
-
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-
-  const quickActions = [
-    {
-      id: 'add-user',
-      title: 'Nuevo Usuario',
-      icon: 'person-add-outline',
-      color: COLORS.primary,
-      action: '/admin/UsuariosA'
-    },
-    {
-      id: 'aprobados',
-      title: 'Aprobados',
-      icon: 'checkmark-circle-outline',
-      color: COLORS.success,
-      action: '/admin/EventosAprobados'
-    },
-    {
-      id: 'settings',
-      title: 'Ajustes',
-      icon: 'settings-outline',
-      color: COLORS.secondary,
-      action: '/admin/Settings'
-    }
-  ];
-
-  return (
-    <Animated.View style={[styles.minimalDockContainer, { height: dockHeight }]}>
-      <Pressable onPress={onToggleExpanded} style={styles.minimalDockToggle}>
-        <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
-          <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
-        </Animated.View>
-        <Text style={styles.minimalDockToggleText}>Menú</Text>
-      </Pressable>
-
-      {isExpanded && (
-        <View style={styles.minimalDockExpandedContent}>
-          <View style={styles.minimalDockQuickActions}>
-            {quickActions.map((action) => (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.minimalDockQuickActionButton}
-                onPress={() => onActionPress(action.action)}
-              >
-                <Ionicons name={action.icon} size={24} color={action.color} />
-                <Text style={[styles.minimalDockQuickActionText, { color: action.color }]}>
-                  {action.title}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <TouchableOpacity onPress={onLogout} style={styles.minimalDockLogoutButton}>
-            <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
-            <Text style={styles.minimalDockLogoutButtonText}>Cerrar Sesión</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </Animated.View>
-  );
-};
-
-const MinimalHeader = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
-  const getCurrentGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Buenos días';
-    if (hour < 18) return 'Buenas tardes';
-    return 'Buenas noches';
-  };
-
-  return (
-    <View style={styles.minimalHeaderContainer}>
-      <View style={styles.minimalHeaderTop}>
-        <Text style={styles.minimalHeaderAdminText}>admin</Text>
-        <TouchableOpacity
-          style={styles.minimalNotificationButton}
-          onPress={onNotificationPress}
-        >
-          <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
-          {unreadCount > 0 && (
-            <View style={styles.minimalNotificationBadge}>
-              <Text style={styles.minimalNotificationBadgeText}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-      <View style={styles.minimalHeaderGreeting}>
-        <Text style={styles.minimalGreetingText}>{getCurrentGreeting()},</Text>
-        <Text style={styles.minimalUserNameText}>{nombreUsuario}</Text>
-      </View>
-      <Text style={styles.minimalHeaderTitle}>Panel de Administración del Area de DAF</Text>
-    </View>
-  );
-};
-
+// ─── Data Table ───────────────────────────────────────────────────────────────
 const DataTable = ({ data, columns, onPrint }) => {
-  if (!data || data.length === 0) {
+  if (!data?.length) {
     return (
-      <View style={styles.tableEmptyContainer}>
-        <Text style={styles.tableEmptyText}>No hay eventos disponibles.</Text>
+      <View style={styles.emptyTable}>
+        <Ionicons name="calendar-outline" size={40} color={COLORS.textTertiary} />
+        <Text style={styles.emptyTableText}>No hay eventos disponibles</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.dataTableContainer}>
-      <View style={styles.dataTableHeaderRow}>
-        {columns.map((col, index) => (
-          <Text key={index} style={[styles.dataTableHeader, { flex: col.flex }]}>
-            {col.title}
-          </Text>
+    <View style={styles.tableWrap}>
+      {/* Header */}
+      <View style={styles.tableHeadRow}>
+        {columns.map((col, i) => (
+          <Text key={i} style={[styles.tableHeadCell, { flex: col.flex }]}>{col.title}</Text>
         ))}
       </View>
-
-      {data.map((row, rowIndex) => (
-        <View
-          key={row.id}
-          style={[
-            styles.dataTableRow,
-            rowIndex % 2 === 0 ? styles.dataTableRowEven : null,
-          ]}
-        >
-          {columns.map((col, colIndex) => {
+      {/* Rows */}
+      {data.map((row, ri) => (
+        <View key={row.id} style={[styles.tableRow, ri % 2 === 0 && styles.tableRowAlt]}>
+          {columns.map((col, ci) => {
             if (col.key === 'actions') {
               return (
-                <View key={colIndex} style={[styles.dataTableCell, { flex: col.flex, justifyContent: 'center' }]}>
+                <View key={ci} style={[styles.tableCell, { flex: col.flex, justifyContent: 'center' }]}>
                   {row.state === 'Aprobado' && (
-                    <TouchableOpacity
-                      style={styles.printButton}
-                      onPress={() => onPrint(row.id)}
-                    >
-                      <Ionicons name="print-outline" size={16} color={COLORS.primary} />
-                      <Text style={styles.printButtonText}>Imprimir</Text>
+                    <TouchableOpacity style={styles.printBtn} onPress={() => onPrint(row.id)}>
+                      <Ionicons name="print-outline" size={14} color={COLORS.primary} />
+                      <Text style={styles.printBtnText}>Imprimir</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               );
             }
-
-            let cellContent = row[col.key] || '—';
-            let cellStyle = styles.dataTableCell;
-
             if (col.key === 'state') {
-              const isApproved = cellContent.toLowerCase().includes('aprobado');
-              cellStyle = [
-                styles.dataTableCell,
-                isApproved ? styles.stateApproved : styles.statePending,
-              ];
-              cellContent = isApproved ? 'Aprobado' : 'Pendiente';
+              const approved = row.state?.toLowerCase().includes('aprobado');
+              return (
+                <View key={ci} style={[styles.tableCell, { flex: col.flex }]}>
+                  <View style={[styles.stateBadge, { backgroundColor: approved ? '#D1FAE5' : '#FEF3C7' }]}>
+                    <Text style={[styles.stateBadgeText, { color: approved ? COLORS.success : COLORS.warning }]}>
+                      {approved ? 'Aprobado' : 'Pendiente'}
+                    </Text>
+                  </View>
+                </View>
+              );
             }
-
-            if (col.key === 'creator' && cellContent === 'Desconocido') {
-              cellStyle = [styles.dataTableCell, styles.creatorUnknown];
-            }
-
             return (
-              <Text key={colIndex} style={[cellStyle, { flex: col.flex }]}>
-                {cellContent}
+              <Text key={ci} style={[styles.tableCell, { flex: col.flex },
+                col.key === 'creator' && row[col.key] === 'Desconocido' && styles.tableCellMuted
+              ]}>
+                {row[col.key] || '—'}
               </Text>
             );
           })}
@@ -367,419 +147,361 @@ const DataTable = ({ data, columns, onPrint }) => {
   );
 };
 
-const daf = () => {
+// ─── Bottom Dock ──────────────────────────────────────────────────────────────
+const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpanded }) => {
+  const dockHeight = useRef(new Animated.Value(60)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(dockHeight, { toValue: isExpanded ? 200 : 60, duration: 300, useNativeDriver: false }),
+      Animated.timing(rotateAnim, { toValue: isExpanded ? 1 : 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+  }, [isExpanded]);
+
+  const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+
+  const quickActions = [
+    { id: 'usuarios', title: 'Usuarios', icon: 'people-outline', color: COLORS.primary, action: '/admin/UsuariosDaf' },
+    { id: 'aprobados', title: 'Aprobados', icon: 'checkmark-circle-outline', color: COLORS.success, action: '/admin/EventosAprobados' },
+    { id: 'settings', title: 'Ajustes', icon: 'settings-outline', color: COLORS.secondary, action: '/admin/Settings' },
+  ];
+
+  return (
+    <Animated.View style={[styles.dock, { height: dockHeight }]}>
+      <Pressable onPress={onToggleExpanded} style={styles.dockToggle}>
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
+        </Animated.View>
+        <Text style={styles.dockToggleText}>Menú</Text>
+      </Pressable>
+      {isExpanded && (
+        <View style={styles.dockExpanded}>
+          <View style={styles.dockActions}>
+            {quickActions.map(a => (
+              <TouchableOpacity key={a.id} style={styles.dockActionBtn} onPress={() => onActionPress(a.action)}>
+                <Ionicons name={a.icon} size={24} color={a.color} />
+                <Text style={[styles.dockActionText, { color: a.color }]}>{a.title}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity onPress={onLogout} style={styles.dockLogout}>
+            <Ionicons name="log-out-outline" size={20} color={COLORS.white} />
+            <Text style={styles.dockLogoutText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </Animated.View>
+  );
+};
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+const MinimalHeader = ({ nombreUsuario, unreadCount, onNotificationPress, lastUpdated, onRefresh, refreshing }) => {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerGreeting}>{greeting},</Text>
+          <Text style={styles.headerName}>{nombreUsuario}</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerIconBtn} onPress={onRefresh} disabled={refreshing}>
+            {refreshing
+              ? <ActivityIndicator size="small" color={COLORS.primary} />
+              : <Ionicons name="refresh-outline" size={22} color={COLORS.textSecondary} />
+            }
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.notifBtn} onPress={onNotificationPress}>
+            <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      <Text style={styles.headerTitle}>Panel DAF</Text>
+      {lastUpdated && (
+        <Text style={styles.lastUpdated}>
+          Actualizado: {lastUpdated.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+// ─── Section wrapper ──────────────────────────────────────────────────────────
+const Section = ({ title, subtitle, children }) => (
+  <View style={styles.section}>
+    <View style={styles.sectionHead}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {subtitle && <Text style={styles.sectionSub}>{subtitle}</Text>}
+    </View>
+    {children}
+  </View>
+);
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+const Daf = () => {
   const params = useLocalSearchParams();
-  const nombreUsuario = params.nombre || 'Administrador';
+  const nombreUsuario = params.nombre || 'Administrador DAF';
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
 
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications]     = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [isBannerExpanded, setIsBannerExpanded] = useState(false);
-  const [loadingDashboard, setLoadingDashboard] = useState(true);
-  const [allEvents, setAllEvents] = useState([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [imagenSeleccionada, setImagenSeleccionada] = useState(null);
-  const [subiendoImagen, setSubiendoImagen] = useState(false);
-  const [urlImagenSubida, setUrlImagenSubida] = useState(null);
+  const [isBannerExpanded, setIsBannerExpanded]   = useState(false);
+  const [loadingDashboard, setLoadingDashboard]   = useState(true);
+  const [loadingEvents, setLoadingEvents]         = useState(true);
+  const [refreshing, setRefreshing]               = useState(false);
+  const [lastUpdated, setLastUpdated]             = useState(null);
+  const [allEvents, setAllEvents]                 = useState([]);
+
   const [dashboardStats, setDashboardStats] = useState([
-    { title: 'Usuarios Activos', value: '...', icon: 'people-outline', color: COLORS.primary, trend: 12.5, description: 'Último mes' },
-    { title: 'Eventos Totales', value: '...', icon: 'calendar-outline', color: COLORS.info, trend: -3.2, description: 'Último mes' },
-    { title: 'Contenidos Pendientes', value: '...', icon: 'document-text-outline', color: COLORS.warning, trend: 18.7, description: 'Última semana' },
-    { title: 'Estabilidad Sistema', value: '...', icon: 'pulse-outline', color: COLORS.success, trend: 2.1, description: 'Rendimiento óptimo' },
+    { title: 'Usuarios Activos',      value: '–', icon: 'people-outline',        color: COLORS.primary,   description: 'Cuentas habilitadas' },
+    { title: 'Eventos Totales',       value: '–', icon: 'calendar-outline',      color: COLORS.info,      description: 'Todos los eventos' },
+    { title: 'Contenidos Pendientes', value: '–', icon: 'document-text-outline', color: COLORS.warning,   description: 'Esperando revisión' },
+    { title: 'Estabilidad Sistema',   value: '–', icon: 'pulse-outline',         color: COLORS.success,   description: 'Rendimiento del sistema' },
   ]);
 
-  // ✅ Estado para controlar el evento seleccionado para imprimir
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-  const unreadCount = notifications.filter(notif => !notif.read).length;
   const tableColumns = [
-    { title: 'ID', key: 'id', flex: 1 },
-    { title: 'Título', key: 'title', flex: 3 },
-    { title: 'Fecha', key: 'date', flex: 2 },
-    { title: 'Hora', key: 'time', flex: 1 },
-    { title: 'Estado', key: 'state', flex: 1.5 },
-    { title: 'Creador', key: 'creator', flex: 3 },
-    { title: 'Acciones', key: 'actions', flex: 1.5 }
+    { title: 'ID',      key: 'id',      flex: 0.8 },
+    { title: 'Título',  key: 'title',   flex: 3 },
+    { title: 'Fecha',   key: 'date',    flex: 1.5 },
+    { title: 'Hora',    key: 'time',    flex: 1 },
+    { title: 'Estado',  key: 'state',   flex: 1.5 },
+    { title: 'Creador', key: 'creator', flex: 2.5 },
+    { title: '',        key: 'actions', flex: 1.5 },
   ];
 
-  // ✅ Solo abre la pantalla de confirmación
-  const handlePrintEvent = (eventoId) => {
-   router.push({
-    pathname: '/admin/EventoDetalleImp',
-    params: { eventId: eventoId.toString() }
-  });
-  };
+  // ── Fetch data ─────────────────────────────────────────────────────────────
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else { setLoadingDashboard(true); setLoadingEvents(true); }
 
-  const generarHtmlReporte = (evento) => {
-  const fecha = evento.fechaevento
-    ? new Date(evento.fechaevento).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    : 'Fecha no disponible';
+    try {
+      const token = await getTokenAsync();
+      if (!token) { Alert.alert('Error', 'Por favor, inicia sesión nuevamente'); return; }
 
-  const clasificacion = evento.clasificacion
-    ? `${evento.clasificacion.label || ''} - ${evento.subcategoria?.label || 'Sin subcategoría'}`
-    : 'No especificada';
+      const [dashRes, eventsRes, notifsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+        axios.get(`${API_BASE_URL}/eventos`,          { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+        axios.get(`${API_BASE_URL}/notificaciones`,   { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }).catch(() => ({ data: [] })),
+      ]);
 
-  return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>Reporte de Evento</title>
-  <style>
-    body { font-family: sans-serif; margin: 20px; line-height: 1.6; }
-    .header { text-align: center; border-bottom: 2px solid #E95A0C; padding-bottom: 10px; margin-bottom: 20px; }
-    h1 { color: #E95A0C; margin: 0; font-size: 22px; }
-    .field { margin: 10px 0; }
-    .label { font-weight: bold; display: inline-block; width: 140px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>Reporte del Evento</h1>
-  </div>
-  <div class="field"><span class="label">Título:</span> ${evento.nombreevento || 'Sin título'}</div>
-  <div class="field"><span class="label">Fecha:</span> ${fecha}</div>
-  <div class="field"><span class="label">Clasificación:</span> ${clasificacion}</div>
-</body>
-</html>
-  `.trim();
-};
+      const data = dashRes.data;
 
-const generarYCompartirPDF = async (eventoId) => {
-  try {
-    console.log("🚀 Iniciando impresión del evento ID:", eventoId);
+      setDashboardStats([
+        { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(), icon: 'people-outline',        color: COLORS.primary,   description: 'Cuentas habilitadas' },
+        { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),        icon: 'calendar-outline',      color: COLORS.info,      description: 'Todos los eventos' },
+        { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(), icon: 'document-text-outline', color: COLORS.warning, description: 'Esperando revisión' },
+        { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,            icon: 'pulse-outline',         color: COLORS.success,   description: 'Rendimiento del sistema' },
+      ]);
 
-    const token = await getTokenAsync();
-    if (!token) {
-      Alert.alert('Error', 'No se puede imprimir sin estar autenticado.');
-      return;
-    }
+      const events = (Array.isArray(eventsRes.data) ? eventsRes.data : [])
+        .filter(e => e.idfase === 2)
+        .map(e => ({
+          id: e.idevento,
+          title: e.nombreevento || 'Sin título',
+          date: e.fechaevento ? new Date(e.fechaevento).toLocaleDateString('es-ES') : 'N/A',
+          time: e.horaevento || 'N/A',
+          state: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : 'Pendiente',
+          creator: e.academicoCreador
+            ? `${e.academicoCreador.nombre || ''} ${e.academicoCreador.apellidopat || ''}`.trim()
+            : 'Desconocido',
+        }));
 
-    const response = await axios.get(`${API_BASE_URL}/eventos/${eventoId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-      timeout: 10000,
-    });
+      setAllEvents(events);
+      setNotifications(Array.isArray(notifsRes.data) ? notifsRes.data : []);
+      setLastUpdated(new Date());
 
-    const eventoCompleto = response.data;
-
-    if (!eventoCompleto || !eventoCompleto.nombreevento) {
-      throw new Error('Datos del evento incompletos');
-    }
-
-    // ✅ Fecha segura
-    const fechaEvento = eventoCompleto.fechaevento 
-      ? new Date(eventoCompleto.fechaevento).toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })
-      : 'Fecha no disponible';
-
-    // ✅ Clasificación segura
-    const clasificacion = eventoCompleto.clasificacion
-      ? `${eventoCompleto.clasificacion.label || ''} - ${eventoCompleto.subcategoria?.label || 'Sin subcategoría'}`
-      : 'No especificada';
-
-    // ✅ HTML limpio y seguro (sin riesgo de caracteres rotos)
-    const htmlContent = `
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: sans-serif; margin: 20px; }
-          .header { text-align: center; border-bottom: 2px solid #E95A0C; padding-bottom: 10px; }
-          h1 { color: #E95A0C; margin: 0; }
-          .field { margin: 10px 0; }
-          .label { font-weight: bold; display: inline-block; min-width: 120px; }
-        </style>
-      </head>
-      <body>
-        <div class="header"><h1>Reporte del Evento</h1></div>
-        <div class="field"><span class="label">Título:</span> ${eventoCompleto.nombreevento}</div>
-        <div class="field"><span class="label">Fecha:</span> ${fechaEvento}</div>
-        <div class="field"><span class="label">Clasificación:</span> ${clasificacion}</div>
-      </body>
-      </html>
-    `;
-
-    console.log("📝 Generando PDF...");
-
-    // ✅ Generar archivo PDF
-    const pdf = await Print.printToFileAsync({ html: htmlContent });
-    
-    if (!pdf?.uri) {
-      throw new Error('No se generó el PDF');
-    }
-
-    console.log("📄 PDF listo en:", pdf.uri);
-
-    // ✅ Compartir el PDF
-    await Sharing.shareAsync(pdf.uri, {
-      UTI: '.pdf',
-      mimeType: 'application/pdf',
-    });
-
-    Alert.alert('Éxito', 'PDF generado y compartido.');
-
-  } catch (error) {
-    console.error("❌ Error en PDF:", error);
-    Alert.alert('Error', `No se pudo generar el PDF: ${error.message}`);
-  } finally {
-    // ✅ Cerrar modal SIEMPRE
-    setEventoParaImprimir(null);
-    setLoadingPrint(false);
-  }
-};
-const seleccionarImagen = async () => {
-  // Pedir permisos
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== 'granted') {
-    Alert.alert('Permiso necesario', 'Necesitas permitir el acceso a la galería.');
-    return;
-  }
-
-  // Abrir galería
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    aspect: [4, 3],
-    quality: 0.8,
-  });
-
-  if (!result.canceled) {
-    setImagenSeleccionada(result.assets[0].uri);
-    setUrlImagenSubida(null); // Resetear si ya había una imagen subida
-  }
-};
-const subirImagen = async () => {
-  if (!imagenSeleccionada || !authToken) return;
-
-  setSubiendoImagen(true);
-  try {
-    // Crear FormData
-    const formData = new FormData();
-    formData.append('imagen', {
-      uri: imagenSeleccionada,
-      type: 'image/jpeg',
-      name: `croquis_${Date.now()}.jpg`,
-    });
-
-    // Subir al servidor
-    const response = await axios.post(
-      `${API_BASE_URL}/eventos/${idevento}/subir-croquis`,
-      formData,
-      {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-
-    if (response.data.success && response.data.imageUrl) {
-      setUrlImagenSubida(response.data.imageUrl);
-      Alert.alert('Éxito', 'Imagen subida correctamente.');
-    } else {
-      throw new Error('Error en la respuesta del servidor');
-    }
-  } catch (error) {
-    console.error('Error al subir imagen:', error);
-    Alert.alert('Error', 'No se pudo subir la imagen.');
-  } finally {
-    setSubiendoImagen(false);
-  }
-};
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoadingDashboard(true);
-      setLoadingEvents(true);
-      try {
-        const token = await getTokenAsync();
-        if (!token) {
-          Alert.alert('Error de Autenticación', 'Por favor, inicia sesión nuevamente');
-          return;
-        }
-          console.log("🔑 Token obtenido:", token);
-        const [dashboardRes, eventsRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/dashboard/stats`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-            timeout: 10000,
-          }),
-          axios.get(`${API_BASE_URL}/eventos`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-            timeout: 10000,
-          })
-        ]);
-       console.log("📊 Dashboard data:", dashboardRes.data);
-console.log("📋 Total eventos recibidos:", eventsRes.data?.length || 0);
-
-if (eventsRes.data && eventsRes.data.length > 0) {
-  console.log("🔍 Primer evento:", eventsRes.data[0]);
-  console.log("🔍 Campos del primer evento:", Object.keys(eventsRes.data[0]));
-  console.log("🔍 Valores únicos de idfase:", [...new Set(eventsRes.data.map(e => e.idfase))]);
-}
-
-        const data = dashboardRes.data;
-      const events = eventsRes.data
-        .filter(event => {
-    const passesFilter = event.idfase === 2;
-    if (!passesFilter) {
-      console.log(`❌ Filtrado: ${event.nombreevento || 'Sin nombre'} - idfase: ${event.idfase}`);
-    }
-    return passesFilter;
-  })
-  .map(event => {
-    const estadoNormalizado = event.estado?.toLowerCase().includes('aprobado')
-      ? 'Aprobado'
-      : 'Pendiente';
-
-    return {
-      id: event.idevento,
-      title: event.nombreevento || 'Sin título',
-      date: event.fechaevento ? new Date(event.fechaevento).toLocaleDateString('es-ES') : 'N/A',
-      time: event.horaevento || 'N/A',
-      state: estadoNormalizado,
-      creator: event.academicoCreador
-        ? `${event.academicoCreador.nombre || ''} ${event.academicoCreador.apellidopat || ''}`.trim()
-        : 'Desconocido'
-    };
-  });
-console.log("✅ Eventos después del filtro:", events.length);
-console.log("📊 Stats procesados:", {
-  activeUsers: data.activeUsers,
-  totalEvents: data.totalEvents,
-  pendingContent: data.pendingContent
-});
-        setDashboardStats([
-          { title: 'Usuarios Activos', value: data.activeUsers?.toLocaleString() || '0', icon: 'people-outline', color: COLORS.primary, trend: 12.5, description: 'Último mes' },
-          { title: 'Eventos Totales', value: data.totalEvents?.toString() || '0', icon: 'calendar-outline', color: COLORS.info, trend: -3.2, description: 'Último mes' },
-          { title: 'Contenidos Pendientes', value: data.pendingContent?.toString() || '0', icon: 'document-text-outline', color: COLORS.warning, trend: 18.7, description: 'Última semana' },
-          { title: 'Estabilidad Sistema', value: `${data.systemStability || 0}%`, icon: 'pulse-outline', color: COLORS.success, trend: 2.1, description: 'Rendimiento óptimo' },
-        ]);
-
-        setAllEvents(events);
-       } catch (error) {
-      console.error("❌ Error en fetchDashboardData:", error); // ✅ Captura el error real
-      if (error.response?.status === 401) {
-        deleteTokenAsync();
-        router.replace('/');
-      } else {
-        Alert.alert('Error', 'No se pudieron cargar los datos.');
-      }
+    } catch (error) {
+      console.error('Error fetchData:', error);
+      if (error.response?.status === 401) { await deleteTokenAsync(); router.replace('/'); }
+      else Alert.alert('Error de Conexión', 'No se pudieron cargar los datos.', [
+        { text: 'Reintentar', onPress: () => fetchData() },
+        { text: 'Cancelar', style: 'cancel' },
+      ]);
     } finally {
       setLoadingDashboard(false);
       setLoadingEvents(false);
+      setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Mark notification as read ──────────────────────────────────────────────
+  const markAsRead = async (id) => {
+    try {
+      const token = await getTokenAsync();
+      await axios.put(`${API_BASE_URL}/notificaciones/${id}/leer`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch {}
   };
 
-  fetchDashboardData();
-}, []);
+  const markAllAsRead = async () => {
+    await Promise.all(notifications.filter(n => !n.read).map(n => markAsRead(n.id)));
+  };
 
-  const adminActions = [
-    { id: '1', title: 'Gestión de Usuarios', iconName: 'people-outline', route: '/admin/UsuariosDaf', color: COLORS.secondary, description: 'Administración de cuentas de usuario' },
-    { id: '3', title: 'Eventos Aprobados', iconName: 'checkmark-circle-outline', route: '/admin/EventosAprobados', color: COLORS.success, description: 'Gestión de eventos ya aprobados' },
-    { id: '4', title: 'Análisis de Datos', iconName: 'analytics-outline', route: '/admin/Estadistica', color: COLORS.info, description: 'Informes y métricas del sistema' },
-    { id: '5', title: 'Reportes Avanzados', iconName: 'document-text-outline', route: '/admin/reportes', color: COLORS.secondary, description: 'Generación de reportes detallados', badge: 'Nuevo', badgeColor: COLORS.accent },
-    { id: '6', title: 'Creación de Recursos', iconName: 'construct-outline', route: '/admin/Recursos', color: COLORS.warning, description: 'Generación de recursos detallados', badge: 'Nuevo', badgeColor: COLORS.accent },
-    { id: '7', title: 'Subida de Loyouts', iconName: 'image-ouline', route: '/admin/Layouts', color: COLORS.warning, description: 'Generación de layouts detallados', badge: 'Nuevo', badgeColor: COLORS.accent },
-  ];
+  const handlePrintEvent = (eventoId) => {
+    router.push({ pathname: '/admin/EventoDetalleImp', params: { eventId: eventoId.toString() } });
+  };
 
   const handleActionPress = (route) => {
     if (route) router.push(route);
-    else Alert.alert('Funcionalidad en Desarrollo', 'Esta característica estará disponible próximamente.');
+    else Alert.alert('En Desarrollo', 'Esta característica estará disponible próximamente.');
   };
 
   const handleLogout = async () => {
-    Alert.alert('Confirmar Cierre de Sesión', '¿Está seguro que desea cerrar la sesión actual?', [
+    Alert.alert('Confirmar Cierre de Sesión', '¿Está seguro que desea cerrar la sesión?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar Sesión', style: 'destructive', onPress: async () => { await deleteTokenAsync(); router.replace('/'); } },
     ], { cancelable: true });
   };
 
+  const adminActions = [
+    { id: '1', title: 'Gestión de Usuarios',   iconName: 'people-outline',          route: '/admin/UsuariosDaf',        color: COLORS.secondary, description: 'Administración de cuentas de usuario' },
+    { id: '3', title: 'Eventos Aprobados',      iconName: 'checkmark-circle-outline', route: '/admin/EventosAprobados',   color: COLORS.success,   description: 'Gestión de eventos ya aprobados' },
+    { id: '4', title: 'Análisis de Datos',      iconName: 'analytics-outline',        route: '/admin/Estadistica',        color: COLORS.info,      description: 'Informes y métricas del sistema' },
+    { id: '5', title: 'Reportes Avanzados',     iconName: 'document-text-outline',    route: '/admin/reportes',           color: COLORS.secondary, description: 'Generación de reportes detallados', badge: 'Nuevo', badgeColor: COLORS.accent },
+    { id: '6', title: 'Creación de Recursos',   iconName: 'construct-outline',        route: '/admin/Recursos',           color: COLORS.warning,   description: 'Gestión de recursos del sistema',   badge: 'Nuevo', badgeColor: COLORS.accent },
+    { id: '7', title: 'Subida de Layouts',      iconName: 'images-outline',           route: '/admin/Layouts',            color: COLORS.info,      description: 'Administración de plantillas',       badge: 'Nuevo', badgeColor: COLORS.accent },
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: isBannerExpanded ? 220 : 80 }]}
+        contentContainerStyle={{ paddingBottom: isBannerExpanded ? 220 : 100 }}
       >
         <MinimalHeader
           nombreUsuario={nombreUsuario}
           unreadCount={unreadCount}
           onNotificationPress={() => setShowNotifications(true)}
+          lastUpdated={lastUpdated}
+          onRefresh={() => fetchData(true)}
+          refreshing={refreshing}
         />
 
-        <View style={styles.dashboardSectionMinimal}>
-          <View style={styles.sectionHeaderMinimal}>
-            <Text style={styles.sectionTitleMinimal}>Resumen de Actividad</Text>
-            <Text style={styles.sectionSubtitleMinimal}>Métricas clave del sistema</Text>
-          </View>
+        {/* ── KPIs ── */}
+        <Section title="Resumen de Actividad" subtitle="Métricas clave del sistema">
           {loadingDashboard ? (
-            <View style={{ justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}>
+            <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={[styles.sectionSubtitleMinimal, { marginTop: 10 }]}>Cargando estadísticas...</Text>
+              <Text style={styles.loadingText}>Cargando estadísticas…</Text>
             </View>
           ) : (
-            <View style={styles.dashboardGridMinimal}>
-              {dashboardStats.map((stat, index) => (
-                <DashboardCard
-                  key={index}
-                  title={stat.title}
-                  value={stat.value}
-                  icon={stat.icon}
-                  color={stat.color}
-                  trend={stat.trend}
-                  description={stat.description}
-                />
-              ))}
+            <View style={styles.kpiGrid}>
+              {dashboardStats.map((s, i) => <DashboardCard key={i} {...s} />)}
             </View>
           )}
-        </View>
+        </Section>
 
-        <View style={styles.eventsSection}>
-          <View style={styles.eventsSectionHeader}>
-            <Text style={styles.sectionTitleMinimal}>Todos los Eventos</Text>
-            <Text style={styles.sectionSubtitleMinimal}>Eventos aprobados y pendientes</Text>
-          </View>
+        {/* ── TABLA DE EVENTOS ── */}
+        <Section title="Eventos en Fase 2" subtitle="Aprobados y pendientes de revisión DAF">
           {loadingEvents ? (
-            <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+            <View style={styles.loadingBox}>
               <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={[styles.sectionSubtitleMinimal, { marginTop: 8 }]}>Cargando eventos...</Text>
+              <Text style={styles.loadingText}>Cargando eventos…</Text>
             </View>
           ) : (
-            <DataTable
-              data={allEvents}
-              columns={tableColumns}
-              onPrint={handlePrintEvent}
-            />
+            <>
+              {/* Contador */}
+              <View style={styles.tableInfo}>
+                <View style={styles.tableInfoBadge}>
+                  <Text style={styles.tableInfoText}>{allEvents.length} eventos</Text>
+                </View>
+                <Text style={styles.tableInfoSub}>
+                  {allEvents.filter(e => e.state === 'Aprobado').length} aprobados ·{' '}
+                  {allEvents.filter(e => e.state !== 'Aprobado').length} pendientes
+                </Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ minWidth: windowWidth - 40 }}>
+                  <DataTable data={allEvents} columns={tableColumns} onPrint={handlePrintEvent} />
+                </View>
+              </ScrollView>
+            </>
           )}
-        </View>
+        </Section>
 
-        <View style={styles.actionsSectionMinimal}>
-          <View style={styles.sectionHeaderMinimal}>
-            <Text style={styles.sectionTitleMinimal}>Herramientas de Gestión</Text>
-            <Text style={styles.sectionSubtitleMinimal}>Acceda a las funcionalidades principales</Text>
-          </View>
-          <View style={{ width: '100%' }}>
-            {adminActions.map((action, index) => (
-              <ActionCardLarge
-                key={action.id}
-                action={action}
-                onPress={() => handleActionPress(action.route)}
-                index={index}
-              />
-            ))}
-          </View>
-        </View>
-
-      
+        {/* ── HERRAMIENTAS ── */}
+        <Section title="Herramientas de Gestión" subtitle="Acceda a las funcionalidades principales">
+          {adminActions.map((action, i) => (
+            <ActionCardLarge
+              key={action.id}
+              action={action}
+              onPress={() => handleActionPress(action.route)}
+              index={i}
+            />
+          ))}
+        </Section>
       </ScrollView>
 
+      {/* ── NOTIFICACIONES MODAL ── */}
+      {showNotifications && (
+        <View style={styles.overlay}>
+          <View style={styles.notifModal}>
+            <View style={styles.notifHeader}>
+              <Text style={styles.notifTitle}>
+                Notificaciones{unreadCount > 0 ? <Text style={{ color: COLORS.primary }}> ({unreadCount})</Text> : null}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {unreadCount > 0 && (
+                  <TouchableOpacity onPress={markAllAsRead}>
+                    <Text style={styles.markAllText}>Marcar todas</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setShowNotifications(false)}>
+                  <Ionicons name="close-outline" size={26} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            {notifications.length === 0 ? (
+              <View style={styles.notifEmpty}>
+                <Ionicons name="notifications-off-outline" size={40} color={COLORS.textTertiary} />
+                <Text style={styles.notifEmptyText}>No tienes notificaciones nuevas</Text>
+              </View>
+            ) : (
+              <ScrollView>
+                {notifications.map(notif => (
+                  <TouchableOpacity
+                    key={notif.id}
+                    style={[styles.notifItem, { backgroundColor: notif.read ? COLORS.surface : COLORS.primaryLight }]}
+                    onPress={async () => {
+                      if (!notif.read) await markAsRead(notif.id);
+                      if (notif.idEvento) router.push(`/admin/evento/${notif.idEvento}`);
+                      setShowNotifications(false);
+                    }}
+                  >
+                    <View style={[styles.notifDot, { backgroundColor: notif.read ? COLORS.border : COLORS.primary }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.notifMsg, { fontWeight: notif.read ? '400' : '600' }]}>{notif.mensaje}</Text>
+                      <Text style={styles.notifTime}>{new Date(notif.createdAt).toLocaleDateString()}</Text>
+                    </View>
+                    {!notif.read && (
+                      <TouchableOpacity onPress={() => markAsRead(notif.id)} style={{ padding: 4 }}>
+                        <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* ── DOCK ── */}
       <MinimalBottomDock
         onLogout={handleLogout}
         onActionPress={handleActionPress}
@@ -790,272 +512,147 @@ console.log("📊 Stats procesados:", {
   );
 };
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scrollView: { flex: 1 },
-  scrollContent: { alignItems: 'center', paddingBottom: 80 },
-  minimalHeaderContainer: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: StatusBar.currentHeight + 20,
-    paddingBottom: 20,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+
+  // Header
+  header: {
+    width: '100%', paddingHorizontal: 20,
+    paddingTop: (StatusBar.currentHeight || 40) + 16, paddingBottom: 16,
+    backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.border,
+    elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4,
   },
-  minimalHeaderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  minimalHeaderAdminText: { fontSize: 16, fontWeight: '600', color: COLORS.textSecondary },
-  minimalNotificationButton: { position: 'relative', padding: 4 },
-  minimalNotificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.white,
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerIconBtn: { padding: 6, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerGreeting: { fontSize: 15, color: COLORS.textSecondary },
+  headerName: { fontSize: 22, color: COLORS.textPrimary, fontWeight: '700' },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: COLORS.textPrimary },
+  lastUpdated: { fontSize: 11, color: COLORS.textTertiary, marginTop: 4 },
+  notifBtn: { position: 'relative', padding: 6 },
+  notifBadge: {
+    position: 'absolute', top: 0, right: 0, backgroundColor: COLORS.accent,
+    borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: COLORS.white,
   },
-  minimalNotificationBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: 'bold' },
-  minimalHeaderGreeting: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 4 },
-  minimalGreetingText: { fontSize: 22, fontWeight: '500', color: COLORS.textSecondary },
-  minimalUserNameText: { fontSize: 22, fontWeight: '700', color: COLORS.textPrimary },
-  minimalHeaderTitle: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
-  sectionHeaderMinimal: { marginBottom: 24, paddingHorizontal: 4 },
-  sectionTitleMinimal: { fontSize: 24, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6 },
-  sectionSubtitleMinimal: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '400' },
-  dashboardSectionMinimal: { width: '100%', paddingHorizontal: 20, marginTop: 30 },
-  dashboardGridMinimal: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
-  dashboardCardMinimal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    width: '48%',
-    minHeight: 130,
-    justifyContent: 'space-between',
+  notifBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: '700' },
+
+  // Section
+  section: { width: '100%', paddingHorizontal: 20, marginTop: 28 },
+  sectionHead: { marginBottom: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 2 },
+  sectionSub: { fontSize: 13, color: COLORS.textSecondary },
+
+  // KPIs
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
+  kpiCard: {
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 16, width: '48%',
+    minHeight: 120, justifyContent: 'space-between', borderTopWidth: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
   },
-  dashboardCardHeaderMinimal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  dashboardCardValueMinimal: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
-  dashboardCardTitleMinimal: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 4 },
-  dashboardCardTrendMinimal: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  dashboardCardTrendTextMinimal: { fontSize: 12, fontWeight: '600' },
-  dashboardCardDescriptionMinimal: { fontSize: 11, color: COLORS.textTertiary },
-  actionsSectionMinimal: { width: '100%', paddingHorizontal: 20, marginTop: 40, marginBottom: 40 },
-  actionCardLarge: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  kpiTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  kpiIconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  kpiValue: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
+  kpiTitle: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 2 },
+  kpiDesc: { fontSize: 11, color: COLORS.textTertiary },
+
+  // Table
+  tableInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  tableInfoBadge: { backgroundColor: COLORS.primaryLight, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  tableInfoText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  tableInfoSub: { fontSize: 12, color: COLORS.textSecondary },
+  tableWrap: {
+    backgroundColor: COLORS.surface, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
-  actionCardLargeIcon: { width: 60, height: 60, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  actionCardLargeContent: { flex: 1 },
-  actionCardLargeTitleContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  actionCardLargeTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
-  actionCardLargeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  actionCardLargeBadgeText: { fontSize: 11, fontWeight: '700', color: COLORS.white },
-  actionCardLargeDescription: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
-  minimalDockToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 8 },
-  minimalDockToggleText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
-  minimalDockExpandedContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 60,
+  tableHeadRow: {
+    flexDirection: 'row', backgroundColor: COLORS.background,
+    paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderColor: COLORS.border,
   },
-  minimalDockQuickActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', marginBottom: 15, gap: 10 },
-  minimalDockQuickActionButton: { alignItems: 'center', paddingVertical: 8, width: '22%' },
-  minimalDockQuickActionText: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
-  minimalDockLogoutButton: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    width: '100%',
+  tableHeadCell: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
+  tableRow: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderColor: COLORS.divider },
+  tableRowAlt: { backgroundColor: '#FAFAFA' },
+  tableCell: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20 },
+  tableCellMuted: { color: COLORS.textTertiary, fontStyle: 'italic' },
+  stateBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  stateBadgeText: { fontSize: 11, fontWeight: '700' },
+  printBtn: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 10,
+    backgroundColor: COLORS.primaryLight, borderRadius: 6, borderWidth: 1, borderColor: COLORS.primary, gap: 4,
   },
-  minimalDockLogoutButtonText: { color: COLORS.white, fontSize: 15, fontWeight: '600', marginLeft: 8 },
-  eventsSection: { width: '100%', paddingHorizontal: 20, marginTop: 30, marginBottom: 40 },
-  eventsSectionHeader: { marginBottom: 20 },
-  dataTableContainer: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  printBtnText: { color: COLORS.primary, fontSize: 11, fontWeight: '600' },
+  emptyTable: { alignItems: 'center', paddingVertical: 40 },
+  emptyTableText: { marginTop: 10, fontSize: 14, color: COLORS.textTertiary },
+
+  // Action cards
+  actionCard: {
+    backgroundColor: COLORS.surface, borderRadius: 14, padding: 18, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    borderWidth: 1, borderColor: COLORS.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
   },
-  dataTableHeaderRow: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.background,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: COLORS.divider,
+  actionIcon: { width: 52, height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  actionContent: { flex: 1 },
+  actionTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  actionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  actionBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  actionBadgeText: { fontSize: 10, fontWeight: '700', color: COLORS.white },
+  actionDesc: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
+
+  // Dock
+  dock: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: COLORS.primary, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 8,
+    elevation: 10, overflow: 'hidden',
   },
-  dataTableHeader: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  dockToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 8 },
+  dockToggleText: { color: COLORS.white, fontSize: 15, fontWeight: '600' },
+  dockExpanded: {
+    paddingHorizontal: 20, paddingBottom: 12, backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 62,
   },
-  dataTableRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: COLORS.divider,
+  dockActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 },
+  dockActionBtn: { alignItems: 'center', paddingVertical: 8, width: '30%' },
+  dockActionText: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
+  dockLogout: {
+    flexDirection: 'row', backgroundColor: COLORS.accent, paddingVertical: 12,
+    alignItems: 'center', justifyContent: 'center', borderRadius: 10,
   },
-  dataTableRowEven: {
-    backgroundColor: '#F9FAFB',
-  },
-  dataTableCell: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
-  stateApproved: {
-    color: COLORS.success,
-    fontWeight: '600',
-  },
-  statePending: {
-    color: COLORS.warning,
-    fontWeight: '600',
-  },
-  creatorUnknown: {
-    color: COLORS.textTertiary,
-    fontStyle: 'italic',
-  },
-  tableEmptyContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  tableEmptyText: {
-    fontSize: 16,
-    color: COLORS.textTertiary,
-    textAlign: 'center',
-  },
-  printButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  printButtonText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  // ✅ Estilos del modal de confirmación
+  dockLogoutText: { color: COLORS.white, fontSize: 15, fontWeight: '600', marginLeft: 8 },
+
+  // Notifications
   overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-start',
+    paddingTop: (StatusBar.currentHeight || 0) + 10, zIndex: 1000,
   },
-  printModal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 24,
-    width: '80%',
-    alignItems: 'center',
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 10,
+  notifModal: {
+    backgroundColor: COLORS.white, marginHorizontal: 16, borderRadius: 16,
+    maxHeight: '72%', elevation: 10,
   },
-  printModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 12,
+  notifHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: COLORS.border,
   },
-  printModalText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
+  notifTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+  markAllText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
+  notifEmpty: { alignItems: 'center', paddingVertical: 40 },
+  notifEmptyText: { marginTop: 12, fontSize: 14, color: COLORS.textSecondary },
+  notifItem: {
+    flexDirection: 'row', alignItems: 'center', padding: 14,
+    borderBottomWidth: 1, borderColor: COLORS.border, gap: 12,
   },
-  printModalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-    justifyContent: 'space-between',
-  },
-  printModalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelButtonText: {
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  confirmButton: {
-    backgroundColor: COLORS.primary,
-  },
-  confirmButtonText: {
-    color: COLORS.white,
-    fontWeight: '600',
-  },
+  notifDot: { width: 10, height: 10, borderRadius: 5 },
+  notifMsg: { fontSize: 14, color: COLORS.textPrimary, marginBottom: 3 },
+  notifTime: { fontSize: 12, color: COLORS.textTertiary },
+
+  // Loading
+  loadingBox: { alignItems: 'center', paddingVertical: 40 },
+  loadingText: { marginTop: 10, fontSize: 14, color: COLORS.textSecondary },
 });
 
-export default daf;
+export default Daf;
