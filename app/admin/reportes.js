@@ -1,15 +1,8 @@
 // app/admin/reportes/index.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  useWindowDimensions,
-  Platform
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator, useWindowDimensions, Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
@@ -17,12 +10,8 @@ import * as Sharing from 'expo-sharing';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { useRouter } from 'expo-router';
-import MinimalHeader from '../../components/MinimalHeader';
 import { PieChart } from 'react-native-chart-kit';
-import { LineChart } from 'react-native-chart-kit';
-
-// ✅ IMPORTACIÓN FUNDAMENTAL
-import DateTimePicker from '@react-native-community/datetimepicker';
+import Svg, { Rect, Text as SvgText, G, Line } from 'react-native-svg';
 
 const COLORS = {
   primary: '#E95A0C',
@@ -32,868 +21,630 @@ const COLORS = {
   success: '#10B981',
   warning: '#F59E0B',
   info: '#3B82F6',
+  purple: '#8B5CF6',
   background: '#F9FAFB',
   surface: '#FFFFFF',
   textPrimary: '#1F2937',
   textSecondary: '#6B7280',
   textTertiary: '#9CA3AF',
   border: '#E5E7EB',
-  divider: '#D1D5DB',
-  shadow: 'rgba(0, 0, 0, 0.05)',
+  divider: '#F3F4F6',
   white: '#FFFFFF',
-  black: '#000000',
 };
 
-let determinedApiBaseUrl;
-/*if (Platform.OS === 'android') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else if (Platform.OS === 'ios') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else {
-  determinedApiBaseUrl = 'http://localhost:3001/api';
-}*/
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
-    try {
-      return localStorage.getItem(TOKEN_KEY);
-    } catch (e) {
-      return null;
-    }
+    try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
   } else {
-    try {
-      return await SecureStore.getItemAsync(TOKEN_KEY);
-    } catch (e) {
-      return null;
-    }
+    try { return await SecureStore.getItemAsync(TOKEN_KEY); } catch { return null; }
   }
 };
 
+const MONTH_NAMES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MONTH_NAMES_FULL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+// ─── Mini bar chart para ranking ────────────────────────────────────────────
+const MiniBarChart = ({ data, width }) => {
+  if (!data?.length) return null;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const barH = 180;
+  const padL = 8, padB = 32, padT = 16, padR = 8;
+  const cw = width - padL - padR;
+  const ch = barH - padT - padB;
+  const gap = cw / data.length;
+  const barW = Math.max(gap * 0.6, 12);
+
+  return (
+    <Svg width={width} height={barH}>
+      {data.map((d, i) => {
+        const h = (d.value / max) * ch;
+        const x = padL + gap * i + (gap - barW) / 2;
+        const y = padT + ch - h;
+        return (
+          <G key={i}>
+            <Rect x={x} y={y} width={barW} height={h} fill={COLORS.primary} rx={4} fillOpacity={0.85} />
+            <SvgText x={x + barW / 2} y={y - 4} fontSize="10" fill={COLORS.primary} textAnchor="middle" fontWeight="700">{d.value}</SvgText>
+            <SvgText x={x + barW / 2} y={barH - padB + 14} fontSize="9" fill={COLORS.textSecondary} textAnchor="middle">
+              {d.label.length > 8 ? d.label.slice(0, 8) + '…' : d.label}
+            </SvgText>
+          </G>
+        );
+      })}
+      <Line x1={padL} y1={padT + ch} x2={width - padR} y2={padT + ch} stroke={COLORS.border} strokeWidth="1" />
+    </Svg>
+  );
+};
+
+// ─── KPI Card ────────────────────────────────────────────────────────────────
+const KpiCard = ({ label, value, icon, color, sub }) => (
+  <View style={[styles.kpiCard, { borderTopColor: color }]}>
+    <View style={[styles.kpiIconWrap, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon} size={20} color={color} />
+    </View>
+    <Text style={styles.kpiValue}>{value}</Text>
+    <Text style={styles.kpiLabel}>{label}</Text>
+    {sub ? <Text style={styles.kpiSub}>{sub}</Text> : null}
+  </View>
+);
+
+// ─── Section Header ──────────────────────────────────────────────────────────
+const SectionHeader = ({ title, subtitle, icon }) => (
+  <View style={styles.sectionHeader}>
+    <View style={styles.sectionHeaderLeft}>
+      <Ionicons name={icon} size={20} color={COLORS.primary} />
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+    {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+  </View>
+);
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
 const ReportesAvanzadosScreen = () => {
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
-  
-  const [loading, setLoading] = useState(false);
-  const [loadingCharts, setLoadingCharts] = useState(true);
 
-  // Estados para las gráficas
-  const [eventosPorEstado, setEventosPorEstado] = useState(null);
-  const [eventosPorMes, setEventosPorMes] = useState(null);
+  const [loading, setLoading]             = useState(false);
+  const [loadingMain, setLoadingMain]     = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  // Stats
+  const [stats, setStats]                 = useState(null);
   const [reportesMensuales, setReportesMensuales] = useState([]);
-  const [mesSeleccionado, setMesSeleccionado] = useState(null);
-  const [showMonthSelector, setShowMonthSelector] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
-  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [eventosPorEstado, setEventosPorEstado]   = useState(null);
+  const [rankingFacultades, setRankingFacultades] = useState([]);
+
+  // Eventos recientes
+  const [eventosRecientes, setEventosRecientes]   = useState([]);
+  const [filtroEstado, setFiltroEstado]           = useState('todos');
+
+  // Selector PDF
+  const [showSelector, setShowSelector]   = useState(false);
+  const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [showYearPicker, setShowYearPicker]   = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  // Función genérica para mostrar errores
-  const showError = (message) => {
-    Alert.alert('Error', message, [{ text: 'OK' }]);
-  };
 
-  const cargarReportesMensuales = async () => {
+  const years  = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const months = MONTH_NAMES_FULL.map((name, i) => ({ value: i + 1, name }));
+
+  const showError = (msg) => Alert.alert('Error', msg, [{ text: 'OK' }]);
+
+  // ── Carga principal ────────────────────────────────────────────────────────
+  const cargarDatos = useCallback(async () => {
+    setLoadingMain(true);
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        router.replace('/');
-        return;
+      if (!token) { router.replace('/'); return; }
+
+      const [statsRes, mensualRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_BASE_URL}/dashboard/mensual`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      const data = statsRes.data;
+      setStats(data);
+
+      // Pie chart
+      if (data.estadoCounts) {
+        const colorMap = { aprobado: COLORS.success, pendiente: COLORS.warning, rechazado: COLORS.accent };
+        const pie = Object.entries(data.estadoCounts)
+          .filter(([, v]) => v > 0)
+          .map(([k, v]) => ({
+            name: k.charAt(0).toUpperCase() + k.slice(1),
+            population: v,
+            color: colorMap[k.toLowerCase()] || COLORS.info,
+            legendFontColor: COLORS.textPrimary,
+            legendFontSize: 12,
+          }));
+        setEventosPorEstado(pie.length ? pie : null);
       }
 
-      const res = await axios.get(`${API_BASE_URL}/dashboard/mensual`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Ranking facultades
+      if (Array.isArray(data.eventosPorFacultad)) {
+        setRankingFacultades(
+          data.eventosPorFacultad
+            .map(f => ({ label: f.facultad || 'N/A', value: f.total || 0 }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 6)
+        );
+      }
 
-      const reportesOrdenados = Array.isArray(res.data)
-        ? res.data.sort((a, b) => new Date(b.mes) - new Date(a.mes))
+      // Reportes mensuales
+      const reportes = Array.isArray(mensualRes.data)
+        ? mensualRes.data.sort((a, b) => new Date(b.mes) - new Date(a.mes))
         : [];
+      setReportesMensuales(reportes);
 
-      setReportesMensuales(reportesOrdenados);
-      
-      if (reportesOrdenados.length > 0) {
-        setMesSeleccionado(reportesOrdenados[0].mes);
-      }
-      console.log('🔍 Datos recibidos:', res.data);
-      console.log('🔍 Primer elemento:', res.data[0]);
-    } catch (error) {
-      console.error('Error al cargar reportes mensuales:', error);
-      showError('No se pudieron cargar los reportes mensuales.');
-    }
-  };
-
-  // Cargar datos para gráficas
-  const cargarDatosGraficas = async () => {
-    setLoadingCharts(true);
-    try {
-      const token = await getTokenAsync();
-      if (!token) {
-        router.replace('/');
-        return;
-      }
-
-      const res = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = res.data;
-
-      // 1. Gráfico de pastel: eventos por estado
-      if (data.estadoCounts && typeof data.estadoCounts === 'object') {
-        const pieData = [];
-        for (const [estado, count] of Object.entries(data.estadoCounts)) {
-          if (typeof count === 'number' && count > 0) {
-            let color = COLORS.info;
-            switch (estado.toLowerCase()) {
-              case 'aprobado':
-                color = COLORS.success;
-                break;
-              case 'pendiente':
-                color = COLORS.warning;
-                break;
-              case 'rechazado':
-                color = COLORS.accent;
-                break;
-            }
-            pieData.push({
-              name: estado.charAt(0).toUpperCase() + estado.slice(1),
-              population: count,
-              color,
-              legendFontColor: COLORS.textPrimary,
-              legendFontSize: 12,
-            });
-          }
-        }
-        setEventosPorEstado(pieData.length > 0 ? pieData : null);
-      } else {
-        setEventosPorEstado(null);
-      }
-
-      // 2. Gráfico de líneas: eventos por mes
-      if (data.eventosPorMes && Array.isArray(data.eventosPorMes)) {
-        const labels = data.eventosPorMes.map(item => {
-          const [year, month] = item.mes.split('-');
-          const monthNames = [
-            'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-            'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-          ];
-          return `${monthNames[parseInt(month) - 1]}`;
-        });
-        const values = data.eventosPorMes.map(item => item.total || 0);
-
-        setEventosPorMes({
-          labels,
-          datasets: [
-            {
-              data: values,
-              color: (opacity = 1) => COLORS.primary,
-              strokeWidth: 2,
-            },
-          ],
-        });
-      } else {
-        setEventosPorMes(null);
-      }
-
-    } catch (error) {
-      console.error('Error al cargar gráficas:', error);
-      showError('No se pudieron cargar los datos para las gráficas.');
-      setEventosPorEstado(null);
-      setEventosPorMes(null);
+    } catch (err) {
+      console.error(err);
+      showError('No se pudieron cargar los datos del dashboard.');
     } finally {
-      setLoadingCharts(false);
+      setLoadingMain(false);
     }
-  };
-
-  useEffect(() => {
-    cargarDatosGraficas();
-    cargarReportesMensuales();
   }, []);
 
-  // === Función para generar reporte ===
-  const generarReporteMensual = async (mesFormato) => {
+  // ── Carga eventos recientes ────────────────────────────────────────────────
+  const cargarEventos = useCallback(async () => {
+    setLoadingEvents(true);
+    try {
+      const token = await getTokenAsync();
+      if (!token) return;
+      const params = filtroEstado !== 'todos' ? { estado: filtroEstado } : {};
+      const res = await axios.get(`${API_BASE_URL}/eventos`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+      });
+      const lista = Array.isArray(res.data) ? res.data : [];
+      setEventosRecientes(lista.slice(0, 10));
+    } catch (err) {
+      console.error(err);
+      setEventosRecientes([]);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, [filtroEstado]);
+
+  useEffect(() => { cargarDatos(); }, [cargarDatos]);
+  useEffect(() => { cargarEventos(); }, [cargarEventos]);
+
+  // ── Exportar CSV ───────────────────────────────────────────────────────────
+  const exportarCSV = async () => {
+    try {
+      const token = await getTokenAsync();
+      if (!token) return;
+      const res = await axios.get(`${API_BASE_URL}/eventos`, { headers: { Authorization: `Bearer ${token}` } });
+      const eventos = Array.isArray(res.data) ? res.data : [];
+      if (!eventos.length) { showError('No hay eventos para exportar.'); return; }
+
+      const headers = ['ID', 'Nombre', 'Fecha', 'Lugar', 'Estado', 'Responsable'];
+      const rows = eventos.map(e => [
+        e.idevento, `"${e.nombreevento || ''}"`, e.fechaevento?.split('T')[0] || '',
+        `"${e.lugarevento || ''}"`, e.estado || '', `"${e.responsable_evento || ''}"`,
+      ].join(','));
+      const csv = [headers.join(','), ...rows].join('\n');
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `eventos_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        Alert.alert('✅ Éxito', 'Archivo CSV descargado correctamente.');
+      } else {
+        const { FileSystem } = await import('expo-file-system');
+        const path = FileSystem.documentDirectory + `eventos_${Date.now()}.csv`;
+        await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Exportar CSV' });
+      }
+    } catch (err) {
+      console.error(err);
+      showError('Error al exportar: ' + err.message);
+    }
+  };
+
+  // ── Generar PDF mensual ────────────────────────────────────────────────────
+  const generarPDF = async (mesFormato) => {
     setLoading(true);
     try {
       const token = await getTokenAsync();
-      if (!token) {
-        router.replace('/');
-        return;
-      }
-
+      if (!token) return;
       const reporte = reportesMensuales.find(r => r.mes === mesFormato);
-      if (!reporte) {
-        throw new Error(`No se encontró reporte para el mes ${mesFormato}.`);
-      }
+      if (!reporte) { showError(`Sin datos para ${mesFormato}.`); return; }
 
-      // Extraer datos del mes
       const [year, monthNum] = mesFormato.split('-');
-      const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-      ];
-      const mesNombre = monthNames[parseInt(monthNum) - 1];
+      const mesNombre = MONTH_NAMES_FULL[parseInt(monthNum) - 1];
 
-      // Generar HTML del reporte
-      const html = `
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <title>Reporte Mensual - ${mesNombre} ${year}</title>
-            <style>
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-                padding: 24px; 
-                background: #f9fafb; 
-                margin: 0;
-              }
-              .container { 
-                max-width: 800px; 
-                margin: 0 auto; 
-                background: white; 
-                border-radius: 12px; 
-                padding: 30px; 
-                box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
-              }
-              h1 { 
-                color: #E95A0C; 
-                text-align: center; 
-                margin-bottom: 30px; 
-                font-size: 24px; 
-              }
-              .metric { 
-                display: flex; 
-                justify-content: space-between; 
-                padding: 10px 0; 
-                border-bottom: 1px solid #eee; 
-              }
-              .label { 
-                color: #6B7280; 
-                font-size: 14px; 
-              }
-              .value { 
-                font-weight: bold; 
-                color: #1F2937; 
-                font-size: 16px; 
-              }
-              .footer { 
-                margin-top: 30px; 
-                text-align: center; 
-                color: #9CA3AF; 
-                font-size: 12px; 
-              }
-              @media print {
-                body { padding: 0; background: white; }
-                .container { border-radius: 0; box-shadow: none; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>Reporte Mensual de Actividad</h1>
-              <div class="metric">
-                <span class="label">Período</span>
-                <span class="value">${mesNombre} ${year}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Usuarios Activos</span>
-                <span class="value">${reporte.activeUsers || 0}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Eventos Totales</span>
-                <span class="value">${reporte.totalEvents || 0}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Eventos Aprobados</span>
-                <span class="value">${reporte.aprobado || 0}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Eventos Pendientes</span>
-                <span class="value">${reporte.pendiente || 0}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Eventos Rechazados</span>
-                <span class="value">${reporte.rechazado || 0}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Tasa de Aprobación</span>
-                <span class="value">${reporte.tasaAprobacion || 0}%</span>
-              </div>
-              <div class="metric">
-                <span class="label">Nuevos Usuarios (Mes)</span>
-                <span class="value">${reporte.usuariosNuevosEsteMes || 0}</span>
-              </div>
-              <div class="metric">
-                <span class="label">Tiempo Prom. Aprobación</span>
-                <span class="value">${reporte.tiempoPromedioAprobacion || 0} horas</span>
-              </div>
-              <div class="footer">
-                Generado desde Panel de Administración - ${new Date().toLocaleDateString('es-ES')}
-              </div>
-            </div>
-          </body>
-        </html>
-      `;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>
+          body{font-family:sans-serif;padding:30px;background:#f9fafb;margin:0}
+          .wrap{max-width:700px;margin:0 auto;background:#fff;border-radius:12px;padding:30px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+          h1{color:#E95A0C;text-align:center;font-size:22px;margin-bottom:8px}
+          .sub{text-align:center;color:#6B7280;font-size:13px;margin-bottom:28px}
+          .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+          .card{background:#f9fafb;border-radius:8px;padding:16px;border-left:4px solid #E95A0C}
+          .card-label{font-size:12px;color:#6B7280;margin-bottom:4px}
+          .card-value{font-size:24px;font-weight:700;color:#1F2937}
+          .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eee;font-size:14px}
+          .label{color:#6B7280}.value{font-weight:600;color:#1F2937}
+          .footer{text-align:center;color:#9CA3AF;font-size:11px;margin-top:24px}
+        </style></head><body><div class="wrap">
+        <h1>Reporte Mensual de Actividad</h1>
+        <p class="sub">${mesNombre} ${year} · Generado el ${new Date().toLocaleDateString('es-ES')}</p>
+        <div class="grid">
+          <div class="card"><div class="card-label">Eventos Totales</div><div class="card-value">${reporte.totalEvents || 0}</div></div>
+          <div class="card"><div class="card-label">Tasa Aprobación</div><div class="card-value">${reporte.tasaAprobacion || 0}%</div></div>
+          <div class="card"><div class="card-label">Usuarios Activos</div><div class="card-value">${reporte.activeUsers || 0}</div></div>
+          <div class="card"><div class="card-label">Nuevos Usuarios</div><div class="card-value">${reporte.usuariosNuevosEsteMes || 0}</div></div>
+        </div>
+        ${[
+          ['Eventos Aprobados', reporte.aprobado || 0],
+          ['Eventos Pendientes', reporte.pendiente || 0],
+          ['Eventos Rechazados', reporte.rechazado || 0],
+          ['Tiempo Prom. Aprobación', `${reporte.tiempoPromedioAprobacion || 0} horas`],
+        ].map(([l, v]) => `<div class="row"><span class="label">${l}</span><span class="value">${v}</span></div>`).join('')}
+        <div class="footer">Panel de Administración UFT</div>
+        </div></body></html>`;
 
-      // ✅ Manejo diferente para Web vs Móvil
       if (Platform.OS === 'web') {
-        const pdfWindow = window.open('', '_blank');
-        if (pdfWindow) {
-          pdfWindow.document.write(html);
-          pdfWindow.document.close();
-          pdfWindow.onload = () => {
-            setTimeout(() => {
-              pdfWindow.print();
-            }, 1000);
-          };
-        } else {
-          showError('Por favor, permite ventanas emergentes para ver el reporte.');
-        }
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 800); }
+        else showError('Permite ventanas emergentes para ver el reporte.');
       } else {
-        try {
-          const printResult = await Print.printToFileAsync({ html });
-          if (printResult?.uri) {
-            await Sharing.shareAsync(printResult.uri, {
-              UTI: '.pdf',
-              mimeType: 'application/pdf',
-              dialogTitle: 'Compartir Reporte Mensual'
-            });
-          } else {
-            throw new Error('No se generó la URI del PDF');
-          }
-        } catch (printError) {
-          console.error('❌ Error al generar PDF en móvil:', printError);
-          showError('No se pudo generar el PDF. Verifica los permisos de almacenamiento.');
-        }
+        const { uri } = await Print.printToFileAsync({ html });
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Compartir Reporte' });
       }
-
-    } catch (error) {
-      console.error('❌ Error al generar reporte mensual:', error);
-      showError(`No se pudo generar el reporte: ${error.message}`);
+    } catch (err) {
+      showError('Error al generar PDF: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const exportarEventos = async () => {
-    Alert.alert(
-      'Próximamente',
-      'Esta funcionalidad permitirá filtrar y exportar eventos por fecha, estado y tipo.',
-      [{ text: 'OK' }]
+  // ── Estado badge ───────────────────────────────────────────────────────────
+  const estadoBadge = (estado) => {
+    const map = {
+      aprobado:  { bg: '#D1FAE5', text: '#059669' },
+      pendiente: { bg: '#FEF3C7', text: '#D97706' },
+      rechazado: { bg: '#FEE2E2', text: '#DC2626' },
+    };
+    const s = map[(estado || '').toLowerCase()] || { bg: COLORS.divider, text: COLORS.textSecondary };
+    return (
+      <View style={{ backgroundColor: s.bg, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 }}>
+        <Text style={{ fontSize: 11, fontWeight: '700', color: s.text }}>
+          {(estado || 'N/A').charAt(0).toUpperCase() + (estado || '').slice(1)}
+        </Text>
+      </View>
     );
   };
 
-  const reportePorUsuario = async () => {
-    Alert.alert(
-      'Próximamente',
-      'Se mostrará el rendimiento de los usuarios académicos: eventos creados, % de aprobación, etc.',
-      [{ text: 'OK' }]
-    );
-  };
-// Generar lista de años (últimos 5 años)
-const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-const months = [
-  { value: 1, name: 'Enero' },
-  { value: 2, name: 'Febrero' },
-  { value: 3, name: 'Marzo' },
-  { value: 4, name: 'Abril' },
-  { value: 5, name: 'Mayo' },
-  { value: 6, name: 'Junio' },
-  { value: 7, name: 'Julio' },
-  { value: 8, name: 'Agosto' },
-  { value: 9, name: 'Septiembre' },
-  { value: 10, name: 'Octubre' },
-  { value: 11, name: 'Noviembre' },
-  { value: 12, name: 'Diciembre' }
-];
+  const chartW = windowWidth - 48;
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <MinimalHeader
-          nombreUsuario="Administrador"
-          unreadCount={0}
-          onNotificationPress={() => {}}
-        />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Sección: Botones de reportes */}
-        <View style={styles.section}>
-          <Text style={styles.title}>Reportes Avanzados</Text>
-          <Text style={styles.subtitle}>Genera y comparte informes detallados del sistema</Text>
-
-          {/* Botón principal - abre selector de mes */}
-          <TouchableOpacity
-            onPress={() => setShowMonthSelector(true)}
-            style={[styles.reportButton, { backgroundColor: COLORS.primaryLight }]}
-          >
-            <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.reportButtonText}>📊 Reporte Mensual (PDF)</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={exportarEventos}
-            style={[styles.reportButton, { backgroundColor: '#EFF6FF' }]}
-          >
-            <Ionicons name="calendar-outline" size={24} color={COLORS.info} />
-            <Text style={styles.reportButtonText}>📅 Exportar Eventos Filtrados</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={reportePorUsuario}
-            style={[styles.reportButton, { backgroundColor: '#ECFDF5' }]}
-          >
-            <Ionicons name="people-outline" size={24} color={COLORS.success} />
-            <Text style={styles.reportButtonText}>👥 Rendimiento por Usuario</Text>
-          </TouchableOpacity>
+        {/* ── HEADER ── */}
+        <View style={styles.topHeader}>
+          <Text style={styles.topTitle}>Reportes</Text>
+          <Text style={styles.topSub}>Análisis y métricas del sistema</Text>
         </View>
 
-        {/* Sección: Gráficas */}
-        <View style={[styles.section, { marginTop: 30 }]}>
-          <Text style={styles.sectionHeader}>Resumen Visual</Text>
-          <Text style={styles.subtitle}>Tendencias y distribución de eventos</Text>
-
-          {loadingCharts ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Cargando gráficas...</Text>
+        {loadingMain ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Cargando datos…</Text>
+          </View>
+        ) : (
+          <>
+            {/* ── KPIs ── */}
+            <View style={styles.section}>
+              <SectionHeader icon="pulse-outline" title="Indicadores Clave" />
+              <View style={styles.kpiGrid}>
+                <KpiCard label="Usuarios Activos"   value={stats?.activeUsers ?? '–'}             icon="people-outline"        color={COLORS.primary} />
+                <KpiCard label="Eventos Totales"    value={stats?.totalEvents ?? '–'}             icon="calendar-outline"      color={COLORS.info}    />
+                <KpiCard label="Tasa Aprobación"    value={`${stats?.tasaAprobacion ?? 0}%`}      icon="checkmark-done-outline" color={COLORS.success} />
+                <KpiCard label="Tiempo Prom."       value={`${stats?.tiempoPromedioAprobacion ?? 0}h`} icon="time-outline"     color={COLORS.warning} />
+                <KpiCard label="Pendientes"         value={stats?.estadoCounts?.pendiente ?? 0}   icon="hourglass-outline"     color={COLORS.warning} sub="Sin revisar" />
+                <KpiCard label="Nuevos Usuarios"    value={stats?.usuariosNuevosEsteMes ?? 0}     icon="person-add-outline"    color={COLORS.purple}  sub="Este mes" />
+              </View>
             </View>
-          ) : (
-            <>
-              {/* Gráfico de Pastel: Eventos por Estado */}
-              {eventosPorEstado && eventosPorEstado.length > 0 ? (
-                <View style={styles.chartContainer}>
-                  <Text style={styles.chartTitle}>Distribución por Estado</Text>
+
+            {/* ── DISTRIBUCIÓN PIE ── */}
+            <View style={styles.section}>
+              <SectionHeader icon="pie-chart-outline" title="Distribución por Estado" />
+              <View style={styles.card}>
+                {eventosPorEstado ? (
                   <PieChart
                     data={eventosPorEstado}
-                    width={windowWidth - 40}
-                    height={220}
+                    width={chartW}
+                    height={200}
                     accessor="population"
                     backgroundColor="transparent"
-                    paddingLeft="15"
+                    paddingLeft="10"
                     absolute
-                    chartConfig={{
-                      color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    }}
+                    chartConfig={{ color: (o = 1) => `rgba(0,0,0,${o})` }}
                   />
-                </View>
-              ) : (
-                <View style={styles.emptyChart}>
-                  <Ionicons name="pie-chart-outline" size={48} color={COLORS.textTertiary} />
-                  <Text style={styles.emptyText}>No hay datos para el gráfico de pastel</Text>
-                </View>
-              )}
+                ) : (
+                  <View style={styles.emptyChart}>
+                    <Ionicons name="pie-chart-outline" size={40} color={COLORS.textTertiary} />
+                    <Text style={styles.emptyText}>Sin datos de estados</Text>
+                  </View>
+                )}
+              </View>
+            </View>
 
-              {/* Gráfico de Líneas: Eventos por Mes */}
-              {eventosPorMes ? (
-                <View style={styles.chartContainer}>
-                  <Text style={styles.chartTitle}>Eventos por Mes (Último Año)</Text>
-                  <LineChart
-                    data={eventosPorMes}
-                    width={windowWidth - 40}
-                    height={220}
-                    chartConfig={{
-                      backgroundColor: COLORS.surface,
-                      backgroundGradientFrom: COLORS.surface,
-                      backgroundGradientTo: COLORS.surface,
-                      decimalPlaces: 0,
-                      color: (opacity = 1) => COLORS.primary,
-                      labelColor: (opacity = 1) => COLORS.textSecondary,
-                      style: { borderRadius: 16 },
-                      propsForDots: {
-                        r: "4",
-                        strokeWidth: "2",
-                        stroke: COLORS.primary,
-                      },
-                    }}
-                    bezier
-                    style={{ marginVertical: 8, borderRadius: 16 }}
-                  />
+            {/* ── RANKING FACULTADES ── */}
+            <View style={styles.section}>
+              <SectionHeader icon="school-outline" title="Ranking de Facultades" subtitle="Eventos creados" />
+              <View style={styles.card}>
+                {rankingFacultades.length > 0 ? (
+                  <>
+                    <MiniBarChart data={rankingFacultades} width={chartW - 32} />
+                    <View style={{ marginTop: 12 }}>
+                      {rankingFacultades.map((f, i) => (
+                        <View key={i} style={styles.rankRow}>
+                          <View style={[styles.rankBadge, i === 0 && { backgroundColor: COLORS.primary }]}>
+                            <Text style={[styles.rankNum, i === 0 && { color: COLORS.white }]}>{i + 1}</Text>
+                          </View>
+                          <Text style={styles.rankLabel} numberOfLines={1}>{f.label}</Text>
+                          <Text style={styles.rankValue}>{f.value} eventos</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.emptyChart}>
+                    <Ionicons name="school-outline" size={40} color={COLORS.textTertiary} />
+                    <Text style={styles.emptyText}>Sin datos de facultades</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* ── HISTÓRICO MENSUAL ── */}
+            {reportesMensuales.length > 0 && (
+              <View style={styles.section}>
+                <SectionHeader icon="bar-chart-outline" title="Histórico Mensual" subtitle="Últimos períodos" />
+                <View style={styles.card}>
+                  {/* Cabecera */}
+                  <View style={[styles.tableRow, styles.tableHead]}>
+                    {['Mes', 'Eventos', 'Aprob.', 'Tasa', 'PDF'].map((h, i) => (
+                      <Text key={i} style={[styles.tableHeadText, i === 0 ? { flex: 2 } : { flex: 1, textAlign: 'center' }]}>{h}</Text>
+                    ))}
+                  </View>
+                  {reportesMensuales.map((r, i) => {
+                    const [y, m] = r.mes.split('-');
+                    return (
+                      <View key={i} style={[styles.tableRow, i % 2 === 0 && { backgroundColor: COLORS.divider }]}>
+                        <Text style={[styles.tableCell, { flex: 2 }]}>{MONTH_NAMES_SHORT[parseInt(m)-1]} {y}</Text>
+                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{r.totalEvents ?? 0}</Text>
+                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', color: COLORS.success, fontWeight: '600' }]}>{r.aprobado ?? 0}</Text>
+                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{r.tasaAprobacion ?? 0}%</Text>
+                        <TouchableOpacity style={{ flex: 1, alignItems: 'center' }} onPress={() => generarPDF(r.mes)}>
+                          <Ionicons name="download-outline" size={18} color={COLORS.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
                 </View>
-              ) : (
-                <View style={styles.emptyChart}>
-                  <Ionicons name="trending-up-outline" size={48} color={COLORS.textTertiary} />
-                  <Text style={styles.emptyText}>No hay datos para el gráfico de líneas</Text>
+              </View>
+            )}
+
+            {/* ── EVENTOS RECIENTES ── */}
+            <View style={styles.section}>
+              <SectionHeader icon="list-outline" title="Eventos Recientes" />
+
+              {/* Filtros */}
+              <View style={styles.filterRow}>
+                {['todos', 'pendiente', 'aprobado', 'rechazado'].map(f => (
+                  <TouchableOpacity
+                    key={f}
+                    onPress={() => setFiltroEstado(f)}
+                    style={[styles.filterBtn, filtroEstado === f && styles.filterBtnActive]}
+                  >
+                    <Text style={[styles.filterText, filtroEstado === f && styles.filterTextActive]}>
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.card}>
+                {loadingEvents ? (
+                  <View style={styles.centered}>
+                    <ActivityIndicator color={COLORS.primary} />
+                  </View>
+                ) : eventosRecientes.length === 0 ? (
+                  <View style={styles.emptyChart}>
+                    <Ionicons name="calendar-outline" size={40} color={COLORS.textTertiary} />
+                    <Text style={styles.emptyText}>Sin eventos para mostrar</Text>
+                  </View>
+                ) : (
+                  eventosRecientes.map((ev, i) => (
+                    <View key={i} style={[styles.eventRow, i < eventosRecientes.length - 1 && styles.eventRowBorder]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.eventName} numberOfLines={1}>{ev.nombreevento || 'Sin nombre'}</Text>
+                        <Text style={styles.eventMeta}>
+                          {ev.fechaevento?.split('T')[0] || '–'} · {ev.lugarevento || '–'}
+                        </Text>
+                      </View>
+                      {estadoBadge(ev.estado)}
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+
+            {/* ── ACCIONES ── */}
+            <View style={styles.section}>
+              <SectionHeader icon="settings-outline" title="Exportar y Reportes" />
+
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.primaryLight }]} onPress={() => setShowSelector(true)}>
+                <Ionicons name="document-text-outline" size={22} color={COLORS.primary} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.actionTitle, { color: COLORS.primary }]}>Reporte Mensual PDF</Text>
+                  <Text style={styles.actionSub}>Selecciona mes y año para generar</Text>
                 </View>
-              )}
-            </>
-          )}
-        </View>
+                {loading && <ActivityIndicator size="small" color={COLORS.primary} />}
+                <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#EFF6FF' }]} onPress={exportarCSV}>
+                <Ionicons name="download-outline" size={22} color={COLORS.info} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.actionTitle, { color: COLORS.info }]}>Exportar Eventos CSV</Text>
+                  <Text style={styles.actionSub}>Descarga todos los eventos en formato Excel/CSV</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={COLORS.info} />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ✅ SELECTOR DE MES MODAL - MOVIDO FUERA DEL SCROLLVIEW */}
-      {showMonthSelector && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Seleccionar Mes y Año</Text>
-            
-          {Platform.OS === 'web' && (
-<View style={styles.selectorContainer}>
-  {/* Selector de año */}
-  <View style={styles.selectorRow}>
-    <Text style={styles.selectorLabel}>Año:</Text>
-    <TouchableOpacity 
-      style={[styles.selectorButton, styles.yearButton]}
-      onPress={() => setShowYearPicker(!showYearPicker)}
-    >
-      <Text style={styles.selectorButtonText}>{selectedYear}</Text>
-      <Ionicons 
-        name={showYearPicker ? "chevron-up" : "chevron-down"} 
-        size={16} 
-        color={COLORS.textPrimary} 
-      />
-    </TouchableOpacity>
-  </View>
+      {/* ── MODAL SELECTOR PDF ── */}
+      {showSelector && (
+        <View style={styles.overlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Seleccionar Mes</Text>
 
-  {/* Lista de años */}
-  {showYearPicker && (
-    <View style={styles.dropdownList}>
-      {years.map(year => (
-        <TouchableOpacity
-          key={year}
-          onPress={() => {
-            setSelectedYear(year);
-            setShowYearPicker(false);
-          }}
-          style={[
-            styles.dropdownItem,
-            selectedYear === year && styles.dropdownItemSelected
-          ]}
-        >
-          <Text style={[
-            styles.dropdownItemText,
-            selectedYear === year && styles.dropdownItemSelectedText
-          ]}>
-            {year}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  )}
+            {/* Año */}
+            <Text style={styles.pickerLabel}>Año</Text>
+            <TouchableOpacity style={styles.pickerBtn} onPress={() => { setShowYearPicker(!showYearPicker); setShowMonthPicker(false); }}>
+              <Text style={styles.pickerBtnText}>{selectedYear}</Text>
+              <Ionicons name={showYearPicker ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            {showYearPicker && (
+              <View style={styles.dropdown}>
+                {years.map(y => (
+                  <TouchableOpacity key={y} style={[styles.dropItem, selectedYear === y && styles.dropItemActive]}
+                    onPress={() => { setSelectedYear(y); setShowYearPicker(false); }}>
+                    <Text style={[styles.dropText, selectedYear === y && { color: COLORS.primary, fontWeight: '700' }]}>{y}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
-  {/* Selector de mes */}
-  <View style={styles.selectorRow}>
-    <Text style={styles.selectorLabel}>Mes:</Text>
-    <TouchableOpacity 
-      style={[styles.selectorButton, styles.monthButton]}
-      onPress={() => setShowMonthPicker(!showMonthPicker)}
-    >
-      <Text style={styles.selectorButtonText}>
-        {months.find(m => m.value === selectedMonth)?.name || 'Seleccionar'}
-      </Text>
-      <Ionicons 
-        name={showMonthPicker ? "chevron-up" : "chevron-down"} 
-        size={16} 
-        color={COLORS.textPrimary} 
-      />
-    </TouchableOpacity>
-  </View>
+            {/* Mes */}
+            <Text style={[styles.pickerLabel, { marginTop: 12 }]}>Mes</Text>
+            <TouchableOpacity style={styles.pickerBtn} onPress={() => { setShowMonthPicker(!showMonthPicker); setShowYearPicker(false); }}>
+              <Text style={styles.pickerBtnText}>{MONTH_NAMES_FULL[selectedMonth - 1]}</Text>
+              <Ionicons name={showMonthPicker ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+            {showMonthPicker && (
+              <ScrollView style={styles.dropdown} nestedScrollEnabled>
+                {months.map(mo => (
+                  <TouchableOpacity key={mo.value} style={[styles.dropItem, selectedMonth === mo.value && styles.dropItemActive]}
+                    onPress={() => { setSelectedMonth(mo.value); setShowMonthPicker(false); }}>
+                    <Text style={[styles.dropText, selectedMonth === mo.value && { color: COLORS.primary, fontWeight: '700' }]}>{mo.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
 
-  {/* Lista de meses */}
-  {showMonthPicker && (
-    <View style={styles.dropdownList}>
-      {months.map(month => (
-        <TouchableOpacity
-          key={month.value}
-          onPress={() => {
-            setSelectedMonth(month.value);
-            setShowMonthPicker(false);
-          }}
-          style={[
-            styles.dropdownItem,
-            selectedMonth === month.value && styles.dropdownItemSelected
-          ]}
-        >
-          <Text style={[
-            styles.dropdownItemText,
-            selectedMonth === month.value && styles.dropdownItemSelectedText
-          ]}>
-            {month.name}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  )}
-</View>
-)}
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                onPress={() => setShowMonthSelector(false)}
-                style={[styles.modalButton, { backgroundColor: COLORS.secondary }]}
-              >
-                <Text style={styles.modalButtonText}>Cancelar</Text>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: COLORS.secondary }]} onPress={() => setShowSelector(false)}>
+                <Text style={styles.modalBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              
               <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: COLORS.primary }]}
                 onPress={() => {
-              const year = selectedYear;
-              const month = String(selectedMonth).padStart(2, '0');
-              const mesFormato = `${year}-${month}`;
-                  
-                  const reporte = reportesMensuales.find(r => r.mes === mesFormato);
-                  if (!reporte) {
-                    showError(`No hay datos disponibles para ${mesFormato}`);
-                    return;
-                  }
-                  
-                  setMesSeleccionado(mesFormato);
-                  generarReporteMensual(mesFormato);
-                  setShowMonthSelector(false);
+                  const mes = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+                  setShowSelector(false);
+                  generarPDF(mes);
                 }}
-                style={[styles.modalButton, { backgroundColor: COLORS.primary }]}
               >
-                <Text style={[styles.modalButtonText, { color: COLORS.white }]}>Generar Reporte</Text>
+                <Text style={styles.modalBtnText}>Generar PDF</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       )}
     </View>
-
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  selectorContainer: {
-  width: '100%',
-  marginBottom: 20,
-},
-selectorRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 10,
-},
-selectorLabel: {
-  fontSize: 14,
-  color: COLORS.textSecondary,
-  marginRight: 10,
-  width: 60,
-},
-selectorButton: {
-  flex: 1,
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 8,
-  backgroundColor: COLORS.surface,
-},
-yearButton: {
-  marginRight: 5,
-},
-monthButton: {
-  marginLeft: 5,
-},
-selectorButtonText: {
-  fontSize: 14,
-  color: COLORS.textPrimary,
-  fontWeight: '500',
-},
-dropdownList: {
-  width: '100%',
-  maxHeight: 150,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 8,
-  backgroundColor: COLORS.surface,
-  marginTop: 5,
-},
-dropdownItem: {
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: COLORS.divider,
-},
-dropdownItemSelected: {
-  backgroundColor: COLORS.primaryLight,
-},
-dropdownItemText: {
-  fontSize: 14,
-  color: COLORS.textPrimary,
-},
-dropdownItemSelectedText: {
-  fontWeight: '600',
-  color: COLORS.primary,
-},
-  scrollContent: {
-    paddingBottom: 80,
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  customSelectorContainer: {
-  width: '100%',
-  marginBottom: 20,
-},
-selectorRow: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 10,
-},
-selectorLabel: {
-  fontSize: 14,
-  color: COLORS.textSecondary,
-  marginRight: 10,
-  width: 60,
-},
-selectorDropdown: {
-  flex: 1,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 8,
-  maxHeight: 150,
-  overflow: 'scroll',
-},
-selectorOption: {
-  paddingVertical: 8,
-  paddingHorizontal: 12,
-  borderBottomWidth: 1,
-  borderBottomColor: COLORS.divider,
-},
-selectorOptionSelected: {
-  backgroundColor: COLORS.primaryLight,
-},
-selectorOptionText: {
-  fontSize: 14,
-  color: COLORS.textPrimary,
-},
-selectorOptionTextSelected: {
-  fontWeight: '600',
-  color: COLORS.primary,
-},
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
-  },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 20,
-  },
-  reportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  reportButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginLeft: 12,
-    flex: 1,
-  },
-  loader: {
-    marginLeft: 10,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  chartContainer: {
-    width: '100%',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: 12,
-    alignSelf: 'flex-start',
-    paddingLeft: 10,
-  },
-  emptyChart: {
-    width: '100%',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: COLORS.textTertiary,
-    textAlign: 'center',
-  },
-  // ✅ ESTILOS DEL MODAL AGREGADOS
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalContent: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    width: '80%',
-    maxWidth: 350,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  webMonthInput: {
-    width: '100%',
-    height: 44,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 20,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  modalButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { paddingBottom: 60 },
+  centered: { alignItems: 'center', paddingVertical: 40 },
+  loadingText: { marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
+
+  topHeader: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 20, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.border },
+  topTitle: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
+  topSub: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
+
+  section: { paddingHorizontal: 16, marginTop: 24 },
+  sectionHeader: { marginBottom: 12 },
+  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
+  sectionSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginLeft: 28 },
+
+  card: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3 },
+
+  // KPIs
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  kpiCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, width: '47.5%', borderTopWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  kpiIconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  kpiValue: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 2 },
+  kpiLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  kpiSub: { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
+
+  // Ranking
+  rankRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: COLORS.divider, gap: 10 },
+  rankBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.divider, justifyContent: 'center', alignItems: 'center' },
+  rankNum: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary },
+  rankLabel: { flex: 1, fontSize: 13, color: COLORS.textPrimary },
+  rankValue: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+
+  // Table
+  tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center' },
+  tableHead: { borderBottomWidth: 2, borderColor: COLORS.border, marginBottom: 2 },
+  tableHeadText: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase' },
+  tableCell: { fontSize: 13, color: COLORS.textPrimary },
+
+  // Eventos recientes
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' },
+  filterBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  filterBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  filterText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  filterTextActive: { color: COLORS.white, fontWeight: '700' },
+  eventRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
+  eventRowBorder: { borderBottomWidth: 1, borderColor: COLORS.divider },
+  eventName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 3 },
+  eventMeta: { fontSize: 12, color: COLORS.textSecondary },
+
+  // Actions
+  actionBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
+  actionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  actionSub: { fontSize: 12, color: COLORS.textSecondary },
+
+  // Empty
+  emptyChart: { alignItems: 'center', paddingVertical: 32 },
+  emptyText: { marginTop: 8, color: COLORS.textTertiary, fontSize: 13 },
+
+  // Modal
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+  modal: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 24, width: '82%', maxWidth: 360 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 16, textAlign: 'center' },
+  pickerLabel: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '600', marginBottom: 6 },
+  pickerBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: COLORS.background },
+  pickerBtnText: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' },
+  dropdown: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, marginTop: 4, maxHeight: 160, backgroundColor: COLORS.surface },
+  dropItem: { paddingVertical: 9, paddingHorizontal: 14, borderBottomWidth: 1, borderColor: COLORS.divider },
+  dropItemActive: { backgroundColor: COLORS.primaryLight },
+  dropText: { fontSize: 14, color: COLORS.textPrimary },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  modalBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
 });
 
 export default ReportesAvanzadosScreen;
