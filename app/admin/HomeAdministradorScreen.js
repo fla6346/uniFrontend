@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
-import Svg, { Line,Circle, Text as SvgText, Path, G, Rect } from 'react-native-svg';
+import Svg, { Line, Circle, Text as SvgText, Path, G, Rect } from 'react-native-svg';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
