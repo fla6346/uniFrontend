@@ -34,14 +34,7 @@ const COLORS = {
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
-const aprobado  = reporte.aprobado  || 0;
-const pendiente = reporte.pendiente || 0;
-const rechazado = reporte.rechazado || 0;
-const totalEvents     = reporte.totalEvents     || (aprobado + pendiente + rechazado);
-const tasaAprobacion  = reporte.tasaAprobacion  || (totalEvents > 0 ? Math.round((aprobado / totalEvents) * 100) : 0);
-const activeUsers     = reporte.activeUsers     || stats?.activeUsers || 0;
-const usuariosNuevos  = reporte.usuariosNuevosEsteMes || stats?.usuariosNuevosEsteMes || 0;
-const tiempoPromedio  = reporte.tiempoPromedioAprobacion || stats?.tiempoPromedioAprobacion || 0;
+// ✅ getTokenAsync — sin las líneas sueltas de "reporte" que causaban el crash
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
     try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -113,20 +106,16 @@ const ReportesAvanzadosScreen = () => {
   const [loadingMain, setLoadingMain]     = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
-  // Stats
-  const [stats, setStats]                 = useState(null);
+  const [stats, setStats]                         = useState(null);
   const [reportesMensuales, setReportesMensuales] = useState([]);
   const [eventosPorEstado, setEventosPorEstado]   = useState(null);
   const [rankingFacultades, setRankingFacultades] = useState([]);
-
-  // Eventos recientes
   const [eventosRecientes, setEventosRecientes]   = useState([]);
   const [filtroEstado, setFiltroEstado]           = useState('todos');
 
-  // Selector PDF
-  const [showSelector, setShowSelector]   = useState(false);
-  const [selectedYear, setSelectedYear]   = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [showSelector, setShowSelector]       = useState(false);
+  const [selectedYear, setSelectedYear]       = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth]     = useState(new Date().getMonth() + 1);
   const [showYearPicker, setShowYearPicker]   = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
@@ -143,14 +132,14 @@ const ReportesAvanzadosScreen = () => {
       if (!token) { router.replace('/'); return; }
 
       const [statsRes, mensualRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_BASE_URL}/dashboard/stats`,   { headers: { Authorization: `Bearer ${token}` } }),
         axios.get(`${API_BASE_URL}/dashboard/mensual`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
 
       const data = statsRes.data;
       setStats(data);
 
-      // Pie chart
+      // Pie chart estados
       if (data.estadoCounts) {
         const colorMap = { aprobado: COLORS.success, pendiente: COLORS.warning, rechazado: COLORS.accent };
         const pie = Object.entries(data.estadoCounts)
@@ -210,7 +199,7 @@ const ReportesAvanzadosScreen = () => {
     }
   }, [filtroEstado]);
 
-  useEffect(() => { cargarDatos(); }, [cargarDatos]);
+  useEffect(() => { cargarDatos(); },   [cargarDatos]);
   useEffect(() => { cargarEventos(); }, [cargarEventos]);
 
   // ── Exportar CSV ───────────────────────────────────────────────────────────
@@ -224,8 +213,12 @@ const ReportesAvanzadosScreen = () => {
 
       const headers = ['ID', 'Nombre', 'Fecha', 'Lugar', 'Estado', 'Responsable'];
       const rows = eventos.map(e => [
-        e.idevento, `"${e.nombreevento || ''}"`, e.fechaevento?.split('T')[0] || '',
-        `"${e.lugarevento || ''}"`, e.estado || '', `"${e.responsable_evento || ''}"`,
+        e.idevento,
+        `"${e.nombreevento || ''}"`,
+        e.fechaevento?.split('T')[0] || '',
+        `"${e.lugarevento || ''}"`,
+        e.estado || '',
+        `"${e.responsable_evento || ''}"`,
       ].join(','));
       const csv = [headers.join(','), ...rows].join('\n');
 
@@ -237,7 +230,7 @@ const ReportesAvanzadosScreen = () => {
         a.download = `eventos_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
-        Alert.alert('✅ Éxito', 'Archivo CSV descargado correctamente.');
+        Alert.alert('Éxito', 'Archivo CSV descargado correctamente.');
       } else {
         const { FileSystem } = await import('expo-file-system');
         const path = FileSystem.documentDirectory + `eventos_${Date.now()}.csv`;
@@ -256,11 +249,22 @@ const ReportesAvanzadosScreen = () => {
     try {
       const token = await getTokenAsync();
       if (!token) return;
+
       const reporte = reportesMensuales.find(r => r.mes === mesFormato);
       if (!reporte) { showError(`Sin datos para ${mesFormato}.`); return; }
 
       const [year, monthNum] = mesFormato.split('-');
       const mesNombre = MONTH_NAMES_FULL[parseInt(monthNum) - 1];
+
+      // ✅ Calcular campos que el backend puede devolver en 0
+      const aprobado       = reporte.aprobado  || 0;
+      const pendiente      = reporte.pendiente || 0;
+      const rechazado      = reporte.rechazado || 0;
+      const totalEvents    = reporte.totalEvents    || (aprobado + pendiente + rechazado);
+      const tasaAprobacion = reporte.tasaAprobacion || (totalEvents > 0 ? Math.round((aprobado / totalEvents) * 100) : 0);
+      const activeUsers    = reporte.activeUsers    || stats?.activeUsers    || 0;
+      const usuariosNuevos = reporte.usuariosNuevosEsteMes || stats?.usuariosNuevosEsteMes || 0;
+      const tiempoPromedio = reporte.tiempoPromedioAprobacion || stats?.tiempoPromedioAprobacion || 0;
 
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
         <style>
@@ -279,16 +283,16 @@ const ReportesAvanzadosScreen = () => {
         <h1>Reporte Mensual de Actividad</h1>
         <p class="sub">${mesNombre} ${year} · Generado el ${new Date().toLocaleDateString('es-ES')}</p>
         <div class="grid">
-          <div class="card"><div class="card-label">Eventos Totales</div><div class="card-value">${reporte.totalEvents || 0}</div></div>
-          <div class="card"><div class="card-label">Tasa Aprobación</div><div class="card-value">${reporte.tasaAprobacion || 0}%</div></div>
-          <div class="card"><div class="card-label">Usuarios Activos</div><div class="card-value">${reporte.activeUsers || 0}</div></div>
-          <div class="card"><div class="card-label">Nuevos Usuarios</div><div class="card-value">${reporte.usuariosNuevosEsteMes || 0}</div></div>
+          <div class="card"><div class="card-label">Eventos Totales</div><div class="card-value">${totalEvents}</div></div>
+          <div class="card"><div class="card-label">Tasa Aprobación</div><div class="card-value">${tasaAprobacion}%</div></div>
+          <div class="card"><div class="card-label">Usuarios Activos</div><div class="card-value">${activeUsers}</div></div>
+          <div class="card"><div class="card-label">Nuevos Usuarios</div><div class="card-value">${usuariosNuevos}</div></div>
         </div>
         ${[
-          ['Eventos Aprobados', reporte.aprobado || 0],
-          ['Eventos Pendientes', reporte.pendiente || 0],
-          ['Eventos Rechazados', reporte.rechazado || 0],
-          ['Tiempo Prom. Aprobación', `${reporte.tiempoPromedioAprobacion || 0} horas`],
+          ['Eventos Aprobados',       aprobado],
+          ['Eventos Pendientes',      pendiente],
+          ['Eventos Rechazados',      rechazado],
+          ['Tiempo Prom. Aprobación', `${tiempoPromedio} horas`],
         ].map(([l, v]) => `<div class="row"><span class="label">${l}</span><span class="value">${v}</span></div>`).join('')}
         <div class="footer">Panel de Administración UFT</div>
         </div></body></html>`;
@@ -327,7 +331,6 @@ const ReportesAvanzadosScreen = () => {
 
   const chartW = windowWidth - 48;
 
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -349,12 +352,12 @@ const ReportesAvanzadosScreen = () => {
             <View style={styles.section}>
               <SectionHeader icon="pulse-outline" title="Indicadores Clave" />
               <View style={styles.kpiGrid}>
-                <KpiCard label="Usuarios Activos"   value={stats?.activeUsers ?? '–'}             icon="people-outline"        color={COLORS.primary} />
-                <KpiCard label="Eventos Totales"    value={stats?.totalEvents ?? '–'}             icon="calendar-outline"      color={COLORS.info}    />
-                <KpiCard label="Tasa Aprobación"    value={`${stats?.tasaAprobacion ?? 0}%`}      icon="checkmark-done-outline" color={COLORS.success} />
-                <KpiCard label="Tiempo Prom."       value={`${stats?.tiempoPromedioAprobacion ?? 0}h`} icon="time-outline"     color={COLORS.warning} />
-                <KpiCard label="Pendientes"         value={stats?.estadoCounts?.pendiente ?? 0}   icon="hourglass-outline"     color={COLORS.warning} sub="Sin revisar" />
-                <KpiCard label="Nuevos Usuarios"    value={stats?.usuariosNuevosEsteMes ?? 0}     icon="person-add-outline"    color={COLORS.purple}  sub="Este mes" />
+                <KpiCard label="Usuarios Activos"  value={stats?.activeUsers ?? '–'}                  icon="people-outline"         color={COLORS.primary} />
+                <KpiCard label="Eventos Totales"   value={stats?.totalEvents ?? '–'}                  icon="calendar-outline"       color={COLORS.info}    />
+                <KpiCard label="Tasa Aprobación"   value={`${stats?.tasaAprobacion ?? 0}%`}           icon="checkmark-done-outline" color={COLORS.success} />
+                <KpiCard label="Tiempo Prom."      value={`${stats?.tiempoPromedioAprobacion ?? 0}h`} icon="time-outline"           color={COLORS.warning} />
+                <KpiCard label="Pendientes"        value={stats?.estadoCounts?.pendiente ?? 0}        icon="hourglass-outline"      color={COLORS.warning} sub="Sin revisar" />
+                <KpiCard label="Nuevos Usuarios"   value={stats?.usuariosNuevosEsteMes ?? 0}          icon="person-add-outline"     color={COLORS.purple}  sub="Este mes" />
               </View>
             </View>
 
@@ -415,7 +418,6 @@ const ReportesAvanzadosScreen = () => {
               <View style={styles.section}>
                 <SectionHeader icon="bar-chart-outline" title="Histórico Mensual" subtitle="Últimos períodos" />
                 <View style={styles.card}>
-                  {/* Cabecera */}
                   <View style={[styles.tableRow, styles.tableHead]}>
                     {['Mes', 'Eventos', 'Aprob.', 'Tasa', 'PDF'].map((h, i) => (
                       <Text key={i} style={[styles.tableHeadText, i === 0 ? { flex: 2 } : { flex: 1, textAlign: 'center' }]}>{h}</Text>
@@ -423,12 +425,18 @@ const ReportesAvanzadosScreen = () => {
                   </View>
                   {reportesMensuales.map((r, i) => {
                     const [y, m] = r.mes.split('-');
+                    // ✅ Calcular totales en tabla también
+                    const ap = r.aprobado  || 0;
+                    const pe = r.pendiente || 0;
+                    const re = r.rechazado || 0;
+                    const tot  = r.totalEvents    || (ap + pe + re);
+                    const tasa = r.tasaAprobacion || (tot > 0 ? Math.round((ap / tot) * 100) : 0);
                     return (
                       <View key={i} style={[styles.tableRow, i % 2 === 0 && { backgroundColor: COLORS.divider }]}>
                         <Text style={[styles.tableCell, { flex: 2 }]}>{MONTH_NAMES_SHORT[parseInt(m)-1]} {y}</Text>
-                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{r.totalEvents ?? 0}</Text>
-                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', color: COLORS.success, fontWeight: '600' }]}>{r.aprobado ?? 0}</Text>
-                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{r.tasaAprobacion ?? 0}%</Text>
+                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{tot}</Text>
+                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', color: COLORS.success, fontWeight: '600' }]}>{ap}</Text>
+                        <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{tasa}%</Text>
                         <TouchableOpacity style={{ flex: 1, alignItems: 'center' }} onPress={() => generarPDF(r.mes)}>
                           <Ionicons name="download-outline" size={18} color={COLORS.primary} />
                         </TouchableOpacity>
@@ -442,8 +450,6 @@ const ReportesAvanzadosScreen = () => {
             {/* ── EVENTOS RECIENTES ── */}
             <View style={styles.section}>
               <SectionHeader icon="list-outline" title="Eventos Recientes" />
-
-              {/* Filtros */}
               <View style={styles.filterRow}>
                 {['todos', 'pendiente', 'aprobado', 'rechazado'].map(f => (
                   <TouchableOpacity
@@ -457,12 +463,9 @@ const ReportesAvanzadosScreen = () => {
                   </TouchableOpacity>
                 ))}
               </View>
-
               <View style={styles.card}>
                 {loadingEvents ? (
-                  <View style={styles.centered}>
-                    <ActivityIndicator color={COLORS.primary} />
-                  </View>
+                  <View style={styles.centered}><ActivityIndicator color={COLORS.primary} /></View>
                 ) : eventosRecientes.length === 0 ? (
                   <View style={styles.emptyChart}>
                     <Ionicons name="calendar-outline" size={40} color={COLORS.textTertiary} />
@@ -487,7 +490,6 @@ const ReportesAvanzadosScreen = () => {
             {/* ── ACCIONES ── */}
             <View style={styles.section}>
               <SectionHeader icon="settings-outline" title="Exportar y Reportes" />
-
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.primaryLight }]} onPress={() => setShowSelector(true)}>
                 <Ionicons name="document-text-outline" size={22} color={COLORS.primary} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
@@ -497,7 +499,6 @@ const ReportesAvanzadosScreen = () => {
                 {loading && <ActivityIndicator size="small" color={COLORS.primary} />}
                 <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
               </TouchableOpacity>
-
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#EFF6FF' }]} onPress={exportarCSV}>
                 <Ionicons name="download-outline" size={22} color={COLORS.info} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
@@ -519,7 +520,6 @@ const ReportesAvanzadosScreen = () => {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Seleccionar Mes</Text>
 
-            {/* Año */}
             <Text style={styles.pickerLabel}>Año</Text>
             <TouchableOpacity style={styles.pickerBtn} onPress={() => { setShowYearPicker(!showYearPicker); setShowMonthPicker(false); }}>
               <Text style={styles.pickerBtnText}>{selectedYear}</Text>
@@ -536,7 +536,6 @@ const ReportesAvanzadosScreen = () => {
               </View>
             )}
 
-            {/* Mes */}
             <Text style={[styles.pickerLabel, { marginTop: 12 }]}>Mes</Text>
             <TouchableOpacity style={styles.pickerBtn} onPress={() => { setShowMonthPicker(!showMonthPicker); setShowYearPicker(false); }}>
               <Text style={styles.pickerBtnText}>{MONTH_NAMES_FULL[selectedMonth - 1]}</Text>
@@ -576,15 +575,10 @@ const ReportesAvanzadosScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-     flex: 1,
-     backgroundColor: COLORS.background },
-  scroll: {
-     paddingBottom: 60 },
-  centered: {
-     alignItems: 'center', paddingVertical: 40 },
-  loadingText: {
-     marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { paddingBottom: 60 },
+  centered: { alignItems: 'center', paddingVertical: 40 },
+  loadingText: { marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
 
   topHeader: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 20, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.border },
   topTitle: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },
@@ -598,7 +592,6 @@ const styles = StyleSheet.create({
 
   card: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3 },
 
-  // KPIs
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   kpiCard: { backgroundColor: COLORS.surface, borderRadius: 12, padding: 14, width: '47.5%', borderTopWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   kpiIconWrap: { width: 36, height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
@@ -606,20 +599,17 @@ const styles = StyleSheet.create({
   kpiLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   kpiSub: { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
 
-  // Ranking
   rankRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderColor: COLORS.divider, gap: 10 },
   rankBadge: { width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.divider, justifyContent: 'center', alignItems: 'center' },
   rankNum: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary },
   rankLabel: { flex: 1, fontSize: 13, color: COLORS.textPrimary },
   rankValue: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
 
-  // Table
   tableRow: { flexDirection: 'row', paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center' },
   tableHead: { borderBottomWidth: 2, borderColor: COLORS.border, marginBottom: 2 },
   tableHeadText: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase' },
   tableCell: { fontSize: 13, color: COLORS.textPrimary },
 
-  // Eventos recientes
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' },
   filterBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
   filterBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
@@ -630,16 +620,13 @@ const styles = StyleSheet.create({
   eventName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 3 },
   eventMeta: { fontSize: 12, color: COLORS.textSecondary },
 
-  // Actions
   actionBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
   actionTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
   actionSub: { fontSize: 12, color: COLORS.textSecondary },
 
-  // Empty
   emptyChart: { alignItems: 'center', paddingVertical: 32 },
   emptyText: { marginTop: 8, color: COLORS.textTertiary, fontSize: 13 },
 
-  // Modal
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
   modal: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 24, width: '82%', maxWidth: 360 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 16, textAlign: 'center' },
