@@ -294,27 +294,7 @@ const EventosPendientes = () => {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.rejectButton]}
-          onPress={() => handleQuickAction(item.id, 'rechazar')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="close-circle-outline" size={18} color={COLORS.danger} />
-          <Text style={[styles.actionButtonText, { color: COLORS.danger }]}>
-            Rechazar
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.approveButton]}
-          onPress={() => handleQuickAction(item.id, 'aprobar')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="checkmark-circle-outline" size={18} color={COLORS.white} />
-          <Text style={[styles.actionButtonText, { color: COLORS.white }]}>
-            Aprobar
-          </Text>
-        </TouchableOpacity>
+       
       </View>
     </View>
   );
