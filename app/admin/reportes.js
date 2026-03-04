@@ -1,4 +1,3 @@
-// app/admin/reportes/index.js
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
@@ -35,6 +34,14 @@ const COLORS = {
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
+const aprobado  = reporte.aprobado  || 0;
+const pendiente = reporte.pendiente || 0;
+const rechazado = reporte.rechazado || 0;
+const totalEvents     = reporte.totalEvents     || (aprobado + pendiente + rechazado);
+const tasaAprobacion  = reporte.tasaAprobacion  || (totalEvents > 0 ? Math.round((aprobado / totalEvents) * 100) : 0);
+const activeUsers     = reporte.activeUsers     || stats?.activeUsers || 0;
+const usuariosNuevos  = reporte.usuariosNuevosEsteMes || stats?.usuariosNuevosEsteMes || 0;
+const tiempoPromedio  = reporte.tiempoPromedioAprobacion || stats?.tiempoPromedioAprobacion || 0;
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
     try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -46,7 +53,6 @@ const getTokenAsync = async () => {
 const MONTH_NAMES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MONTH_NAMES_FULL  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-// ─── Mini bar chart para ranking ────────────────────────────────────────────
 const MiniBarChart = ({ data, width }) => {
   if (!data?.length) return null;
   const max = Math.max(...data.map(d => d.value), 1);
@@ -78,7 +84,6 @@ const MiniBarChart = ({ data, width }) => {
   );
 };
 
-// ─── KPI Card ────────────────────────────────────────────────────────────────
 const KpiCard = ({ label, value, icon, color, sub }) => (
   <View style={[styles.kpiCard, { borderTopColor: color }]}>
     <View style={[styles.kpiIconWrap, { backgroundColor: color + '15' }]}>
@@ -90,7 +95,6 @@ const KpiCard = ({ label, value, icon, color, sub }) => (
   </View>
 );
 
-// ─── Section Header ──────────────────────────────────────────────────────────
 const SectionHeader = ({ title, subtitle, icon }) => (
   <View style={styles.sectionHeader}>
     <View style={styles.sectionHeaderLeft}>
@@ -101,7 +105,6 @@ const SectionHeader = ({ title, subtitle, icon }) => (
   </View>
 );
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 const ReportesAvanzadosScreen = () => {
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
@@ -573,10 +576,15 @@ const ReportesAvanzadosScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { paddingBottom: 60 },
-  centered: { alignItems: 'center', paddingVertical: 40 },
-  loadingText: { marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
+  container: {
+     flex: 1,
+     backgroundColor: COLORS.background },
+  scroll: {
+     paddingBottom: 60 },
+  centered: {
+     alignItems: 'center', paddingVertical: 40 },
+  loadingText: {
+     marginTop: 12, color: COLORS.textSecondary, fontSize: 14 },
 
   topHeader: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 20, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.border },
   topTitle: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary },

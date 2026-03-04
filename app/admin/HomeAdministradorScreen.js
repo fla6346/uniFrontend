@@ -1,17 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StatusBar,
-  Alert,
-  ActivityIndicator,
-  Pressable,
-  Animated,
-  useWindowDimensions,
-  Platform,
+  StyleSheet, View, Text, ScrollView, TouchableOpacity,
+  StatusBar, Alert, ActivityIndicator, Pressable, Animated,
+  useWindowDimensions, Platform,
 } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import Svg, { Line, Circle, Text as SvgText, Path, G, Rect } from 'react-native-svg';
@@ -21,70 +12,40 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Chatbot from '../chatbot';
 
-let determinedApiBaseUrl;
-/*if (Platform.OS === 'android') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else if (Platform.OS === 'ios') {
-  determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
-} else {
-  determinedApiBaseUrl = 'http://localhost:3001/api';
-}*/
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
-    try {
-      return localStorage.getItem(TOKEN_KEY);
-    } catch (e) {
-      return null;
-    }
+    try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
   } else {
-    try {
-      return await SecureStore.getItemAsync(TOKEN_KEY);
-    } catch (e) {
-      return null;
-    }
+    try { return await SecureStore.getItemAsync(TOKEN_KEY); } catch { return null; }
   }
 };
 
 const deleteTokenAsync = async () => {
   if (Platform.OS === 'web') {
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-    } catch (e) {}
+    try { localStorage.removeItem(TOKEN_KEY); } catch {}
   } else {
-    try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
-    } catch (e) {}
+    try { await SecureStore.deleteItemAsync(TOKEN_KEY); } catch {}
   }
 };
 
 const COLORS = {
-  primary: '#E95A0C',
-  primaryLight: '#FFEDD5',
-  secondary: '#4B5563',
-  accent: '#EF4444',
-  success: '#10B981',
-  warning: '#F59E0B',
-  info: '#3B82F6',
-  background: '#F9FAFB',
-  surface: '#FFFFFF',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  textTertiary: '#9CA3AF',
-  border: '#E5E7EB',
-  divider: '#D1D5DB',
-  shadow: 'rgba(0, 0, 0, 0.05)',
-  white: '#FFFFFF',
-  black: '#000000',
+  primary: '#E95A0C', primaryLight: '#FFEDD5', secondary: '#4B5563',
+  accent: '#EF4444', success: '#10B981', warning: '#F59E0B',
+  info: '#3B82F6', background: '#F9FAFB', surface: '#FFFFFF',
+  textPrimary: '#1F2937', textSecondary: '#6B7280', textTertiary: '#9CA3AF',
+  border: '#E5E7EB', divider: '#D1D5DB', shadow: 'rgba(0,0,0,0.05)',
+  white: '#FFFFFF', black: '#000000',
 };
 
+const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const CARD_MARGIN = 12;
-const MIN_CARD_WIDTH_DASHBOARD = 160;
-const MAX_COLUMNS_DASHBOARD = 4;
 const MIN_CARD_WIDTH_ACTIONS = 200;
 const MAX_COLUMNS_ACTIONS = 3;
+
+// ─── Line Chart ───────────────────────────────────────────────────────────────
 const CustomLineChart = ({ data, width, height, color = COLORS.primary }) => {
   if (!data?.labels?.length) return null;
   const labels = data.labels;
@@ -111,18 +72,16 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary }) => {
   });
 
   const area = `${line} L ${pts[pts.length - 1].x} ${height - padding.bottom} L ${padding.left} ${height - padding.bottom} Z`;
-  const gridPercents = [0, 0.25, 0.5, 0.75, 1];
 
   return (
     <Svg width={width} height={height}>
-      {gridPercents.map((pct, i) => {
+      {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
         const y = padding.top + ch * (1 - pct);
         return (
           <G key={i}>
             <Line x1={padding.left} y1={y} x2={width - padding.right} y2={y}
               stroke={COLORS.border} strokeWidth="1" strokeDasharray="4,4" />
-            <SvgText x={padding.left - 6} y={y + 4} fontSize="10"
-              fill={COLORS.textSecondary} textAnchor="end">
+            <SvgText x={padding.left - 6} y={y + 4} fontSize="10" fill={COLORS.textSecondary} textAnchor="end">
               {Math.round(minV + range * pct)}
             </SvgText>
           </G>
@@ -143,12 +102,13 @@ const CustomLineChart = ({ data, width, height, color = COLORS.primary }) => {
     </Svg>
   );
 };
+
+// ─── Bar Chart ────────────────────────────────────────────────────────────────
 const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
   if (!data?.labels?.length) return null;
   const labels = data.labels;
   const values = data.datasets[0].data;
-  const LABEL_AREA = 90; // extra space for rotated labels
-  const padding = { top: 24, right: 16, bottom: LABEL_AREA, left: 44 };
+  const padding = { top: 24, right: 16, bottom: 90, left: 44 };
   const cw = width - padding.left - padding.right;
   const ch = height - padding.top - padding.bottom;
   const maxV = Math.max(...values, 1);
@@ -163,8 +123,7 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
           <G key={i}>
             <Line x1={padding.left} y1={y} x2={width - padding.right} y2={y}
               stroke={COLORS.border} strokeWidth="1" strokeDasharray="4,4" />
-            <SvgText x={padding.left - 6} y={y + 4} fontSize="10"
-              fill={COLORS.textSecondary} textAnchor="end">
+            <SvgText x={padding.left - 6} y={y + 4} fontSize="10" fill={COLORS.textSecondary} textAnchor="end">
               {Math.round(maxV * pct)}
             </SvgText>
           </G>
@@ -178,24 +137,12 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
         const labelY = padding.top + ch + 8;
         return (
           <G key={i}>
-            <Rect x={x} y={y} width={barW} height={barH}
-              fill={color} rx={4} ry={4} fillOpacity={0.85} />
+            <Rect x={x} y={y} width={barW} height={barH} fill={color} rx={4} fillOpacity={0.85} />
             {v > 0 && (
-              <SvgText x={x + barW / 2} y={y - 5} fontSize="10"
-                fill={color} textAnchor="middle" fontWeight="700">
-                {v}
-              </SvgText>
+              <SvgText x={x + barW / 2} y={y - 5} fontSize="10" fill={color} textAnchor="middle" fontWeight="700">{v}</SvgText>
             )}
-            {/* Rotated label — shows full name */}
-            <SvgText
-              x={labelX}
-              y={labelY}
-              fontSize="10"
-              fill={COLORS.textSecondary}
-              textAnchor="end"
-              fontWeight="500"
-              transform={`rotate(-40, ${labelX}, ${labelY})`}
-            >
+            <SvgText x={labelX} y={labelY} fontSize="10" fill={COLORS.textSecondary}
+              textAnchor="end" fontWeight="500" transform={`rotate(-40, ${labelX}, ${labelY})`}>
               {labels[i]}
             </SvgText>
           </G>
@@ -204,28 +151,22 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
     </Svg>
   );
 };
+
+// ─── Dashboard Card ───────────────────────────────────────────────────────────
 const DashboardCard = ({ title, value, icon, color, trend, description }) => {
-  const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
-  const trendIcon = trend > 0 ? 'arrow-up' : 'arrow-down';
-
   const safeColor = color || COLORS.primary;
-  const safeIcon = icon || 'information-circle-outline';
-  const safeValue = value || '0';
-  const safeTitle = title || 'Sin título';
-
+  const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
   return (
     <View style={styles.dashboardCardMinimal}>
       <View style={styles.dashboardCardTopRow}>
-        <Ionicons name={safeIcon} size={32} color={safeColor} />
-        <Text style={styles.dashboardCardValueMinimal}>{safeValue}</Text>
+        <Ionicons name={icon || 'information-circle-outline'} size={32} color={safeColor} />
+        <Text style={styles.dashboardCardValueMinimal}>{value || '0'}</Text>
       </View>
-      <Text style={styles.dashboardCardTitleMinimal}>{safeTitle}</Text>
-      {description && (
-        <Text style={styles.dashboardCardDescriptionMinimal}>{description}</Text>
-      )}
-      {trend !== null && trend !== undefined && (
+      <Text style={styles.dashboardCardTitleMinimal}>{title || 'Sin título'}</Text>
+      {description && <Text style={styles.dashboardCardDescriptionMinimal}>{description}</Text>}
+      {trend != null && (
         <View style={styles.dashboardCardTrendMinimal}>
-          <Ionicons name={trendIcon} size={14} color={trendColor} />
+          <Ionicons name={trend > 0 ? 'arrow-up' : 'arrow-down'} size={14} color={trendColor} />
           <Text style={[styles.dashboardCardTrendTextMinimal, { color: trendColor }]}>
             {Math.abs(trend)}% {trend > 0 ? 'más' : 'menos'}
           </Text>
@@ -235,32 +176,22 @@ const DashboardCard = ({ title, value, icon, color, trend, description }) => {
   );
 };
 
+// ─── Management Tool Card ─────────────────────────────────────────────────────
 const ManagementToolCard = ({ title, description, icon, color, badge, onPress, cardWidth }) => {
   const safeColor = color || COLORS.secondary;
-  const safeIcon = icon || 'information-circle-outline';
-  const safeTitle = title || 'Sin título';
-  const safeDescription = description || '';
-  
   return (
     <TouchableOpacity
-      style={[styles.managementToolCardMinimal, {
-        borderColor: safeColor + '20',
-        width: cardWidth,
-      }]}
+      style={[styles.managementToolCardMinimal, { borderColor: safeColor + '20', width: cardWidth }]}
       onPress={onPress}
     >
       <View style={styles.managementToolCardHeaderMinimal}>
         <View style={[styles.managementToolCardIconMinimal, { backgroundColor: safeColor + '10' }]}>
-          <Ionicons name={safeIcon} size={24} color={safeColor} />
+          <Ionicons name={icon || 'information-circle-outline'} size={24} color={safeColor} />
         </View>
         <View style={styles.managementToolCardTextContainerMinimal}>
-          <Text style={styles.managementToolCardTitleMinimal} numberOfLines={2} ellipsizeMode='tail'>
-            {safeTitle}
-          </Text>
-          {safeDescription && (
-            <Text style={styles.managementToolCardDescriptionMinimal} numberOfLines={2} ellipsizeMode='tail'>
-              {safeDescription}
-            </Text>
+          <Text style={styles.managementToolCardTitleMinimal} numberOfLines={2}>{title || 'Sin título'}</Text>
+          {description && (
+            <Text style={styles.managementToolCardDescriptionMinimal} numberOfLines={2}>{description}</Text>
           )}
         </View>
         {badge && (
@@ -272,6 +203,8 @@ const ManagementToolCard = ({ title, description, icon, color, badge, onPress, c
     </TouchableOpacity>
   );
 };
+
+// ─── Section ──────────────────────────────────────────────────────────────────
 const Section = ({ title, subtitle, children }) => (
   <View style={styles.section}>
     <View style={styles.sectionHeader}>
@@ -282,9 +215,7 @@ const Section = ({ title, subtitle, children }) => (
   </View>
 );
 
-// ─────────────────────────────────────────────
-// CHART CARD WRAPPER
-// ─────────────────────────────────────────────
+// ─── Chart Card ───────────────────────────────────────────────────────────────
 const ChartCard = ({ title, subtitle, children, empty, emptyIcon }) => (
   <View style={styles.chartCard}>
     <View style={styles.chartCardHeader}>
@@ -299,66 +230,65 @@ const ChartCard = ({ title, subtitle, children, empty, emptyIcon }) => (
     ) : children}
   </View>
 );
+
+// ─── Último Evento Card ───────────────────────────────────────────────────────
+const UltimoEventoCard = ({ evento, onPress }) => {
+  if (!evento) return null;
+  const estadoColor = {
+    aprobado: COLORS.success, pendiente: COLORS.warning, rechazado: COLORS.accent
+  }[evento.estado?.toLowerCase()] || COLORS.textSecondary;
+
+  return (
+    <TouchableOpacity style={styles.ultimoEventoCard} onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.ultimoEventoLeft}>
+        <View style={[styles.ultimoEventoIconBg, { backgroundColor: COLORS.primaryLight }]}>
+          <Ionicons name="calendar" size={22} color={COLORS.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.ultimoEventoLabel}>Último evento creado</Text>
+          <Text style={styles.ultimoEventoTitle} numberOfLines={1}>{evento.nombreevento || 'Sin nombre'}</Text>
+          <Text style={styles.ultimoEventoMeta}>
+            {evento.fechaevento?.split('T')[0] || '–'} · {evento.lugarevento || '–'}
+          </Text>
+        </View>
+      </View>
+      <View style={{ alignItems: 'flex-end', gap: 6 }}>
+        <View style={[styles.estadoBadge, { backgroundColor: estadoColor + '18' }]}>
+          <Text style={[styles.estadoBadgeText, { color: estadoColor }]}>
+            {(evento.estado || 'N/A').charAt(0).toUpperCase() + (evento.estado || '').slice(1)}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={COLORS.textTertiary} />
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── Bottom Dock ──────────────────────────────────────────────────────────────
 const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpanded }) => {
   const dockHeight = useRef(new Animated.Value(60)).current;
-  const expandedHeight = 200;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(dockHeight, {
-        toValue: isExpanded ? expandedHeight : 60,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: isExpanded ? 1 : 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+      Animated.timing(dockHeight, { toValue: isExpanded ? 200 : 60, duration: 300, useNativeDriver: false }),
+      Animated.timing(rotateAnim, { toValue: isExpanded ? 1 : 0, duration: 300, useNativeDriver: true }),
     ]).start();
   }, [isExpanded]);
 
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
+  const rotate = rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
 
   const quickActions = [
-    {
-      id: 'add-user',
-      title: 'Nuevo Usuario',
-      icon: 'person-add-outline',
-      color: COLORS.primary,
-      action: '/admin/UsuariosA'
-    },
-    {
-      id: 'pendientes',
-      title: 'Pendientes',
-      icon: 'document-text-outline',
-      color: COLORS.warning,
-      action: '/admin/EventosPendientes'
-    },
-    {
-      id: 'aprobados',
-      title: 'Aprobados',
-      icon: 'checkmark-circle-outline',
-      color: COLORS.success,
-      action: '/admin/EventosAprobados'
-    },
-    {
-      id: 'settings',
-      title: 'Ajustes',
-      icon: 'settings-outline',
-      color: COLORS.secondary,
-      action: '/admin/Settings'
-    }
+    { id: 'add-user', title: 'Nuevo Usuario', icon: 'person-add-outline', color: COLORS.primary, action: '/admin/UsuariosA' },
+    { id: 'pendientes', title: 'Pendientes', icon: 'document-text-outline', color: COLORS.warning, action: '/admin/EventosPendientes' },
+    { id: 'aprobados', title: 'Aprobados', icon: 'checkmark-circle-outline', color: COLORS.success, action: '/admin/EventosAprobados' },
+    { id: 'settings', title: 'Ajustes', icon: 'settings-outline', color: COLORS.secondary, action: '/admin/Settings' },
   ];
 
-return (
+  return (
     <Animated.View style={[styles.dock, { height: dockHeight }]}>
       <Pressable onPress={onToggleExpanded} style={styles.dockToggle}>
-        <Animated.View style={{ transform: [{ rotateInterpolate }] }}>
+        <Animated.View style={{ transform: [{ rotate }] }}>
           <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
         </Animated.View>
         <Text style={styles.dockToggleText}>Menú rápido</Text>
@@ -383,96 +313,112 @@ return (
   );
 };
 
-const MinimalHeader = ({ nombreUsuario, unreadCount, onNotificationPress }) => {
+// ─── Header ───────────────────────────────────────────────────────────────────
+const MinimalHeader = ({ nombreUsuario, unreadCount, onNotificationPress, lastUpdated, onRefresh, refreshing }) => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
   return (
     <View style={styles.header}>
       <View style={styles.headerTop}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerGreeting}>{greeting},</Text>
           <Text style={styles.headerName}>{nombreUsuario}</Text>
         </View>
-        <TouchableOpacity style={styles.notifBtn} onPress={onNotificationPress}>
-          <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
-          {unreadCount > 0 && (
-            <View style={styles.notifBadge}>
-              <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {/* Refresh button */}
+          <TouchableOpacity style={styles.headerIconBtn} onPress={onRefresh} disabled={refreshing}>
+            {refreshing
+              ? <ActivityIndicator size="small" color={COLORS.primary} />
+              : <Ionicons name="refresh-outline" size={22} color={COLORS.textSecondary} />
+            }
+          </TouchableOpacity>
+          {/* Notifications */}
+          <TouchableOpacity style={styles.notifBtn} onPress={onNotificationPress}>
+            <Ionicons name="notifications-outline" size={24} color={COLORS.textSecondary} />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
       <Text style={styles.headerTitle}>Panel de Administración</Text>
+      {lastUpdated && (
+        <Text style={styles.lastUpdatedText}>
+          Actualizado: {lastUpdated.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      )}
     </View>
   );
 };
 
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 const HomeAdministradorScreen = () => {
   const params = useLocalSearchParams();
   const nombreUsuario = params.nombre || 'Administrador';
   const router = useRouter();
   const { width: windowWidth } = useWindowDimensions();
 
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications]       = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [pendingContentCount, setPendingContentCount] = useState('0');
   const [approvedEventsCount, setApprovedEventsCount] = useState('0');
-  const [isBannerExpanded, setIsBannerExpanded] = useState(false);
-  const [loadingDashboard, setLoadingDashboard] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  
-  const [eventosPorEstado, setEventosPorEstado] = useState(null);
-  const [eventosPorDia, setEventosPorDia] = useState(null);
+  const [isBannerExpanded, setIsBannerExpanded]   = useState(false);
+  const [loadingDashboard, setLoadingDashboard]   = useState(true);
+  const [refreshing, setRefreshing]               = useState(false);
+  const [isChatOpen, setIsChatOpen]               = useState(false);
+  const [lastUpdated, setLastUpdated]             = useState(null);
+  const [ultimoEvento, setUltimoEvento]           = useState(null);
+
+  const [eventosPorEstado, setEventosPorEstado]   = useState(null);
+  const [eventosPorDia, setEventosPorDia]         = useState(null);
+  const [eventosPorMes, setEventosPorMes]         = useState(null);
+  const [eventosPorFacultad, setEventosPorFacultad] = useState(null);
   const [tiempoPromedioAprobacion, setTiempoPromedioAprobacion] = useState('0');
-  const [usuariosNuevosEsteMes, setUsuariosNuevosEsteMes] = useState('0');
-  const [eventosPorFacultad,setEventosPorFacultad] = useState(null);
-  const unreadCount = notifications.filter(notif => !notif.read).length;
-  const [eventosPorMes, setEventosPorMes] = useState(null);
-  
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const [dashboardStats, setDashboardStats] = useState([
-    { title: 'Usuarios Activos', value: 'cargando...', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
-    { title: 'Eventos Totales', value: 'cargando...', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
-    { title: 'Pendientes', value: 'cargando...', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
-    { title: 'Aprobados ', value: 'cargando...', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
-    { title: 'Tasa Aprobación', value: 'cargando...', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
-    { title: 'Estabilidad', value: 'cargando...', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
+    { title: 'Usuarios Activos', value: '–', icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
+    { title: 'Eventos Totales',  value: '–', icon: 'calendar-outline', color: COLORS.info, trend: null, description: 'Todos los eventos' },
+    { title: 'Pendientes',       value: '–', icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
+    { title: 'Aprobados',        value: '–', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
+    { title: 'Tasa Aprobación',  value: '–', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
+    { title: 'Estabilidad',      value: '–', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
   ]);
 
+  // ── Fetch dashboard data ───────────────────────────────────────────────────
+  const fetchDashboardData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoadingDashboard(true);
 
- const fetchDashboardData = useCallback(async () => {
-    setLoadingDashboard(true);
     try {
       const token = await getTokenAsync();
       if (!token) { setLoadingDashboard(false); return; }
 
-      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
-      });
-      const data = response.data;
-    let eventosPorMesData = null;
-    try {
-      const mensualResponse = await axios.get(`${API_BASE_URL}/dashboard/mensual`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
-      });
-      
-      // Transformar los datos de getMensualStats al formato que espera el gráfico
-      if (Array.isArray(mensualResponse.data) && mensualResponse.data.length > 0) {
-        eventosPorMesData = {
-          labels: mensualResponse.data.map(i => i.mes),
-          datasets: [{  data: mensualResponse.data.map(i => i.totalEvents) }],
-        };
+      const [statsRes, mensualRes, eventosRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+        axios.get(`${API_BASE_URL}/dashboard/mensual`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+        axios.get(`${API_BASE_URL}/eventos`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+      ]);
+
+      const data = statsRes.data;
+
+      // ── Último evento ──────────────────────────────────────────────────────
+      if (Array.isArray(eventosRes.data) && eventosRes.data.length > 0) {
+        const sorted = [...eventosRes.data].sort((a, b) =>
+          new Date(b.fechaevento || 0) - new Date(a.fechaevento || 0)
+        );
+        setUltimoEvento(sorted[0]);
       }
-    } catch (mensualError) {
-      console.warn('⚠️ No se pudieron cargar datos mensuales:', mensualError.message);
-    }
-      // Estado counts → pie chart
-      if (data.estadoCounts && typeof data.estadoCounts === 'object') {
+
+      // ── Pie chart estados ──────────────────────────────────────────────────
+      if (data.estadoCounts) {
         setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
-        setApprovedEventsCount((data.estadoCounts.aprobado || 0).toString());
+        setApprovedEventsCount((data.estadoCounts.aprobado  || 0).toString());
         const stateColors = { aprobado: COLORS.success, pendiente: COLORS.warning, rechazado: COLORS.accent };
-        const pieData = Object.entries(data.estadoCounts)
+        const pie = Object.entries(data.estadoCounts)
           .filter(([, v]) => typeof v === 'number' && v > 0)
           .map(([k, v]) => ({
             name: k.charAt(0).toUpperCase() + k.slice(1),
@@ -481,10 +427,10 @@ const HomeAdministradorScreen = () => {
             legendFontColor: COLORS.textPrimary,
             legendFontSize: 12,
           }));
-        setEventosPorEstado(pieData.length > 0 ? pieData : null);
+        setEventosPorEstado(pie.length ? pie : null);
       }
 
-      // Eventos por día → line chart
+      // ── Line chart – eventos por día ───────────────────────────────────────
       if (Array.isArray(data.eventosPorDia) && data.eventosPorDia.length > 0) {
         setEventosPorDia({
           labels: data.eventosPorDia.map(item => {
@@ -495,173 +441,132 @@ const HomeAdministradorScreen = () => {
         });
       } else { setEventosPorDia(null); }
 
-      // Eventos por mes → bar chart
-      if (Array.isArray(data.eventosPorMes) && data.eventosPorMes.length > 0) {
+      // ── Bar chart – eventos por mes (preferir endpoint mensual) ───────────
+      if (Array.isArray(mensualRes.data) && mensualRes.data.length > 0) {
         setEventosPorMes({
-          labels: data.eventosPorMes.map(i => i.mes),
-          datasets: [{ data: data.eventosPorMes.map(i => i.total) }],
+          labels: mensualRes.data.map(i => {
+            const [, m] = (i.mes || '').split('-');
+            return m ? MONTH_SHORT[parseInt(m) - 1] : i.mes;
+          }),
+          datasets: [{ data: mensualRes.data.map(i => i.totalEvents || 0) }],
+        });
+      } else if (Array.isArray(data.eventosPorMes) && data.eventosPorMes.length > 0) {
+        setEventosPorMes({
+          labels: data.eventosPorMes.map(i => {
+            const [, m] = (i.mes || '').split('-');
+            return m ? MONTH_SHORT[parseInt(m) - 1] : i.mes;
+          }),
+          datasets: [{ data: data.eventosPorMes.map(i => i.total || 0) }],
         });
       } else { setEventosPorMes(null); }
 
-      // Eventos por facultad → bar chart
+      // ── Bar chart – eventos por facultad ───────────────────────────────────
       if (Array.isArray(data.eventosPorFacultad) && data.eventosPorFacultad.length > 0) {
         setEventosPorFacultad({
           labels: data.eventosPorFacultad.map(i => i.facultad || 'N/A'),
           datasets: [{ data: data.eventosPorFacultad.map(i => i.total) }],
         });
-      } 
+      } else { setEventosPorFacultad(null); }
 
       const tiempoPromedio = data.tiempoPromedioAprobacion || 0;
       const usuariosNuevos = data.usuariosNuevosEsteMes || 0;
       setTiempoPromedioAprobacion(tiempoPromedio.toString());
-      setUsuariosNuevosEsteMes(usuariosNuevos.toString());
 
       setDashboardStats([
-        { title: 'Usuarios Activos', value: (data.activeUsers || 0).toLocaleString(), icon: 'people-outline', color: COLORS.primary, trend: null, description: 'Cuentas habilitadas' },
-        { title: 'Usuarios Nuevos', value: usuariosNuevos.toLocaleString(), icon: 'person-add-outline', color: COLORS.info, trend: null, description: 'Este mes' },
-        { title: 'Eventos Totales', value: (data.totalEvents || 0).toString(), icon: 'calendar-outline', color: COLORS.secondary, trend: null, description: 'Todos los eventos' },
-        { title: 'Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(), icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
-        { title: 'Aprobados', value: (data.estadoCounts?.aprobado || 0).toString(), icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Eventos aprobados' },
-        { title: 'Tasa Aprobación', value: `${data.tasaAprobacion || 0}%`, icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Aprobados / totales' },
-        { title: 'Tiempo Prom. Aprob.', value: `${tiempoPromedio}h`, icon: 'time-outline', color: COLORS.warning, trend: null, description: 'Horas promedio' },
-        { title: 'Estabilidad', value: `${data.systemStability || 0}%`, icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
+        { title: 'Usuarios Activos',   value: (data.activeUsers || 0).toLocaleString(), icon: 'people-outline',        color: COLORS.primary,   trend: null, description: 'Cuentas habilitadas' },
+        { title: 'Usuarios Nuevos',    value: usuariosNuevos.toLocaleString(),            icon: 'person-add-outline',    color: COLORS.info,      trend: null, description: 'Este mes' },
+        { title: 'Eventos Totales',    value: (data.totalEvents || 0).toString(),         icon: 'calendar-outline',      color: COLORS.secondary, trend: null, description: 'Todos los eventos' },
+        { title: 'Pendientes',         value: (data.estadoCounts?.pendiente || 0).toString(), icon: 'document-text-outline', color: COLORS.warning, trend: null, description: 'Esperando aprobación' },
+        { title: 'Aprobados',          value: (data.estadoCounts?.aprobado  || 0).toString(), icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Eventos aprobados' },
+        { title: 'Tasa Aprobación',    value: `${data.tasaAprobacion || 0}%`,             icon: 'analytics-outline',     color: COLORS.info,      trend: null, description: 'Aprobados / totales' },
+        { title: 'Tiempo Prom.',       value: `${tiempoPromedio}h`,                       icon: 'time-outline',          color: COLORS.warning,   trend: null, description: 'Horas promedio aprob.' },
+        { title: 'Estabilidad',        value: `${data.systemStability || 0}%`,            icon: 'pulse-outline',         color: COLORS.success,   trend: null, description: 'Rendimiento del sistema' },
       ]);
+
+      setLastUpdated(new Date());
 
     } catch (error) {
       console.error('Error al cargar dashboard:', error);
-      setPendingContentCount('0');
-      setApprovedEventsCount('0');
-      setEventosPorEstado(null);
-      setEventosPorDia(null);
-      setEventosPorMes(null);
-      setEventosPorFacultad(null);
       setDashboardStats(prev => prev.map(s => ({ ...s, value: 'Error' })));
       Alert.alert('Error de Conexión', `No se pudieron cargar los datos.\n\n${error.message}`, [
-        { text: 'Reintentar', onPress: fetchDashboardData },
+        { text: 'Reintentar', onPress: () => fetchDashboardData() },
         { text: 'Cancelar', style: 'cancel' },
       ]);
     } finally {
       setLoadingDashboard(false);
+      setRefreshing(false);
     }
   }, []);
 
-const fetchNotifications = useCallback(async () => {
-  try {
-    const token = await getTokenAsync();
-    if (!token) return;
-
-    const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    setNotifications(Array.isArray(response.data) ? response.data : []);
-  } catch (error) {
-    console.error('Error al cargar notificaciones:', error);
-    // Opcional: Alert.alert('Error', 'No se pudieron cargar las notificaciones.');
-  }
-}, []);
-useEffect(() => {
-  const validateSession = async () => {
-    const token = await getTokenAsync();
-    if (!token) {
-      console.log(' No hay sesión activa. Redirigiendo a login...');
-      router.replace('/');
-      return;
+  // ── Fetch notifications ────────────────────────────────────────────────────
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const token = await getTokenAsync();
+      if (!token) return;
+      const res = await axios.get(`${API_BASE_URL}/notificaciones`, { headers: { Authorization: `Bearer ${token}` } });
+      setNotifications(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      console.error('Error al cargar notificaciones:', error);
     }
-    fetchDashboardData();
-    fetchNotifications();
+  }, []);
+
+  // ── Mark notification as read ──────────────────────────────────────────────
+  const markAsRead = async (notifId) => {
+    try {
+      const token = await getTokenAsync();
+      await axios.put(`${API_BASE_URL}/notificaciones/${notifId}/leer`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
+    } catch (e) {
+      console.warn('No se pudo marcar como leída:', e.message);
+    }
   };
 
-  validateSession();
-}, [router,fetchDashboardData,fetchNotifications]);
+  // ── Mark all as read ───────────────────────────────────────────────────────
+  const markAllAsRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+    await Promise.all(unread.map(n => markAsRead(n.id)));
+  };
+
+  useEffect(() => {
+    const validateSession = async () => {
+      const token = await getTokenAsync();
+      if (!token) { router.replace('/'); return; }
+      fetchDashboardData();
+      fetchNotifications();
+    };
+    validateSession();
+  }, [router, fetchDashboardData, fetchNotifications]);
+
   const { cardWidth: actionsCardWidth } = useMemo(() => {
     const availableWidth = windowWidth - 40;
     let numColumns = Math.floor(availableWidth / (MIN_CARD_WIDTH_ACTIONS + CARD_MARGIN));
     numColumns = Math.max(1, Math.min(numColumns, MAX_COLUMNS_ACTIONS));
     const totalGaps = CARD_MARGIN * (numColumns - 1);
-    const width = (availableWidth - totalGaps) / numColumns;
-    return { cardWidth: width };
+    return { cardWidth: (availableWidth - totalGaps) / numColumns };
   }, [windowWidth]);
 
   const adminActions = [
-    {
-      id: '1',
-      title: 'Gestión de Usuarios',
-      iconName: 'people-outline',
-      route: '/admin/UsuariosA',
-      color: COLORS.secondary,
-      description: 'Administración de cuentas de usuario',
-    },
-    {
-      id: '2',
-      title: 'Eventos Pendientes',
-      iconName: 'timer-outline',
-      route: '/admin/EventosPendientes',
-      color: COLORS.warning,
-      description: 'Revisión y aprobación de eventos',
-      badge: `${pendingContentCount} pendientes`,
-      badgeColor: COLORS.warning,
-    },
-    {
-      id: '3',
-      title: 'Eventos Aprobados',
-      iconName: 'checkmark-circle-outline',
-      route: '/admin/EventosAprobados',
-      color: COLORS.success,
-      description: 'Gestión de eventos ya aprobados',
-       badge: `${approvedEventsCount} aprobados`,
-    },
-    {
-      id: '4',
-      title: 'Análisis de Datos',
-      iconName: 'analytics-outline',
-      route: '/admin/Estadistica',
-      color: COLORS.info,
-      description: 'Informes y métricas del sistema',
-    },
-    {
-      id: '5',
-      title: 'Reportes Avanzados',
-      iconName: 'document-text-outline',
-      route: '/admin/reportes',
-      color: COLORS.secondary,
-      description: 'Generación de reportes detallados',
-      badge: 'Nuevo',
-      badgeColor: COLORS.accent,
-    },
-    
+    { id: '1', title: 'Gestión de Usuarios',  iconName: 'people-outline',          route: '/admin/UsuariosA',        color: COLORS.secondary, description: 'Administración de cuentas de usuario' },
+    { id: '2', title: 'Eventos Pendientes',   iconName: 'timer-outline',            route: '/admin/EventosPendientes', color: COLORS.warning,   description: 'Revisión y aprobación de eventos',  badge: `${pendingContentCount} pendientes` },
+    { id: '3', title: 'Eventos Aprobados',    iconName: 'checkmark-circle-outline', route: '/admin/EventosAprobados',  color: COLORS.success,   description: 'Gestión de eventos ya aprobados',   badge: `${approvedEventsCount} aprobados` },
+    { id: '4', title: 'Reportes Avanzados',   iconName: 'document-text-outline',    route: '/admin/reportes',          color: COLORS.secondary, description: 'Generación de reportes detallados', badge: 'Nuevo' },
   ];
 
   const handleActionPress = (route) => {
-    if (route) {
-      router.push(route);
-    } else {
-      Alert.alert('Funcionalidad en Desarrollo', 'Esta característica estará disponible próximamente.', [{ text: 'Entendido' }]);
-    }
+    if (route) router.push(route);
+    else Alert.alert('En Desarrollo', 'Esta característica estará disponible próximamente.', [{ text: 'Entendido' }]);
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Confirmar Cierre de Sesión',
-      '¿Está seguro que desea cerrar la sesión actual?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteTokenAsync();
-            router.replace('/');
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+    Alert.alert('Confirmar Cierre de Sesión', '¿Está seguro que desea cerrar la sesión actual?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cerrar Sesión', style: 'destructive', onPress: async () => { await deleteTokenAsync(); router.replace('/'); } },
+    ], { cancelable: true });
   };
 
-const chartWidth = windowWidth - 60;
+  const chartWidth = windowWidth - 60;
 
- return (
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <ScrollView
@@ -674,7 +579,20 @@ const chartWidth = windowWidth - 60;
           nombreUsuario={nombreUsuario}
           unreadCount={unreadCount}
           onNotificationPress={() => setShowNotifications(true)}
+          lastUpdated={lastUpdated}
+          onRefresh={() => { fetchDashboardData(true); fetchNotifications(); }}
+          refreshing={refreshing}
         />
+
+        {/* ── ÚLTIMO EVENTO ── */}
+        {ultimoEvento && (
+          <View style={{ paddingHorizontal: 20, marginTop: 20 }}>
+            <UltimoEventoCard
+              evento={ultimoEvento}
+              onPress={() => router.push(`/admin/EventDetailScreen?eventId=${ultimoEvento.idevento}`)}
+            />
+          </View>
+        )}
 
         {/* ── STATS CARDS ── */}
         <Section title="Resumen de Actividad" subtitle="Métricas clave del sistema">
@@ -685,78 +603,29 @@ const chartWidth = windowWidth - 60;
             </View>
           ) : (
             <View style={styles.statsGrid}>
-              {dashboardStats.map((stat, i) => (
-                <DashboardCard key={i} {...stat} />
-              ))}
+              {dashboardStats.map((stat, i) => <DashboardCard key={i} {...stat} />)}
             </View>
           )}
         </Section>
 
         {/* ── CHARTS ── */}
         <Section title="Análisis Visual" subtitle="Distribución y tendencias">
-
-          {/* Pie chart – estado */}
-          <ChartCard
-            title="Distribución por Estado"
-            subtitle="Aprobados · Pendientes · Rechazados"
-            empty={!eventosPorEstado}
-            emptyIcon="pie-chart-outline"
-          >
-            <PieChart
-              data={eventosPorEstado || []}
-              width={chartWidth + 20}
-              height={210}
-              accessor="population"
-              backgroundColor="transparent"
-              paddingLeft="10"
-              absolute
-              chartConfig={{ color: (opacity = 1) => `rgba(0,0,0,${opacity})` }}
-            />
+          <ChartCard title="Distribución por Estado" subtitle="Aprobados · Pendientes · Rechazados" empty={!eventosPorEstado} emptyIcon="pie-chart-outline">
+            <PieChart data={eventosPorEstado || []} width={chartWidth + 20} height={210} accessor="population"
+              backgroundColor="transparent" paddingLeft="10" absolute
+              chartConfig={{ color: (o = 1) => `rgba(0,0,0,${o})` }} />
           </ChartCard>
 
-          {/* Line chart – tendencia 7 días */}
-          <ChartCard
-            title="Tendencia de Eventos"
-            subtitle="Últimos 7 días"
-            empty={!eventosPorDia}
-            emptyIcon="trending-up-outline"
-          >
-            <CustomLineChart
-              data={eventosPorDia}
-              width={chartWidth}
-              height={220}
-              color={COLORS.primary}
-            />
+          <ChartCard title="Tendencia de Eventos" subtitle="Últimos 7 días" empty={!eventosPorDia} emptyIcon="trending-up-outline">
+            <CustomLineChart data={eventosPorDia} width={chartWidth} height={220} color={COLORS.primary} />
           </ChartCard>
 
-          {/* Bar chart – por mes */}
-          <ChartCard
-            title="Eventos por Mes"
-            subtitle="Histórico mensual"
-            empty={!eventosPorMes}
-            emptyIcon="bar-chart-outline"
-          >
-            <CustomBarChart
-              data={eventosPorMes}
-              width={chartWidth}
-              height={220}
-              color={COLORS.info}
-            />
+          <ChartCard title="Eventos por Mes" subtitle="Histórico mensual" empty={!eventosPorMes} emptyIcon="bar-chart-outline">
+            <CustomBarChart data={eventosPorMes} width={chartWidth} height={280} color={COLORS.info} />
           </ChartCard>
 
-          {/* Bar chart – por facultad */}
-          <ChartCard
-            title="Eventos por Facultad"
-            subtitle="Distribución por unidad académica"
-            empty={!eventosPorFacultad}
-            emptyIcon="school-outline"
-          >
-            <CustomBarChart
-              data={eventosPorFacultad}
-              width={chartWidth}
-              height={220}
-              color={COLORS.success}
-            />
+          <ChartCard title="Eventos por Facultad" subtitle="Distribución por unidad académica" empty={!eventosPorFacultad} emptyIcon="school-outline">
+            <CustomBarChart data={eventosPorFacultad} width={chartWidth} height={280} color={COLORS.success} />
           </ChartCard>
         </Section>
 
@@ -796,22 +665,13 @@ const chartWidth = windowWidth - 60;
         {/* ── HERRAMIENTAS ── */}
         <Section title="Herramientas de Gestión" subtitle="Acceda a las funcionalidades principales">
           {loadingDashboard ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
+            <View style={styles.loadingBox}><ActivityIndicator size="large" color={COLORS.primary} /></View>
           ) : (
             <View style={styles.toolsGrid}>
               {adminActions.map((tool, i) => (
-                <ManagementToolCard
-                  key={i}
-                  title={tool.title}
-                  description={tool.description}
-                  icon={tool.iconName}
-                  color={tool.color}
-                  badge={tool.badge}
-                  onPress={() => handleActionPress(tool.route)}
-                  cardWidth={actionsCardWidth}
-                />
+                <ManagementToolCard key={i} title={tool.title} description={tool.description}
+                  icon={tool.iconName} color={tool.color} badge={tool.badge}
+                  onPress={() => handleActionPress(tool.route)} cardWidth={actionsCardWidth} />
               ))}
             </View>
           )}
@@ -823,11 +683,21 @@ const chartWidth = windowWidth - 60;
         <View style={styles.overlay}>
           <View style={styles.notifModal}>
             <View style={styles.notifHeader}>
-              <Text style={styles.notifTitle}>Notificaciones</Text>
-              <TouchableOpacity onPress={() => setShowNotifications(false)}>
-                <Ionicons name="close-outline" size={26} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+              <Text style={styles.notifTitle}>
+                Notificaciones {unreadCount > 0 && <Text style={{ color: COLORS.primary }}>({unreadCount})</Text>}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {unreadCount > 0 && (
+                  <TouchableOpacity onPress={markAllAsRead}>
+                    <Text style={styles.markAllText}>Marcar todas</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setShowNotifications(false)}>
+                  <Ionicons name="close-outline" size={26} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
             </View>
+
             {notifications.length === 0 ? (
               <View style={styles.notifEmpty}>
                 <Ionicons name="notifications-off-outline" size={40} color={COLORS.textTertiary} />
@@ -839,13 +709,22 @@ const chartWidth = windowWidth - 60;
                   <TouchableOpacity
                     key={notif.id}
                     style={[styles.notifItem, { backgroundColor: notif.read ? COLORS.surface : COLORS.primaryLight }]}
-                    onPress={() => { if (notif.idEvento) router.push(`/admin/evento/${notif.idEvento}`); setShowNotifications(false); }}
+                    onPress={async () => {
+                      if (!notif.read) await markAsRead(notif.id);
+                      if (notif.idEvento) router.push(`/admin/evento/${notif.idEvento}`);
+                      setShowNotifications(false);
+                    }}
                   >
                     <View style={[styles.notifDot, { backgroundColor: notif.read ? COLORS.border : COLORS.primary }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.notifMsg, { fontWeight: notif.read ? '400' : '600' }]}>{notif.mensaje}</Text>
                       <Text style={styles.notifTime}>{new Date(notif.createdAt).toLocaleDateString()}</Text>
                     </View>
+                    {!notif.read && (
+                      <TouchableOpacity onPress={() => markAsRead(notif.id)} style={styles.markReadBtn}>
+                        <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.primary} />
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -879,30 +758,33 @@ const chartWidth = windowWidth - 60;
                 <Ionicons name="close" size={24} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Chatbot />
-            </View>
+            <View style={{ flex: 1 }}><Chatbot /></View>
           </View>
         </View>
       )}
     </View>
   );
 };
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-   header: {
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollView: { flex: 1 },
+
+  // Header
+  header: {
     width: '100%', paddingHorizontal: 20,
-    paddingTop: (StatusBar.currentHeight || 40) + 16, paddingBottom: 20,
+    paddingTop: (StatusBar.currentHeight || 40) + 16, paddingBottom: 16,
     backgroundColor: COLORS.surface, borderBottomWidth: 1, borderColor: COLORS.border,
     elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4,
   },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerIconBtn: { padding: 6, borderRadius: 20, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerGreeting: { fontSize: 15, color: COLORS.textSecondary, fontWeight: '400' },
   headerName: { fontSize: 22, color: COLORS.textPrimary, fontWeight: '700' },
   headerTitle: { fontSize: 26, fontWeight: '800', color: COLORS.textPrimary },
+  lastUpdatedText: { fontSize: 11, color: COLORS.textTertiary, marginTop: 4 },
   notifBtn: { position: 'relative', padding: 6 },
   notifBadge: {
     position: 'absolute', top: 0, right: 0, backgroundColor: COLORS.accent,
@@ -911,73 +793,43 @@ const styles = StyleSheet.create({
   },
   notifBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: '700' },
 
-  section: { 
-    width: '100%',
-    paddingHorizontal: 20,
-    marginTop: 28 
-  },
-  sectionHeader: {
-     marginBottom: 16 
-    },
-  sectionTitle: {
-     fontSize: 20,
-     fontWeight: '700',
-     color: COLORS.textPrimary, 
-     marginBottom: 2 
-    },
-  sectionSubtitle: { 
-    fontSize: 13, 
-    color: COLORS.textSecondary 
-  },
-  statsGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: CARD_MARGIN, 
-    justifyContent: 'space-between' 
-  },
-  dashboardCard: {
-    backgroundColor: COLORS.surface, 
-    borderRadius: 14, 
-    padding: 16,
-    width: '47%', 
-    minHeight: 120,
+  // Último evento
+  ultimoEventoCard: {
+    backgroundColor: COLORS.surface, borderRadius: 14, padding: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: COLORS.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
   },
-  dashboardCardIconBg: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 12, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginBottom: 10 
+  ultimoEventoLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  ultimoEventoIconBg: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  ultimoEventoLabel: { fontSize: 11, color: COLORS.textTertiary, fontWeight: '500', marginBottom: 2 },
+  ultimoEventoTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 2 },
+  ultimoEventoMeta: { fontSize: 12, color: COLORS.textSecondary },
+  estadoBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  estadoBadgeText: { fontSize: 11, fontWeight: '700' },
+
+  // Section
+  section: { width: '100%', paddingHorizontal: 20, marginTop: 28 },
+  sectionHeader: { marginBottom: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 2 },
+  sectionSubtitle: { fontSize: 13, color: COLORS.textSecondary },
+
+  // Stats grid
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_MARGIN, justifyContent: 'space-between' },
+  dashboardCardMinimal: {
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 16,
+    shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3,
+    width: '48%', minHeight: 130, justifyContent: 'space-between',
   },
-  dashboardCardValue: { 
-    fontSize: 26, 
-    fontWeight: '800', 
-    color: COLORS.textPrimary, 
-    marginBottom: 2 
-  },
-  dashboardCardTitle: { 
-    fontSize: 13,
-     fontWeight: '600', 
-     color: COLORS.textSecondary, 
-     marginBottom: 2 
-    },
-  dashboardCardDescription: { 
-    fontSize: 11, 
-    color: COLORS.textTertiary 
-  },
-  dashboardCardTrend: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 3, marginTop: 6 
-  },
-  dashboardCardTrendText: { 
-    fontSize: 12, 
-    fontWeight: '600', 
-    color: COLORS.textSecondary 
-  },
-chartCard: {
+  dashboardCardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  dashboardCardValueMinimal: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
+  dashboardCardTitleMinimal: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 4 },
+  dashboardCardTrendMinimal: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  dashboardCardTrendTextMinimal: { fontSize: 12, fontWeight: '600' },
+  dashboardCardDescriptionMinimal: { fontSize: 11, color: COLORS.textTertiary },
+
+  // Charts
+  chartCard: {
     backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, marginBottom: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 3,
   },
@@ -987,7 +839,7 @@ chartCard: {
   chartEmpty: { alignItems: 'center', paddingVertical: 32 },
   chartEmptyText: { marginTop: 10, fontSize: 14, color: COLORS.textTertiary },
 
-  // Alerts
+  // Alerts — fixed: added alertBody + alertDesc
   alertsContainer: { gap: 10 },
   alertCard: {
     backgroundColor: COLORS.surface, borderRadius: 12, padding: 16,
@@ -1000,17 +852,18 @@ chartCard: {
 
   // Tools
   toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: CARD_MARGIN, justifyContent: 'space-between' },
-  toolCard: {
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 18,
-    borderWidth: 1, minHeight: 130,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 4,
+  managementToolCardMinimal: {
+    backgroundColor: COLORS.surface, borderRadius: 16, padding: 20,
+    shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5,
+    minHeight: 130, borderWidth: 1, maxWidth: '100%',
   },
-  toolCardIcon: { width: 52, height: 52, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  toolCardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4, lineHeight: 22 },
-  toolCardDescription: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
-  toolCardBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 10 },
-  toolCardBadgeText: { fontSize: 11, fontWeight: '700', color: COLORS.white },
-  toolCardArrow: { position: 'absolute', top: 18, right: 16 },
+  managementToolCardHeaderMinimal: { flexDirection: 'column', gap: 12 },
+  managementToolCardIconMinimal: { width: 56, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  managementToolCardTextContainerMinimal: { flex: 1 },
+  managementToolCardTitleMinimal: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6, lineHeight: 22 },
+  managementToolCardDescriptionMinimal: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
+  managementToolCardBadgeMinimal: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, position: 'absolute', top: 20, right: 20 },
+  managementToolCardBadgeTextMinimal: { fontSize: 11, fontWeight: '700', color: COLORS.white },
 
   // Dock
   dock: {
@@ -1034,7 +887,7 @@ chartCard: {
   },
   dockLogoutText: { color: COLORS.white, fontSize: 15, fontWeight: '600', marginLeft: 8 },
 
-  // Notifications modal
+  // Notifications
   overlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-start',
@@ -1050,6 +903,7 @@ chartCard: {
     paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: COLORS.border,
   },
   notifTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
+  markAllText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
   notifEmpty: { alignItems: 'center', paddingVertical: 40 },
   notifEmptyText: { marginTop: 12, fontSize: 14, color: COLORS.textSecondary },
   notifItem: {
@@ -1059,8 +913,9 @@ chartCard: {
   notifDot: { width: 10, height: 10, borderRadius: 5 },
   notifMsg: { fontSize: 14, color: COLORS.textPrimary, marginBottom: 3 },
   notifTime: { fontSize: 12, color: COLORS.textTertiary },
+  markReadBtn: { padding: 4 },
 
-  // Chat
+  // FAB / Chat
   fab: {
     position: 'absolute', bottom: 78, left: 20, width: 56, height: 56, borderRadius: 28,
     backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
@@ -1087,443 +942,6 @@ chartCard: {
   // Loading
   loadingBox: { alignItems: 'center', paddingVertical: 40 },
   loadingText: { marginTop: 10, fontSize: 14, color: COLORS.textSecondary },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    alignItems: 'center',
-    paddingBottom: 80,
-  },
-  minimalHeaderContainer: {
-    width: '100%',
-    paddingHorizontal: 20,
-    paddingTop: StatusBar.currentHeight + 20,
-    paddingBottom: 20,
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  minimalHeaderTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  minimalHeaderAdminText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  minimalNotificationButton: {
-    position: 'relative',
-    padding: 4,
-  },
-  minimalNotificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: COLORS.accent,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.white,
-  },
-  minimalNotificationBadgeText: {
-    color: COLORS.white,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  minimalHeaderGreeting: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    marginBottom: 4,
-  },
-  minimalGreetingText: {
-    fontSize: 22,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  minimalUserNameText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  minimalHeaderTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  dashboardSectionMinimal: {
-    width: '100%',
-    paddingHorizontal: 20,
-    marginTop: 30,
-  },
-  sectionHeaderMinimal: {
-    marginBottom: 24,
-    paddingHorizontal: 4,
-  },
-  sectionTitleMinimal: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
-  },
-  sectionSubtitleMinimal: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '400',
-  },
-  dashboardGridMinimal: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: CARD_MARGIN,
-    justifyContent: 'space-between',
-  },
-  dashboardCardMinimal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    width: '48%',
-    minHeight: 130,
-    justifyContent: 'space-between',
-  },
-  dashboardCardTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  dashboardCardValueMinimal: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.textPrimary,
-  },
-  dashboardCardTitleMinimal: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  dashboardCardTrendMinimal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  dashboardCardTrendTextMinimal: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  dashboardCardDescriptionMinimal: {
-    fontSize: 11,
-    color: COLORS.textTertiary,
-  },
-  managementToolsSectionMinimal: {
-    width: '100%',
-    paddingHorizontal: 20,
-    marginTop: 40,
-    marginBottom: 40,
-  },
-  managementToolCardMinimal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    minHeight: 130,
-    borderWidth: 1,
-    maxWidth: '100%',
-  },
-  managementToolCardHeaderMinimal: {
-    flexDirection: 'column',
-    gap: 12,
-  },
-  managementToolCardIconMinimal: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8
-  },
-  managementToolCardTextContainerMinimal: {
-    flex: 1,
-  },
-  managementToolCardTitleMinimal: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 6,
-    lineHeight: 22,
-  },
-  managementToolCardDescriptionMinimal: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  managementToolCardBadgeMinimal: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    position: 'absolute',
-    top: 20,
-    right: 20,
-  },
-  managementToolCardBadgeTextMinimal: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  alertsContainer: {
-    gap: 12,
-  },
-  alertCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    shadowColor: COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  alertTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 4,
-  },
-  alertDescription: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  minimalDockContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.primary,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  minimalDockToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    gap: 8,
-  },
-  minimalDockToggleText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  minimalDockExpandedContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 10,
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 60,
-  },
-  minimalDockQuickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-    gap: 10,
-  },
-  minimalDockQuickActionButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    width: '22%',
-  },
-  minimalDockQuickActionText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  minimalDockLogoutButton: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    width: '100%',
-  },
-  minimalDockLogoutButtonText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  notificationOverlay: {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  justifyContent: 'flex-start',
-  paddingTop: StatusBar.currentHeight || 0,
-  zIndex: 1000,
-},
-notificationModal: {
-  backgroundColor: COLORS.white,
-  marginHorizontal: 16,
-  borderRadius: 16,
-  maxHeight: '70%',
-  shadowColor: COLORS.shadow,
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.2,
-  shadowRadius: 8,
-  elevation: 10,
-},
-notificationHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingHorizontal: 16,
-  paddingVertical: 12,
-  borderBottomWidth: 1,
-  borderColor: COLORS.border,
-},
-notificationTitle: {
-  fontSize: 18,
-  fontWeight: '700',
-  color: COLORS.textPrimary,
-},
-notificationsList: {
-  flex: 1,
-},
-notificationItem: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  padding: 16,
-  borderBottomWidth: 1,
-  borderColor: COLORS.border,
-},
-notificationContent: {
-  flex: 1,
-},
-notificationMessage: {
-  fontSize: 14,
-  color: COLORS.textPrimary,
-  marginBottom: 4,
-},
-notificationTime: {
-  fontSize: 12,
-  color: COLORS.textTertiary,
-},
-unreadIndicator: {
-  width: 10,
-  height: 10,
-  borderRadius: 5,
-  backgroundColor: COLORS.accent,
-  marginLeft: 12,
-},
-noNotificationsText: {
-  textAlign: 'center',
-  padding: 24,
-  color: COLORS.textSecondary,
-  fontSize: 14,
-},
-chatFab: {
-  position: 'absolute',
-  bottom: 80, // por encima del dock
-  left: 20,
-  width: 56,
-  height: 56,
-  borderRadius: 28,
-  backgroundColor: COLORS.primary,
-  justifyContent: 'center',
-  alignItems: 'center',
-  shadowColor: COLORS.shadow,
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.3,
-  shadowRadius: 6,
-  elevation: 8,
-},
-chatOverlay: {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  justifyContent: 'flex-start',
-  paddingTop: StatusBar.currentHeight || 0,
-  zIndex: 2000,
-},
-chatModal: {
-  width: '90%',
-  maxWidth: 400,
-  height: '85%',
-  backgroundColor: '#F4F7F9',
-  borderTopRightRadius: 20,
-  borderBottomRightRadius: 20,
-  marginLeft: 'auto', // Para que quede a la derecha
-  // Si quieres que salga desde la IZQUIERDA, usa marginRight: 'auto' y marginLeft: 0
-  shadowColor: '#000',
-  shadowOffset: { width: -4, height: 0 },
-  shadowOpacity: 0.2,
-  shadowRadius: 10,
-  elevation: 10,
-},
-chatHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  paddingHorizontal: 16,
-  paddingVertical: 12,
-  backgroundColor: COLORS.surface,
-  borderBottomWidth: 1,
-  borderColor: COLORS.border,
-  borderTopRightRadius: 20,
-},
-chatTitle: {
-  fontSize: 18,
-  fontWeight: '700',
-  color: COLORS.textPrimary,
-},
-chatContainer: {
-  flex: 1,
-},
 });
 
 export default HomeAdministradorScreen;
