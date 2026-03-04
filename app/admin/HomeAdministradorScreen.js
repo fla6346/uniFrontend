@@ -440,7 +440,23 @@ const HomeAdministradorScreen = () => {
         timeout: 10000,
       });
       const data = response.data;
-
+    let eventosPorMesData = null;
+    try {
+      const mensualResponse = await axios.get(`${API_BASE_URL}/dashboard/mensual`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      
+      // Transformar los datos de getMensualStats al formato que espera el gráfico
+      if (Array.isArray(mensualResponse.data) && mensualResponse.data.length > 0) {
+        eventosPorMesData = {
+          labels: mensualResponse.data.map(i => i.mes),
+          datasets: [{  data: mensualResponse.data.map(i => i.totalEvents) }],
+        };
+      }
+    } catch (mensualError) {
+      console.warn('⚠️ No se pudieron cargar datos mensuales:', mensualError.message);
+    }
       // Estado counts → pie chart
       if (data.estadoCounts && typeof data.estadoCounts === 'object') {
         setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
@@ -483,7 +499,7 @@ const HomeAdministradorScreen = () => {
           labels: data.eventosPorFacultad.map(i => i.facultad || 'N/A'),
           datasets: [{ data: data.eventosPorFacultad.map(i => i.total) }],
         });
-      } else { setEventosPorFacultad(null); }
+      } 
 
       const tiempoPromedio = data.tiempoPromedioAprobacion || 0;
       const usuariosNuevos = data.usuariosNuevosEsteMes || 0;
