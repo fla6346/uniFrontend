@@ -147,7 +147,8 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
   if (!data?.labels?.length) return null;
   const labels = data.labels;
   const values = data.datasets[0].data;
-  const padding = { top: 24, right: 16, bottom: 44, left: 44 };
+  const LABEL_AREA = 90; // extra space for rotated labels
+  const padding = { top: 24, right: 16, bottom: LABEL_AREA, left: 44 };
   const cw = width - padding.left - padding.right;
   const ch = height - padding.top - padding.bottom;
   const maxV = Math.max(...values, 1);
@@ -173,6 +174,8 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
         const barH = (v / maxV) * ch;
         const x = padding.left + gap * i + (gap - barW) / 2;
         const y = padding.top + ch - barH;
+        const labelX = x + barW / 2;
+        const labelY = padding.top + ch + 8;
         return (
           <G key={i}>
             <Rect x={x} y={y} width={barW} height={barH}
@@ -183,10 +186,17 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
                 {v}
               </SvgText>
             )}
-            <SvgText x={x + barW / 2} y={height - padding.bottom + 16} fontSize="8"
-              fill={COLORS.textSecondary} textAnchor="middle" fontWeight="500"
-              numberOfLines={2}>
-              {labels[i].length > 15 ? labels[i].slice(0, 15) + '…' : labels[i]}
+            {/* Rotated label — shows full name */}
+            <SvgText
+              x={labelX}
+              y={labelY}
+              fontSize="10"
+              fill={COLORS.textSecondary}
+              textAnchor="end"
+              fontWeight="500"
+              transform={`rotate(-40, ${labelX}, ${labelY})`}
+            >
+              {labels[i]}
             </SvgText>
           </G>
         );
