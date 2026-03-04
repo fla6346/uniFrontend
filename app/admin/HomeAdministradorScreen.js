@@ -183,10 +183,10 @@ const CustomBarChart = ({ data, width, height, color = COLORS.primary }) => {
                 {v}
               </SvgText>
             )}
-            <SvgText x={x + barW / 2} y={height - padding.bottom + 16} fontSize="9"
+            <SvgText x={x + barW / 2} y={height - padding.bottom + 16} fontSize="8"
               fill={COLORS.textSecondary} textAnchor="middle" fontWeight="500"
               numberOfLines={2}>
-              {labels[i].length > 20 ? labels[i].slice(0, 20) + '…' : labels[i]}
+              {labels[i].length > 15 ? labels[i].slice(0, 15) + '…' : labels[i]}
             </SvgText>
           </G>
         );
