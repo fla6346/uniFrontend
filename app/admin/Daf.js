@@ -308,8 +308,12 @@ const Daf = () => {
         .map(e => ({
           id: e.idevento,
           title: e.nombreevento || 'Sin título',
-          date: e.fechaevento ? new Date(e.fechaevento).toLocaleDateString('es-ES') : 'N/A',
-          time: e.horaevento || 'N/A',
+          date: e.fechaevento 
+          ? new Date(e.fechaevento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : 'N/A',
+          time: e.horaevento 
+          ? e.horaevento.substring(0, 5)  // "11:00+00" → "11:00"
+          : 'N/A',
           state: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : 'Pendiente',
           creator: e.academicoCreador
             ? `${e.academicoCreador.nombre || ''} ${e.academicoCreador.apellidopat || ''}`.trim()
@@ -416,15 +420,16 @@ const Daf = () => {
           ) : (
             <>
               {/* Contador */}
-              <View style={styles.tableInfo}>
-                <View style={styles.tableInfoBadge}>
-                  <Text style={styles.tableInfoText}>{allEvents.length} eventos</Text>
-                </View>
-                <Text style={styles.tableInfoSub}>
-                  {allEvents.filter(e => e.state === 'Aprobado').length} aprobados ·{' '}
-                  {allEvents.filter(e => e.state !== 'Aprobado').length} pendientes
-                </Text>
+             <View style={styles.tableInfo}>
+              <View style={styles.tableInfoBadge}>
+                <Text style={styles.tableInfoText}>{allEvents.length} eventos</Text>
               </View>
+              <Text style={styles.tableInfoSub}>
+                {allEvents.filter(e => e.state === 'Aprobado').length} aprobados ·{' '}
+                {allEvents.filter(e => e.state !== 'Aprobado').length} pendientes
+              </Text>
+            </View>
+            <EventCards data={allEvents} onPrint={handlePrintEvent} />
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={{ minWidth: windowWidth - 40 }}>
                   <DataTable data={allEvents} columns={tableColumns} onPrint={handlePrintEvent} />
