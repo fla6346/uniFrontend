@@ -86,8 +86,8 @@ const ActionCardLarge = ({ action, onPress, index }) => {
   );
 };
 
-// ─── Data Table ───────────────────────────────────────────────────────────────
-const DataTable = ({ data, columns, onPrint }) => {
+// ─── Event Cards (móvil) ──────────────────────────────────────────────────────
+const EventCards = ({ data, onPrint }) => {
   if (!data?.length) {
     return (
       <View style={styles.emptyTable}>
@@ -98,51 +98,45 @@ const DataTable = ({ data, columns, onPrint }) => {
   }
 
   return (
-    <View style={styles.tableWrap}>
-      {/* Header */}
-      <View style={styles.tableHeadRow}>
-        {columns.map((col, i) => (
-          <Text key={i} style={[styles.tableHeadCell, { flex: col.flex }]}>{col.title}</Text>
-        ))}
-      </View>
-      {/* Rows */}
-      {data.map((row, ri) => (
-        <View key={row.id} style={[styles.tableRow, ri % 2 === 0 && styles.tableRowAlt]}>
-          {columns.map((col, ci) => {
-            if (col.key === 'actions') {
-              return (
-                <View key={ci} style={[styles.tableCell, { flex: col.flex, justifyContent: 'center' }]}>
-                  {row.state === 'Aprobado' && (
-                    <TouchableOpacity style={styles.printBtn} onPress={() => onPrint(row.id)}>
-                      <Ionicons name="print-outline" size={14} color={COLORS.primary} />
-                      <Text style={styles.printBtnText}>Imprimir</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            }
-            if (col.key === 'state') {
-              const approved = row.state?.toLowerCase().includes('aprobado');
-              return (
-                <View key={ci} style={[styles.tableCell, { flex: col.flex }]}>
-                  <View style={[styles.stateBadge, { backgroundColor: approved ? '#D1FAE5' : '#FEF3C7' }]}>
-                    <Text style={[styles.stateBadgeText, { color: approved ? COLORS.success : COLORS.warning }]}>
-                      {approved ? 'Aprobado' : 'Pendiente'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            }
-            return (
-              <Text key={ci} style={[styles.tableCell, { flex: col.flex },
-                col.key === 'creator' && row[col.key] === 'Desconocido' && styles.tableCellMuted
-              ]}>
-                {row[col.key] || '—'}
-              </Text>
-            );
-          })}
-        </View>
-      ))}
+    <View style={{ gap: 10 }}>
+      {data.map((row) => {
+        const approved = row.state === 'Aprobado';
+        return (
+          <View key={row.id} style={styles.eventCard}>
+            <View style={styles.eventCardTop}>
+              <View style={[styles.stateBadge, { backgroundColor: approved ? '#D1FAE5' : '#FEF3C7' }]}>
+                <Text style={[styles.stateBadgeText, { color: approved ? COLORS.success : COLORS.warning }]}>
+                  {approved ? 'Aprobado' : 'Pendiente'}
+                </Text>
+              </View>
+              {approved && (
+                <TouchableOpacity style={styles.printBtn} onPress={() => onPrint(row.id)}>
+                  <Ionicons name="print-outline" size={13} color={COLORS.primary} />
+                  <Text style={styles.printBtnText}>Imprimir</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.eventCardTitle}>{row.title}</Text>
+            <View style={styles.eventCardMeta}>
+              <View style={styles.eventCardMetaItem}>
+                <Ionicons name="calendar-outline" size={13} color={COLORS.textTertiary} />
+                <Text style={styles.eventCardMetaText}>{row.date}</Text>
+              </View>
+              <View style={styles.eventCardMetaItem}>
+                <Ionicons name="time-outline" size={13} color={COLORS.textTertiary} />
+                <Text style={styles.eventCardMetaText}>{row.time}</Text>
+              </View>
+              <View style={styles.eventCardMetaItem}>
+                <Ionicons name="person-outline" size={13} color={COLORS.textTertiary} />
+                <Text style={[styles.eventCardMetaText, row.creator === 'Desconocido' && { fontStyle: 'italic', color: COLORS.textTertiary }]}>
+                  {row.creator}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.eventCardId}>ID #{row.id}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 };
@@ -249,9 +243,8 @@ const Daf = () => {
   const params = useLocalSearchParams();
   const nombreUsuario = params.nombre || 'Administrador DAF';
   const router = useRouter();
-  const { width: windowWidth } = useWindowDimensions();
 
-  const [notifications, setNotifications]     = useState([]);
+  const [notifications, setNotifications]         = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isBannerExpanded, setIsBannerExpanded]   = useState(false);
   const [loadingDashboard, setLoadingDashboard]   = useState(true);
@@ -261,23 +254,13 @@ const Daf = () => {
   const [allEvents, setAllEvents]                 = useState([]);
 
   const [dashboardStats, setDashboardStats] = useState([
-    { title: 'Usuarios Activos',      value: '–', icon: 'people-outline',        color: COLORS.primary,   description: 'Cuentas habilitadas' },
-    { title: 'Eventos Totales',       value: '–', icon: 'calendar-outline',      color: COLORS.info,      description: 'Todos los eventos' },
-    { title: 'Contenidos Pendientes', value: '–', icon: 'document-text-outline', color: COLORS.warning,   description: 'Esperando revisión' },
-    { title: 'Estabilidad Sistema',   value: '–', icon: 'pulse-outline',         color: COLORS.success,   description: 'Rendimiento del sistema' },
+    { title: 'Usuarios Activos',      value: '–', icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
+    { title: 'Eventos Totales',       value: '–', icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
+    { title: 'Contenidos Pendientes', value: '–', icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
+    { title: 'Estabilidad Sistema',   value: '–', icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
   ]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
-
-  const tableColumns = [
-    { title: 'ID',      key: 'id',      flex: 0.8 },
-    { title: 'Título',  key: 'title',   flex: 3 },
-    { title: 'Fecha',   key: 'date',    flex: 1.5 },
-    { title: 'Hora',    key: 'time',    flex: 1 },
-    { title: 'Estado',  key: 'state',   flex: 1.5 },
-    { title: 'Creador', key: 'creator', flex: 2.5 },
-    { title: '',        key: 'actions', flex: 1.5 },
-  ];
 
   // ── Fetch data ─────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (isRefresh = false) => {
@@ -297,10 +280,10 @@ const Daf = () => {
       const data = dashRes.data;
 
       setDashboardStats([
-        { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(), icon: 'people-outline',        color: COLORS.primary,   description: 'Cuentas habilitadas' },
-        { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),        icon: 'calendar-outline',      color: COLORS.info,      description: 'Todos los eventos' },
-        { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(), icon: 'document-text-outline', color: COLORS.warning, description: 'Esperando revisión' },
-        { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,            icon: 'pulse-outline',         color: COLORS.success,   description: 'Rendimiento del sistema' },
+        { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
+        { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
+        { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
+        { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
       ]);
 
       const events = (Array.isArray(eventsRes.data) ? eventsRes.data : [])
@@ -308,12 +291,12 @@ const Daf = () => {
         .map(e => ({
           id: e.idevento,
           title: e.nombreevento || 'Sin título',
-          date: e.fechaevento 
-          ? new Date(e.fechaevento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-          : 'N/A',
-          time: e.horaevento 
-          ? e.horaevento.substring(0, 5)  // "11:00+00" → "11:00"
-          : 'N/A',
+          date: e.fechaevento
+            ? new Date(e.fechaevento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            : 'N/A',
+          time: e.horaevento
+            ? e.horaevento.substring(0, 5)
+            : 'N/A',
           state: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : 'Pendiente',
           creator: e.academicoCreador
             ? `${e.academicoCreador.nombre || ''} ${e.academicoCreador.apellidopat || ''}`.trim()
@@ -340,7 +323,6 @@ const Daf = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Mark notification as read ──────────────────────────────────────────────
   const markAsRead = async (id) => {
     try {
       const token = await getTokenAsync();
@@ -370,12 +352,12 @@ const Daf = () => {
   };
 
   const adminActions = [
-    { id: '1', title: 'Gestión de Usuarios',   iconName: 'people-outline',          route: '/admin/UsuariosDaf',        color: COLORS.secondary, description: 'Administración de cuentas de usuario' },
-    { id: '3', title: 'Eventos Aprobados',      iconName: 'checkmark-circle-outline', route: '/admin/EventosAprobados',   color: COLORS.success,   description: 'Gestión de eventos ya aprobados' },
-    { id: '4', title: 'Análisis de Datos',      iconName: 'analytics-outline',        route: '/admin/Estadistica',        color: COLORS.info,      description: 'Informes y métricas del sistema' },
-    { id: '5', title: 'Reportes Avanzados',     iconName: 'document-text-outline',    route: '/admin/reportes',           color: COLORS.secondary, description: 'Generación de reportes detallados', badge: 'Nuevo', badgeColor: COLORS.accent },
-    { id: '6', title: 'Creación de Recursos',   iconName: 'construct-outline',        route: '/admin/Recursos',           color: COLORS.warning,   description: 'Gestión de recursos del sistema',   badge: 'Nuevo', badgeColor: COLORS.accent },
-    { id: '7', title: 'Subida de Layouts',      iconName: 'images-outline',           route: '/admin/Layouts',            color: COLORS.info,      description: 'Administración de plantillas',       badge: 'Nuevo', badgeColor: COLORS.accent },
+    { id: '1', title: 'Gestión de Usuarios',  iconName: 'people-outline',           route: '/admin/UsuariosDaf',      color: COLORS.secondary, description: 'Administración de cuentas de usuario' },
+    { id: '3', title: 'Eventos Aprobados',     iconName: 'checkmark-circle-outline', route: '/admin/EventosAprobados', color: COLORS.success,   description: 'Gestión de eventos ya aprobados' },
+    { id: '4', title: 'Análisis de Datos',     iconName: 'analytics-outline',        route: '/admin/Estadistica',      color: COLORS.info,      description: 'Informes y métricas del sistema' },
+    { id: '5', title: 'Reportes Avanzados',    iconName: 'document-text-outline',    route: '/admin/reportes',         color: COLORS.secondary, description: 'Generación de reportes detallados', badge: 'Nuevo', badgeColor: COLORS.accent },
+    { id: '6', title: 'Creación de Recursos',  iconName: 'construct-outline',        route: '/admin/Recursos',         color: COLORS.warning,   description: 'Gestión de recursos del sistema',   badge: 'Nuevo', badgeColor: COLORS.accent },
+    { id: '7', title: 'Subida de Layouts',     iconName: 'images-outline',           route: '/admin/Layouts',          color: COLORS.info,      description: 'Administración de plantillas',       badge: 'Nuevo', badgeColor: COLORS.accent },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -410,7 +392,7 @@ const Daf = () => {
           )}
         </Section>
 
-        {/* ── TABLA DE EVENTOS ── */}
+        {/* ── EVENTOS EN FASE 2 ── */}
         <Section title="Eventos en Fase 2" subtitle="Aprobados y pendientes de revisión DAF">
           {loadingEvents ? (
             <View style={styles.loadingBox}>
@@ -419,22 +401,16 @@ const Daf = () => {
             </View>
           ) : (
             <>
-              {/* Contador */}
-             <View style={styles.tableInfo}>
-              <View style={styles.tableInfoBadge}>
-                <Text style={styles.tableInfoText}>{allEvents.length} eventos</Text>
-              </View>
-              <Text style={styles.tableInfoSub}>
-                {allEvents.filter(e => e.state === 'Aprobado').length} aprobados ·{' '}
-                {allEvents.filter(e => e.state !== 'Aprobado').length} pendientes
-              </Text>
-            </View>
-            <EventCards data={allEvents} onPrint={handlePrintEvent} />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ minWidth: windowWidth - 40 }}>
-                  <DataTable data={allEvents} columns={tableColumns} onPrint={handlePrintEvent} />
+              <View style={styles.tableInfo}>
+                <View style={styles.tableInfoBadge}>
+                  <Text style={styles.tableInfoText}>{allEvents.length} eventos</Text>
                 </View>
-              </ScrollView>
+                <Text style={styles.tableInfoSub}>
+                  {allEvents.filter(e => e.state === 'Aprobado').length} aprobados ·{' '}
+                  {allEvents.filter(e => e.state !== 'Aprobado').length} pendientes
+                </Text>
+              </View>
+              <EventCards data={allEvents} onPrint={handlePrintEvent} />
             </>
           )}
         </Section>
@@ -563,24 +539,33 @@ const styles = StyleSheet.create({
   kpiTitle: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 2 },
   kpiDesc: { fontSize: 11, color: COLORS.textTertiary },
 
-  // Table
+  // Event Cards
+  eventCard: {
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: COLORS.border, marginBottom: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  },
+  eventCardTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 8,
+  },
+  eventCardTitle: {
+    fontSize: 15, fontWeight: '700', color: COLORS.textPrimary,
+    marginBottom: 8, lineHeight: 20,
+  },
+  eventCardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 6 },
+  eventCardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  eventCardMetaText: { fontSize: 12, color: COLORS.textSecondary },
+  eventCardId: { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
+
+  // Table info bar
   tableInfo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   tableInfoBadge: { backgroundColor: COLORS.primaryLight, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   tableInfoText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   tableInfoSub: { fontSize: 12, color: COLORS.textSecondary },
-  tableWrap: {
-    backgroundColor: COLORS.surface, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
-  },
-  tableHeadRow: {
-    flexDirection: 'row', backgroundColor: COLORS.background,
-    paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderColor: COLORS.border,
-  },
-  tableHeadCell: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.4 },
-  tableRow: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderColor: COLORS.divider },
-  tableRowAlt: { backgroundColor: '#FAFAFA' },
-  tableCell: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20 },
-  tableCellMuted: { color: COLORS.textTertiary, fontStyle: 'italic' },
+
+  // Shared badge (state)
   stateBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   stateBadgeText: { fontSize: 11, fontWeight: '700' },
   printBtn: {
