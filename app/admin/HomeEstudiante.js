@@ -77,24 +77,28 @@ const STATUS_COLORS = {
 };
 
 const mapEvento = (e) => {
-  const cat = (e.clasificacion?.label || e.categoria || 'evento').toLowerCase();
+  // Backend already transforms fields: title, date, time, location, organizer, faculty, category
+  const catRaw = (e.category || e.clasificacion?.label || e.categoria || 'evento').toLowerCase();
+  const cat = catRaw === 'general' ? 'evento' : catRaw; // normalize "General" → color lookup
   const estado = (e.estado || 'aprobado').toLowerCase();
   const status = STATUS_MAP[estado] || 'Confirmado';
 
+  // Clean up time — remove timezone offset like "00:11:00+00"
+  const rawTime = e.time || e.horaevento || e.hora || '–';
+  const cleanTime = rawTime.includes('+') ? rawTime.split('+')[0].slice(0, 5) : rawTime.slice(0, 5);
+
   return {
-    id: e.idevento || e.id,
-    title: e.nombreevento || e.title || 'Sin título',
-    date: e.fechaevento
-      ? new Date(e.fechaevento).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
-      : '–',
-    time: e.horaevento || e.hora || '–',
-    location: e.lugarevento || e.lugar || null,
-    category: cat.charAt(0).toUpperCase() + cat.slice(1),
-    categoryColor: CATEGORY_COLORS[cat] || COLORS.secondary,
+    id: e.id || e.idevento,
+    title: e.title || e.nombreevento || 'Sin título',
+    date: e.date || e.submittedDate || '–',
+    time: cleanTime,
+    location: e.location || e.lugarevento || null,
+    category: (e.category || cat).charAt(0).toUpperCase() + (e.category || cat).slice(1),
+    categoryColor: CATEGORY_COLORS[cat] || COLORS.info,
     status,
     statusColor: STATUS_COLORS[status] || COLORS.success,
-    organizador: e.responsable_evento || e.organizador || null,
-    facultad: e.facultad?.nombre || e.nombreFacultad || null,
+    organizador: e.organizer || e.organizer || e.responsable_evento || null,
+    facultad: e.faculty || e.facultad?.nombre || null,
     modalidad: e.modalidad || null,
     duracion: e.duracion ? `${e.duracion} min` : null,
     participantes: e.participantes || null,
@@ -243,7 +247,7 @@ const HomeEstudianteScreen = () => {
       });
 
       const raw = Array.isArray(res.data) ? res.data : [];
-      console.log('Evento sample:', JSON.stringify(raw[0], null, 2));
+
       // ✅ Filter fase 2 & map to display format
       const fase2 = raw.filter(e =>
         e.idfase === 2 || e.idfase === '2' ||
