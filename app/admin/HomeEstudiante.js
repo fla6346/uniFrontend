@@ -243,7 +243,7 @@ const HomeEstudianteScreen = () => {
       });
 
       const raw = Array.isArray(res.data) ? res.data : [];
-
+      console.log('Evento sample:', JSON.stringify(raw[0], null, 2));
       // ✅ Filter fase 2 & map to display format
       const fase2 = raw.filter(e =>
         e.idfase === 2 || e.idfase === '2' ||
