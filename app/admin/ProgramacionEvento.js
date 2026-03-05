@@ -383,7 +383,9 @@ const programacionEvento = () => {
               key: `servicio-${i}-${Date.now()}`,
               nombreServicio: serv.nombreServicio || '',
               caracteristica: serv.caracteristica || '',
-              fechaInicio: new Date(serv.fechaInicio),
+              fechaInicio: serv.fechaInicio ? new Date(serv.fechaInicio.includes('T') 
+            ? serv.fechaInicio 
+            : serv.fechaInicio + 'T00:00:00') : new Date(),
               observaciones: serv.observaciones || '',
               showDatePickerInicio: false,
             })));
@@ -572,14 +574,17 @@ const programacionEvento = () => {
               <Text style={styles.label}>Fecha Entrega</Text>
               <TouchableOpacity onPress={() => actualizarServicio(index, 'showDatePickerInicio', true)} style={styles.datePickerButton}>
                 <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
-                <Text style={styles.datePickerText}>{servicio.fechaInicio.toLocaleDateString()}</Text>
+                <Text style={styles.datePickerText}>
+                  {servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio)
+                    ? servicio.fechaInicio.toLocaleDateString('es-ES')
+                    : 'Seleccionar fecha'}
+                </Text>
               </TouchableOpacity>
               {servicio.showDatePickerInicio && (
-                <DateTimePicker
-                  value={servicio.fechaInicio}
-                  mode="date"
-                  display="default"
-                  onChange={(event, date) => handleServicioDateChange(index, 'fechaInicio', event, date)}
+                <DateTimePicker 
+                  value={servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio) 
+                    ? servicio.fechaInicio 
+                    : new Date()} 
                 />
               )}
               <Text style={styles.label}>Observaciones</Text>
