@@ -121,7 +121,7 @@ const EventosPendientes = () => {
 
       const responseP = await axios.get(`${API_BASE_URL}/profile`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        timeout: 1000,
+        timeout: 15000,
       });
  console.log('Perfil OK:', responseP.data);
       const userProfile = responseP.data;
@@ -133,7 +133,7 @@ const EventosPendientes = () => {
 
       const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        timeout: 1000,
+        timeout: 15000,
       });
       console.log('Eventos pendientes:', response.data);
       setEvents(response.data || []);
