@@ -24,23 +24,23 @@ const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 // Mapeo de carrera a facultad
 const CARRERA_A_FACULTAD = {
-  '1': '5',   // Derecho → Ciencias Jurídicas
-  '2': '3',   // Psicología → Ciencias de la Salud
-  '3': '4',   // Periodismo → Diseño y Tecnología
-  '4': '2',   // Administración de Empresas → Ciencias Económicas
-  '5': '2',   // Administración de Hotelería y Turismo → Ciencias Económicas
-  '6': '2',   // Contaduría Pública → Ciencias Económicas
-  '7': '2',   // Ingeniería Comercial → Ciencias Económicas
-  '8': '2',   // Ingeniería Económica → Ciencias Económicas
-  '9': '2',   // Ingeniería Económica y Financiera → Ciencias Económicas
-  '10': '4',  // Arquitectura → Diseño y Tecnología
-  '11': '4',  // Diseño Gráfico → Diseño y Tecnología
-  '12': '4',  // Publicidad y Marketing → Diseño y Tecnología
-  '13': '3',  // Bioquímica y Farmacia → Ciencias de la Salud
-  '14': '3',  // Enfermería → Ciencias de la Salud
-  '15': '3',  // Medicina → Ciencias de la Salud
-  '16': '3',  // Odontología → Ciencias de la Salud
-  '17': '1',  // Ingeniería de Sistemas → Ingeniería
+  '1': '1',   // Ingeniería de Sistemas → Ingeniería
+  '2': '2',   // Administración de Empresas → Ciencias Económicas
+  '3': '2',   // Administración de Hotelería y Turismo → Ciencias Económicas
+  '4': '2',   // Contaduría Pública → Ciencias Económicas
+  '5': '2',   // Ingeniería Comercial → Ciencias Económicas
+  '6': '2',   // Ingeniería Económica → Ciencias Económicas
+  '7': '2',   // Ingeniería Económica y Financiera → Ciencias Económicas
+  '8': '3',   // Bioquímica y Farmacia → Ciencias de la Salud
+  '9': '3',   // Enfermería → Ciencias de la Salud
+  '10': '3',  // Medicina → Ciencias de la Salud
+  '11': '3',  // Odontología → Ciencias de la Salud
+  '12': '4',  // Arquitectura → Diseño y Tecnología
+  '13': '4',  // Diseño Gráfico y Producción Cross Media → Diseño y Tecnología
+  '14': '4',  // Publicidad y Marketing → Diseño y Tecnología
+  '15': '5',  // Derecho → Ciencias Jurídicas
+  '16': '5',  // Psicología → Ciencias Jurídicas
+  '17': '5',  // Periodismo → Ciencias Jurídicas
 };
 
 const NOMBRES_FACULTADES = {
@@ -86,24 +86,24 @@ const CrearUsuarioA = () => {
   const [carreraSeleccionada, setCarreraSeleccionada] = useState(null);
   const [carrerasDocente, setCarrerasDocente] = useState([]);
   const [opcionesCarrera] = useState([ 
-      { label: 'Derecho', value: '1' },
-      { label: 'Psicología', value: '2' },
-      { label: 'Periodismo', value: '3' },
-      { label: 'Administración de Empresas', value: '4' },
-      { label: 'Administración de Hotelería y Turismo', value: '5' },
-      { label: 'Contaduría Pública', value: '6' },
-      { label: 'Ingeniería Comercial', value: '7' },
-      { label: 'Ingeniería Económica', value: '8' },
-      { label: 'Ingeniería Económica y Financiera', value: '9' },
-      { label: 'Arquitectura', value: '10' },
-      { label: 'Diseño Gráfico y Producción Cross Media', value: '11' },
-      { label: 'Publicidad y Marketing', value: '12' },
-      { label: 'Bioquímica y Farmacia', value: '13' },
-      { label: 'Enfermería', value: '14' },
-      { label: 'Medicina', value: '15' },
-      { label: 'Odontología', value: '16' },
-      { label: 'Ingeniería de Sistemas', value: '17' },
-  ]);
+    { label: 'Derecho', value: '15' },
+    { label: 'Psicología', value: '16' },
+    { label: 'Periodismo', value: '17' },
+    { label: 'Administración de Empresas', value: '3' },
+    { label: 'Administración de Hotelería y Turismo', value: '4' },
+    { label: 'Contaduría Pública', value: '5' },
+    { label: 'Ingeniería Comercial', value: '6' },
+    { label: 'Ingeniería Económica', value: '7' },
+    { label: 'Ingeniería Económica y Financiera', value: '8' },
+    { label: 'Arquitectura', value: '12' },
+    { label: 'Diseño Gráfico y Producción Cross Media', value: '13' },
+    { label: 'Publicidad y Marketing', value: '14' },
+    { label: 'Bioquímica y Farmacia', value: '9' },
+    { label: 'Enfermería', value: '10' },
+    { label: 'Medicina', value: '11' },
+    { label: 'Odontología', value: '8' }, // Verificar este ID
+    { label: 'Ingeniería de Sistemas', value: '1' }, // Verificar este ID
+]);
 
   const [formData, setFormData] = useState({
     username: '',
