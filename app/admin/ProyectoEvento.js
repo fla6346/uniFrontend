@@ -708,7 +708,7 @@ const fetchUsuariosComite = async () => {
   try {
      const token = await getTokenAsync();
       console.log("Token obtenido:", token);
-     if (!token || token === 'null' || token === '') {
+     if (!token) {
     console.warn("Token inválido, redirigiendo al login");
     router.replace('/login');
     return;
@@ -778,42 +778,39 @@ const fetchUsuariosComite = async () => {
         return;
       }
       try {
-        const userInfo = await fetchUserInfo();
-        if (userInfo) setUserRole(userInfo.role || userInfo.rol);
-        const responseRecursos = await axios.get(`${API_BASE_URL}/recursos`, {
-          headers: { Authorization: `Bearer ${token}` } 
-        });
-         let recursosRaw = responseRecursos.data;
-  if (!Array.isArray(recursosRaw)) {
-    // Intenta encontrar el array en propiedades comunes
-    if (Array.isArray(responseRecursos.data.data)) {
-      recursosRaw = responseRecursos.data.data;
-    } else if (Array.isArray(responseRecursos.data.recursos)) {
-      recursosRaw = responseRecursos.data.recursos;
-    } else {
-      recursosRaw = [];
-    }
-  }
-       const validResources = recursosRaw
-    .map(recurso => {
-      // Determina el ID correcto (prioriza idrecurso, pero acepta id)
-      const idCorrecto = recurso.idrecurso ?? recurso.id ?? null;
-      return {
-        ...recurso,
-        idrecurso: idCorrecto, // Asegura que siempre exista idrecurso
-        nombre_recurso: recurso.nombre_recurso || recurso.nombre || 'Recurso sin nombre',
-        recurso_tipo: recurso.recurso_tipo || 'otro'
-      };
-    })
-    .filter(recurso => 
-      recurso.idrecurso != null && 
-      recurso.nombre_recurso && 
-      recurso.nombre_recurso.trim() !== ''
-    );
-  
-  console.log('✅ Recursos normalizados:', validResources);
-  setRecursosDisponibles(validResources);
-      } catch (error) {
+         const [responseRecursos] = await Promise.all([
+        axios.get(`${API_BASE_URL}/recursos`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetchUsuariosComite(), // ← ESTO es lo que faltaba
+      ]);
+
+      let recursosRaw = responseRecursos.data;
+      if (!Array.isArray(recursosRaw)) {
+        if (Array.isArray(responseRecursos.data.data)) {
+          recursosRaw = responseRecursos.data.data;
+        } else if (Array.isArray(responseRecursos.data.recursos)) {
+          recursosRaw = responseRecursos.data.recursos;
+        } else {
+          recursosRaw = [];
+        }
+      }
+
+      const validResources = recursosRaw
+        .map(recurso => ({
+          ...recurso,
+          idrecurso: recurso.idrecurso ?? recurso.id ?? null,
+          nombre_recurso: recurso.nombre_recurso || recurso.nombre || 'Recurso sin nombre',
+          recurso_tipo: recurso.recurso_tipo || 'otro'
+        }))
+        .filter(recurso =>
+          recurso.idrecurso != null &&
+          recurso.nombre_recurso &&
+          recurso.nombre_recurso.trim() !== ''
+        );
+
+      setRecursosDisponibles(validResources);
+         } catch (error) {
         console.error("Error al cargar datos:", error);
         Alert.alert("Error", "No se pudieron cargar los datos necesarios.");
       } finally {
