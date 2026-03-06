@@ -320,7 +320,7 @@ const CrearUsuarioA = () => {
       }
 
       if (role === 'academico' && facultadSeleccionada) {
-        newUserPayload.facultad_id = parseInt(facultadSeleccionada);
+        newUserPayload.facultadId = parseInt(facultadSeleccionada);
       }
      
       console.log("FRONTEND - Payload enviado:", JSON.stringify(newUserPayload, null, 2));
