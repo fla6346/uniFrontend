@@ -386,7 +386,7 @@ const CrearUsuarioA = () => {
                   stepToRevert = Math.min(stepToRevert, 1);
                 } else if (['email', 'contrasenia'].includes(fieldPath)) {
                   stepToRevert = Math.min(stepToRevert, 2);
-                } else if (['role', 'carrera', 'facultad_id', 'idcarrera', 'idfacultad', 'carreras_ids'].some(f => fieldPath.includes(f))) {
+                } else if (['role', 'carrera', 'facultad_id', 'idcarrera','carreras_ids'].some(f => fieldPath.includes(f))) {
                   stepToRevert = Math.min(stepToRevert, 3);
                 }
               }
