@@ -85,20 +85,39 @@ const deleteTokenAsync = async () => {
   }
 };
 
-// Función para parsear fechas
 const parseEventDate = (dateStr) => {
-  if (!dateStr || typeof dateStr !== 'string') {
-    return new Date(0);
+  if (!dateStr) return new Date(0);
+  
+  if (dateStr instanceof Date) return dateStr;
+  
+  if (typeof dateStr === 'string' && dateStr.includes('-')) {
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) return parsed;
   }
-  const parts = dateStr.split('/');
-  if (parts.length === 3) {
-    const [day, month, year] = parts.map(Number);
-    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-      return new Date(year, month - 1, day);
+  
+  if (typeof dateStr === 'string' && dateStr.includes('/')) {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts.map(Number);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month - 1, day);
+      }
     }
   }
+  
+  // Fallback
   const fallback = new Date(dateStr);
   return isNaN(fallback.getTime()) ? new Date(0) : fallback;
+};
+const isEventPast = (eventDateStr) => {
+  const eventDate = parseEventDate(eventDateStr);
+  const today = new Date();
+  
+  // Normalizar ambas fechas a inicio del día (00:00:00)
+  eventDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  return eventDate < today;
 };
 
 // Función para formatear fecha de envío
@@ -209,28 +228,40 @@ const EventosAprobadosPorFacultad = () => {
     const eventDate = parseEventDate(item.date);
     const isUpcoming = eventDate >= new Date();
     const facultyColor = getFacultyColor(section.title);
-    
+    const isPast = isEventPast(item.date);
     return (
       <TouchableOpacity
-        style={styles.eventCard}
+        style={[styles.eventCard, isPast && styles.eventCardPast
+
+        ]}
         onPress={() => handleEventPress(item)}
         activeOpacity={0.8}
+        disabled={isPast} 
       >
-        {/* Barra lateral con color de facultad */}
         <View style={[styles.facultyBar, { backgroundColor: facultyColor }]} />
         
         <View style={styles.cardContent}>
-          {/* Header con título e ID */}
           <View style={styles.eventHeader}>
             <View style={styles.titleRow}>
-              <Text style={styles.eventTitle} numberOfLines={1}>
+              <Text style={[styles.eventTitle, isPast && styles.eventTitlePast]}
+               numberOfLines={1}>
                 {item.title}
               </Text>
               <View style={styles.idBadge}>
                 <Text style={styles.idText}>#{item.id}</Text>
               </View>
             </View>
-            
+            {isPast ? (
+            <View style={styles.pastChip}>  // ← Nuevo estilo
+              <Ionicons name="checkmark-circle" size={14} color={COLORS.white} />
+              <Text style={styles.pastText}>Finalizado</Text>
+            </View>
+          ) : (
+            <View style={styles.upcomingChip}>
+              <Ionicons name="calendar" size={14} color={COLORS.white} />
+              <Text style={styles.upcomingText}>Próximo</Text>
+            </View>
+          )}
             {isUpcoming && (
               <View style={styles.upcomingChip}>
                 <Ionicons name="calendar" size={14} color={COLORS.white} />
@@ -401,6 +432,30 @@ const EventosAprobadosPorFacultad = () => {
           </View>
         }
       />
+      {events.length > 0 && (
+    <View style={styles.statsContainer}>
+      <View style={[styles.statCard, { backgroundColor: COLORS.primary }]}>
+        <Ionicons name="calendar" size={24} color={COLORS.white} />
+        <Text style={styles.statNumber}>{events.length}</Text>
+        <Text style={styles.statLabel}>Total</Text>
+      </View>
+      
+      <View style={[styles.statCard, { backgroundColor: COLORS.accent }]}>
+        <Ionicons name="school" size={24} color={COLORS.white} />
+        <Text style={styles.statNumber}>{sections.length}</Text>
+        <Text style={styles.statLabel}>Facultades</Text>
+      </View>
+      
+      {/* Nueva card para eventos pasados */}
+      <View style={[styles.statCard, { backgroundColor: COLORS.grayMedium }]}>
+        <Ionicons name="checkmark-circle" size={24} color={COLORS.white} />
+        <Text style={styles.statNumber}>
+          {events.filter(e => isEventPast(e.date)).length}
+        </Text>
+        <Text style={styles.statLabel}>Finalizados</Text>
+      </View>
+    </View>
+  )}
     </View>
   );
 };
@@ -447,6 +502,50 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     marginRight: 8,
+  },
+   eventCardPast: {
+    opacity: 0.7,
+    backgroundColor: '#f5f5f5',
+  },
+  eventTitlePast: {
+    color: COLORS.grayText,
+    textDecorationLine: 'line-through',  
+  },
+  pastChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.grayMedium,  
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  pastText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+  },
+  statLabelSmall: {
+    fontSize: 11,
+    color: COLORS.grayText,
+    marginTop: 2,
   },
   headerTextContainer: {
     flex: 1,
