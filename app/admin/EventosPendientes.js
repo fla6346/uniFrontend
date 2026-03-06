@@ -111,6 +111,8 @@ const EventosPendientes = () => {
   const fetchPendingEvents = useCallback(async () => {
     try {
       const token = await getTokenAsync();
+        console.log('Token obtenido:', token ? 'SÍ existe' : 'NO existe / null'); // ← agregar
+
       if (!token) {
         Alert.alert('Sesión Expirada', 'Por favor, inicia sesión de nuevo.');
         router.replace('/LoginAdmin');
@@ -119,9 +121,9 @@ const EventosPendientes = () => {
 
       const responseP = await axios.get(`${API_BASE_URL}/profile`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        timeout: 5000,
+        timeout: 1000,
       });
-
+ console.log('Perfil OK:', responseP.data);
       const userProfile = responseP.data;
       setUserprofile({
         facultad: userProfile.facultad,
@@ -131,8 +133,9 @@ const EventosPendientes = () => {
 
       const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
         headers: { 'Authorization': `Bearer ${token}` },
-        timeout: 5000,
+        timeout: 1000,
       });
+      console.log('Eventos pendientes:', response.data);
       setEvents(response.data || []);
     } catch (error) {
       console.error('Error al cargar eventos pendientes:', error);
