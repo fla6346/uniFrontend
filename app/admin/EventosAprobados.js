@@ -109,16 +109,7 @@ const parseEventDate = (dateStr) => {
   const fallback = new Date(dateStr);
   return isNaN(fallback.getTime()) ? new Date(0) : fallback;
 };
-const isEventPast = (eventDateStr) => {
-  const eventDate = parseEventDate(eventDateStr);
-  const today = new Date();
-  
-  // Normalizar ambas fechas a inicio del día (00:00:00)
-  eventDate.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-  
-  return eventDate < today;
-};
+
 
 // Función para formatear fecha de envío
 const formatSubmittedDate = (date) => {
@@ -131,24 +122,79 @@ const formatSubmittedDate = (date) => {
   return `Hace ${days} día${days > 1 ? 's' : ''}`;
 };
 
-// Función para agrupar por facultad
-const groupEventsByFaculty = (events) => {
-  const grouped = {};
-  events.forEach(event => {
-    const faculty = event.faculty || 'Sin facultad';
-    if (!grouped[faculty]) {
-      grouped[faculty] = [];
-    }
-    grouped[faculty].push(event);
-  });
+const isEventPast = (dateStr) => {
+  if (!dateStr) return true;
+  
+  const eventDate = parseEventDate(dateStr);
+  const today = new Date();
+  
+  // Normalizar a inicio del día para comparar solo fechas
+  eventDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  return eventDate < today;
+};
 
-  return Object.keys(grouped)
-    .sort()
-    .map(title => ({ 
-      title, 
-      data: grouped[title],
-      count: grouped[title].length 
-    }));
+// Función para agrupar: primero por estado, luego por facultad
+const groupEventsByStatusAndFaculty = (events) => {
+  // 1. Separar en activos y pasados
+  const activos = events.filter(e => !isEventPast(e.date));
+  const pasados = events.filter(e => isEventPast(e.date));
+  
+  const sections = [];
+  
+  // 2. Agrupar activos por facultad
+  if (activos.length > 0) {
+    const groupedActivos = {};
+    activos.forEach(event => {
+      const faculty = event.faculty || 'Sin facultad';
+      if (!groupedActivos[faculty]) groupedActivos[faculty] = [];
+      groupedActivos[faculty].push(event);
+    });
+    
+    // Agregar sección de activos
+    sections.push({
+      title: '📅 Eventos Activos',
+      type: 'activos',
+      isPastSection: false,
+      // Aplanar para SectionList: cada facultad como sub-item visual
+      data: Object.keys(groupedActivos).sort().flatMap(faculty => 
+        groupedActivos[faculty].map(event => ({ ...event, _facultyGroup: faculty }))
+      ),
+      facultyGroups: Object.keys(groupedActivos).sort().map(faculty => ({
+        faculty,
+        count: groupedActivos[faculty].length,
+        events: groupedActivos[faculty]
+      }))
+    });
+  }
+  
+  // 3. Agrupar pasados por facultad
+  if (pasados.length > 0) {
+    const groupedPasados = {};
+    pasados.forEach(event => {
+      const faculty = event.faculty || 'Sin facultad';
+      if (!groupedPasados[faculty]) groupedPasados[faculty] = [];
+      groupedPasados[faculty].push(event);
+    });
+    
+    // Agregar sección de pasados
+    sections.push({
+      title: '🕰️ Eventos Finalizados',
+      type: 'pasados',
+      isPastSection: true,
+      data: Object.keys(groupedPasados).sort().flatMap(faculty => 
+        groupedPasados[faculty].map(event => ({ ...event, _facultyGroup: faculty }))
+      ),
+      facultyGroups: Object.keys(groupedPasados).sort().map(faculty => ({
+        faculty,
+        count: groupedPasados[faculty].length,
+        events: groupedPasados[faculty]
+      }))
+    });
+  }
+  
+  return sections;
 };
 
 // Colores dinámicos por facultad
@@ -220,39 +266,45 @@ const EventosAprobadosPorFacultad = () => {
     });
   };
 
-  const renderEventItem = ({ item, section }) => {
-    if (!item || typeof item !== 'object' || typeof item.id === 'undefined') {
-      return null;
-    }
+  const renderEventItem = ({ item }) => {
+  if (!item || typeof item !== 'object' || typeof item.id === 'undefined') {
+    return null;
+  }
 
-    const eventDate = parseEventDate(item.date);
-    const isUpcoming = eventDate >= new Date();
-    const facultyColor = getFacultyColor(section.title);
-    const isPast = isEventPast(item.date);
-    return (
-      <TouchableOpacity
-        style={[styles.eventCard, isPast && styles.eventCardPast
-
-        ]}
-        onPress={() => handleEventPress(item)}
-        activeOpacity={0.8}
-        disabled={isPast} 
-      >
-        <View style={[styles.facultyBar, { backgroundColor: facultyColor }]} />
-        
-        <View style={styles.cardContent}>
-          <View style={styles.eventHeader}>
-            <View style={styles.titleRow}>
-              <Text style={[styles.eventTitle, isPast && styles.eventTitlePast]}
-               numberOfLines={1}>
-                {item.title}
-              </Text>
-              <View style={styles.idBadge}>
-                <Text style={styles.idText}>#{item.id}</Text>
-              </View>
+  const isPast = isEventPast(item.date);
+  const facultyColor = getFacultyColor(item._facultyGroup || item.faculty || 'Sin facultad');
+  
+  return (
+    <TouchableOpacity
+      style={[styles.eventCard, isPast && styles.eventCardPast]}
+      onPress={() => !isPast && handleEventPress(item)}
+      activeOpacity={0.8}
+      disabled={isPast}
+    >
+      {/* Barra lateral: color dinámico o gris si pasó */}
+      <View style={[
+        styles.facultyBar,
+        { backgroundColor: isPast ? COLORS.grayMedium : facultyColor }
+      ]} />
+      
+      <View style={styles.cardContent}>
+        {/* Header */}
+        <View style={styles.eventHeader}>
+          <View style={styles.titleRow}>
+            <Text 
+              style={[styles.eventTitle, isPast && styles.eventTitlePast]} 
+              numberOfLines={1}
+            >
+              {item.title}
+            </Text>
+            <View style={styles.idBadge}>
+              <Text style={styles.idText}>#{item.id}</Text>
             </View>
-            {isPast ? (
-            <View style={styles.pastChip}>  // ← Nuevo estilo
+          </View>
+          
+          {/* Chip: SOLO uno, basado en isPast */}
+          {isPast ? (
+            <View style={styles.pastChip}>
               <Ionicons name="checkmark-circle" size={14} color={COLORS.white} />
               <Text style={styles.pastText}>Finalizado</Text>
             </View>
@@ -262,86 +314,105 @@ const EventosAprobadosPorFacultad = () => {
               <Text style={styles.upcomingText}>Próximo</Text>
             </View>
           )}
-            {isUpcoming && (
-              <View style={styles.upcomingChip}>
-                <Ionicons name="calendar" size={14} color={COLORS.white} />
-                <Text style={styles.upcomingText}>Próximo</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Información principal en dos columnas */}
-          <View style={styles.mainInfo}>
-            <View style={styles.infoRow}>
-              <Ionicons name="calendar-outline" size={16} color={COLORS.grayText} />
-              <Text style={styles.infoText}>{item.date}</Text>
-            </View>
-            
-            <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={16} color={COLORS.grayText} />
-              <Text style={styles.infoText}>{item.time}</Text>
-            </View>
-          </View>
-
-          <View style={styles.mainInfo}>
-            <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={16} color={COLORS.grayText} />
-              <Text style={styles.infoText} numberOfLines={1}>
-                {item.location}
-              </Text>
-            </View>
-            
-            <View style={styles.infoRow}>
-              <Ionicons name="person-outline" size={16} color={COLORS.grayText} />
-              <Text style={styles.infoText} numberOfLines={1}>
-                {item.organizer}
-              </Text>
-            </View>
-          </View>
-
-          {/* Fase */}
-          <View style={styles.phaseContainer}>
-            <View style={styles.phaseBadge}>
-              <Ionicons name="flag" size={12} color={COLORS.primary} />
-              <Text style={styles.phaseText}>Fase {item.idfase || 1}</Text>
-            </View>
-            
-            <View style={styles.submissionInfo}>
-              <Text style={styles.submittedBy}>{item.submittedBy}</Text>
-              <Text style={styles.submittedDate}>
-                {formatSubmittedDate(item.submittedDate)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Footer con acción */}
-          <TouchableOpacity 
-            style={styles.viewDetailsButton}
-            onPress={() => handleEventPress(item)}
-          >
-            <Text style={styles.viewDetailsText}>Ver detalles</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
-          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
-    );
-  };
 
-  const renderSectionHeader = ({ section: { title, count } }) => {
-    const facultyColor = getFacultyColor(title);
-    
+        {/* Info principal con colores condicionales */}
+        <View style={styles.mainInfo}>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={16} color={isPast ? COLORS.grayMedium : COLORS.grayText} />
+            <Text style={[styles.infoText, isPast && styles.infoTextPast]}>{item.date}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="time-outline" size={16} color={isPast ? COLORS.grayMedium : COLORS.grayText} />
+            <Text style={[styles.infoText, isPast && styles.infoTextPast]}>{item.time}</Text>
+          </View>
+        </View>
+
+        <View style={styles.mainInfo}>
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={16} color={isPast ? COLORS.grayMedium : COLORS.grayText} />
+            <Text style={[styles.infoText, isPast && styles.infoTextPast]} numberOfLines={1}>{item.location}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="person-outline" size={16} color={isPast ? COLORS.grayMedium : COLORS.grayText} />
+            <Text style={[styles.infoText, isPast && styles.infoTextPast]} numberOfLines={1}>{item.organizer}</Text>
+          </View>
+        </View>
+
+        {/* Fase y submit */}
+        <View style={styles.phaseContainer}>
+          <View style={styles.phaseBadge}>
+            <Ionicons name="flag" size={12} color={isPast ? COLORS.grayMedium : COLORS.primary} />
+            <Text style={[styles.phaseText, isPast && styles.infoTextPast]}>Fase {item.idfase || 1}</Text>
+          </View>
+          <View style={styles.submissionInfo}>
+            <Text style={[styles.submittedBy, isPast && styles.infoTextPast]}>{item.submittedBy}</Text>
+            <Text style={[styles.submittedDate, isPast && styles.infoTextPast]}>
+              {formatSubmittedDate(item.submittedDate)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Footer con texto e icono condicional */}
+        <TouchableOpacity 
+          style={styles.viewDetailsButton}
+          onPress={() => !isPast && handleEventPress(item)}
+          disabled={isPast}
+        >
+          <Text style={[styles.viewDetailsText, isPast && styles.infoTextPast]}>
+            {isPast ? 'Ver historial' : 'Ver detalles'}
+          </Text>
+          <Ionicons 
+            name={isPast ? "archive-outline" : "chevron-forward"} 
+            size={18} 
+            color={isPast ? COLORS.grayMedium : COLORS.primary} 
+          />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+ const renderSectionHeader = ({ section }) => {
+  // Secciones principales (Activos / Finalizados)
+  if (section.type === 'activos' || section.type === 'pasados') {
     return (
-      <View style={styles.sectionHeader}>
+      <View style={[
+        styles.sectionHeader,
+        section.isPastSection && styles.sectionHeaderPast
+      ]}>
         <View style={styles.sectionHeaderContent}>
-          <View style={[styles.facultyDot, { backgroundColor: facultyColor }]} />
-          <Text style={styles.sectionTitle}>{title}</Text>
+          <View style={[
+            styles.facultyDot, 
+            { backgroundColor: section.isPastSection ? COLORS.grayMedium : COLORS.primary }
+          ]} />
+          <Text style={[
+            styles.sectionTitle,
+            section.isPastSection && styles.sectionTitlePast
+          ]}>
+            {section.title}
+          </Text>
           <View style={styles.countBadge}>
-            <Text style={styles.countText}>{count}</Text>
+            <Text style={styles.countText}>{section.data.length}</Text>
           </View>
         </View>
       </View>
     );
-  };
+  }
+  
+  // Fallback para compatibilidad
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderContent}>
+        <View style={[styles.facultyDot, { backgroundColor: COLORS.primary }]} />
+        <Text style={styles.sectionTitle}>{section.title}</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{section.count}</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
 
   if (loading) {
     return (
@@ -353,7 +424,8 @@ const EventosAprobadosPorFacultad = () => {
   }
 
   const upcomingCount = events.filter(e => parseEventDate(e.date) >= new Date()).length;
-  const sections = groupEventsByFaculty(events);
+  const sections = groupEventsByStatusAndFaculty(events);
+(events);
 
   return (
     <View style={styles.container}>
@@ -520,6 +592,38 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+  },
+  sectionHeaderPast: {
+    backgroundColor: '#f0f0f0',
+  },
+  sectionTitlePast: {
+    color: COLORS.grayText,
+  },
+  eventCardPast: {
+    opacity: 0.75,
+    backgroundColor: '#fafafa',
+  },
+  eventTitlePast: {
+    color: COLORS.grayText,
+    // textDecorationLine: 'line-through', // Opcional
+  },
+  infoTextPast: {
+    color: COLORS.grayMedium,
+  },
+  pastChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.grayMedium,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  pastText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.white,
   },
   pastText: {
     fontSize: 11,
