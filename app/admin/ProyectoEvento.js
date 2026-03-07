@@ -11,7 +11,8 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
 const TIPOS_DE_EVENTO = [

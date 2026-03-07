@@ -22,14 +22,7 @@ import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
 
-const getApiBaseUrl = () => {
-  if (Platform.OS === 'android' || Platform.OS === 'ios') {
-    return 'http://192.168.0.167:3001/api';
-  }
-  return 'http://localhost:3001/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
 const CARRERA_A_FACULTAD = {
   '1': '5',  

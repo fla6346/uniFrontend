@@ -24,11 +24,7 @@ const COLORS = {
   border: '#E5E7EB',
 };
 
-// Determinar la IP según el entorno
-const API_BASE_URL =
-  Platform.OS === 'android'
-    ? 'http://192.168.0.167:3001/api'
-    : 'http://localhost:3001/api';
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') return localStorage.getItem('adminAuthToken');
