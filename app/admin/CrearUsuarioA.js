@@ -91,18 +91,13 @@ const CrearUsuarioA = () => {
   useEffect(() => {
     const checkAuth = async () => {
       const TOKEN_KEY = 'adminAuthToken';
-      let token;
       try {
         if (Platform.OS === 'web') {
-          token = localStorage.getItem(TOKEN_KEY);
+          return localStorage.getItem(TOKEN_KEY);
         } else {
-          token = await SecureStore.getItemAsync(TOKEN_KEY);
+          return await SecureStore.getItemAsync(TOKEN_KEY);
         }
-        
-        if (!token) {
-          Alert.alert("Acceso Denegado", "No estás autenticado. Por favor, inicia sesión.");
-          router.replace('/Login');
-        }
+     
       } catch (error) {
         console.error('Error verificando autenticación:', error);
         Alert.alert("Error", "Error verificando la autenticación.");
