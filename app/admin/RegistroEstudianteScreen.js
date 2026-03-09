@@ -308,7 +308,7 @@ const CrearUsuarioEstudiante = () => {
       };
      
       console.log("FRONTEND - Payload enviado:", JSON.stringify(newUserPayload, null, 2));
-      
+      console.log("📤 URL completa:", `${API_BASE_URL}/auth/registerStudent`);
       const response = await axios.post(`${API_BASE_URL}/auth/registerStudent`, newUserPayload, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -341,57 +341,70 @@ const CrearUsuarioEstudiante = () => {
     } catch (error) {
       console.error("Error al crear estudiante:", error);
       
-      let errorMessage = 'Error desconocido al crear estudiante.';
-      const newErrors = {};
-      let stepToRevert = 1;
-
       if (error.response) {
-        console.error("Respuesta del servidor:", error.response.data);
+      console.error("📋 Status:", error.response.status);
+      console.error("📋 Headers:", error.response.headers);
+      console.error("📋 Data:", error.response.data);
+      console.error("📋 URL solicitada:", error.config?.url);
+    }
+    
+    let errorMessage = 'Error desconocido al crear estudiante.';
+    const newErrors = {};
+    let stepToRevert = 1;
 
-        // ✅ Leer el mensaje directamente del backend
-        errorMessage = error.response.data?.message || 'Error al crear estudiante.';
-
-        if (error.response.data?.errors && Array.isArray(error.response.data.errors)) {
-          const backendErrors = error.response.data.errors;
-          const errorMessages = [];
-
-          backendErrors.forEach(err => {
-            const fieldPath = err.path || err.param;
-            const message = err.message || err.msg;
-            if (fieldPath) {
-              newErrors[fieldPath] = message;
-              if (['username', 'nombre', 'apellidopat', 'apellidomat'].includes(fieldPath)) {
-                stepToRevert = 1;
-              } else if (['email', 'contrasenia'].includes(fieldPath)) {
-                stepToRevert = Math.max(stepToRevert, 2);
-              } else if (['idcarrera', 'idfacultad'].includes(fieldPath)) {
-                stepToRevert = 3;
-              }
-            }
-            errorMessages.push(message);
-          });
-          errorMessage = errorMessages.join('\n');
-        } else if (error.response.status === 409) {
-          errorMessage = 'El estudiante ya existe. Intenta con otro nombre de usuario o email.';
-          stepToRevert = 1;
-        } else if (error.response.status >= 500) {
-          errorMessage = 'Error del servidor. Intenta nuevamente más tarde.';
-        }
-      } else if (error.request) {
-        errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+    if (error.response) {
+      // ✅ Leer el mensaje completo del backend
+      if (typeof error.response.data === 'string') {
+        errorMessage = error.response.data;
+      } else if (error.response.data?.message) {
+        errorMessage = error.response.data.message;
       }
 
-      setErrors(prev => ({ ...prev, ...newErrors }));
-      
-      // ✅ FIX: Alert PRIMERO, luego cambio de step en el callback
-      Alert.alert('Error', errorMessage, [
-        { text: 'OK', onPress: () => setCurrentStep(stepToRevert) }
-      ]);
+      if (error.response.data?.errors && Array.isArray(error.response.data.errors)) {
+        const backendErrors = error.response.data.errors;
+        const errorMessages = [];
 
-    } finally {
-      setIsLoading(false);
+        backendErrors.forEach(err => {
+          const fieldPath = err.path || err.param;
+          const message = err.message || err.msg;
+          if (fieldPath) {
+            newErrors[fieldPath] = message;
+            if (['username', 'nombre', 'apellidopat', 'apellidomat'].includes(fieldPath)) {
+              stepToRevert = 1;
+            } else if (['email', 'contrasenia'].includes(fieldPath)) {
+              stepToRevert = Math.max(stepToRevert, 2);
+            } else if (['idcarrera', 'idfacultad'].includes(fieldPath)) {
+              stepToRevert = 3;
+            }
+          }
+          errorMessages.push(message);
+        });
+        errorMessage = errorMessages.join('\n');
+      } else if (error.response.status === 409) {
+        errorMessage = 'El estudiante ya existe. Intenta con otro nombre de usuario o email.';
+        stepToRevert = 1;
+      } else if (error.response.status === 400) {
+        errorMessage = error.response.data?.message || 'Datos inválidos. Verifica la información.';
+      } else if (error.response.status >= 500) {
+        errorMessage = 'Error del servidor. Intenta nuevamente más tarde.';
+      }
+    } else if (error.request) {
+      console.error("📋 Request sin respuesta:", error.request);
+      errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+    } else {
+      errorMessage = error.message || 'Error al configurar la petición.';
     }
-  };
+
+    setErrors(prev => ({ ...prev, ...newErrors }));
+    
+    Alert.alert('Error', errorMessage, [
+      { text: 'OK', onPress: () => setCurrentStep(stepToRevert) }
+    ]);
+
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const closeAllDropdowns = () => {
     setOpenCarrera(false);
