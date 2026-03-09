@@ -235,7 +235,13 @@ const CrearUsuarioA = () => {
      
       console.log("FRONTEND - Payload enviado:", JSON.stringify(newUserPayload, null, 2));
       
-      const response = await apiClient.post('/auth/register', newUserPayload);
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, newUserPayload, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000  // ✅ aumentado a 30s para Render
+      });
 
       if (response.status === 201 || response.status === 200) {
         Alert.alert(
