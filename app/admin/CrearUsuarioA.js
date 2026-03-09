@@ -23,6 +23,7 @@ import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
 const CrearUsuarioA = () => {
   const router = useRouter();
