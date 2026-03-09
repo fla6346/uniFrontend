@@ -17,6 +17,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
 import apiClient from '../../src/api/axiosConfig'; 
 import DropDownPicker from 'react-native-dropdown-picker';
 
