@@ -22,34 +22,6 @@ import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-// Mapeo de carrera a facultad
-const CARRERA_A_FACULTAD = {
-  '1': '1',   // Ingeniería de Sistemas → Ingeniería
-  '2': '2',   // Administración de Empresas → Ciencias Económicas
-  '3': '2',   // Administración de Hotelería y Turismo → Ciencias Económicas
-  '4': '2',   // Contaduría Pública → Ciencias Económicas
-  '5': '2',   // Ingeniería Comercial → Ciencias Económicas
-  '6': '2',   // Ingeniería Económica → Ciencias Económicas
-  '7': '2',   // Ingeniería Económica y Financiera → Ciencias Económicas
-  '8': '3',   // Bioquímica y Farmacia → Ciencias de la Salud
-  '9': '3',   // Enfermería → Ciencias de la Salud
-  '10': '3',  // Medicina → Ciencias de la Salud
-  '11': '3',  // Odontología → Ciencias de la Salud
-  '12': '4',  // Arquitectura → Diseño y Tecnología
-  '13': '4',  // Diseño Gráfico y Producción Cross Media → Diseño y Tecnología
-  '14': '4',  // Publicidad y Marketing → Diseño y Tecnología
-  '15': '5',  // Derecho → Ciencias Jurídicas
-  '16': '5',  // Psicología → Ciencias Jurídicas
-  '17': '5',  // Periodismo → Ciencias Jurídicas
-};
-
-const NOMBRES_FACULTADES = {
-  '1': 'Facultad de Ingeniería',
-  '2': 'Facultad de Ciencias Económicas',
-  '3': 'Facultad de Ciencias de la Salud',
-  '4': 'Facultad de Diseño y Tecnología',
-  '5': 'Facultad de Ciencias Jurídicas',
-};
 
 const CrearUsuarioA = () => {
   const router = useRouter();
@@ -68,17 +40,6 @@ const CrearUsuarioA = () => {
     { label: 'TI', value: 'ti', icon: () => <Ionicons name="laptop" size={20} color="#34495e" /> },
     { label: 'Recursos Humanos', value: 'recursos', icon: () => <Ionicons name="people" size={20} color="#f39c12" /> },    
     { label: 'Servicios Estudiantiles', value: 'servicios', icon: () => <Ionicons name="help-circle" size={20} color="#16a085" /> },    
-  ]);
-
-  // Estados para dropdown de FACULTAD
-  const [facultadSeleccionada, setFacultadSeleccionada] = useState(null); 
-  const [openFacultad, setOpenFacultad] = useState(false);
-  const [opcionesFacultad, setOpcionesFacultad] = useState([
-    { label: 'Facultad de Ingeniería', value: '1' },
-    { label: 'Facultad de Ciencias Económicas', value: '2' },
-    { label: 'Facultad de Ciencias de la Salud', value: '3' },
-    { label: 'Facultad de Diseño y Tecnología', value: '4' },
-    { label: 'Facultad de Ciencias Jurídicas', value: '5' },
   ]);
 
   // Estados para dropdown de CARRERA
@@ -101,9 +62,9 @@ const CrearUsuarioA = () => {
     { label: 'Bioquímica y Farmacia', value: '9' },
     { label: 'Enfermería', value: '10' },
     { label: 'Medicina', value: '11' },
-    { label: 'Odontología', value: '8' }, // Verificar este ID
-    { label: 'Ingeniería de Sistemas', value: '1' }, // Verificar este ID
-]);
+    { label: 'Odontología', value: '8' },
+    { label: 'Ingeniería de Sistemas', value: '1' },
+  ]);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -124,32 +85,6 @@ const CrearUsuarioA = () => {
   const roleNeedsCarreras = (selectedRole) => {
     return ['student', 'docente', 'academico'].includes(selectedRole);
   };
-
-  const roleNeedsFacultad = (selectedRole) => {
-    return selectedRole === 'academico'; 
-  };
-
-  useEffect(() => {
-    const fetchFacultades = async () => {
-      try {
-        const response = await apiClient.get('/facultades');
-        
-        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
-          const facultadesFormateadas = response.data.map(facultad => ({
-            label: facultad.nombre,
-            value: facultad.facultad_id.toString()
-          }));
-          setOpcionesFacultad(facultadesFormateadas);
-          console.log('Facultades cargadas desde API:', facultadesFormateadas);
-        } else {
-          console.log('Usando facultades por defecto');
-        }
-      } catch (error) {
-        console.log('Error al cargar facultades, usando valores por defecto');
-      }
-    };
-    fetchFacultades();
-  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -183,26 +118,10 @@ const CrearUsuarioA = () => {
     if (role !== 'student' && role !== 'academico') {
       setCarreraSeleccionada(null);
     }
-    if (role !== 'academico') {
-      setFacultadSeleccionada(null);
-    }
     // Cerrar todos los dropdowns
     setOpenCarrera(false);
-    setOpenFacultad(false);
     setOpen(false);
   }, [role]);
-
-  // ✅ Auto-seleccionar facultad cuando role es academico
-  useEffect(() => {
-    if (role === 'academico' && carreraSeleccionada) {
-      const facultadId = CARRERA_A_FACULTAD[carreraSeleccionada];
-      if (facultadId) {
-        console.log(`Carrera ${carreraSeleccionada} seleccionada → Auto-seleccionando facultad ${facultadId} (${NOMBRES_FACULTADES[facultadId]})`);
-        setFacultadSeleccionada(facultadId);
-        setOpenFacultad(false);
-      }
-    }
-  }, [carreraSeleccionada, role]);
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({
@@ -264,11 +183,6 @@ const CrearUsuarioA = () => {
             }
           }
         }
-        if(role === 'academico'){
-          if( !facultadSeleccionada){
-            newErrors.facultad = 'Debe Seleccionar la facultad para el director';
-          }
-        }
         break;
     }
 
@@ -294,7 +208,7 @@ const CrearUsuarioA = () => {
     console.log("Role seleccionado:", role);
     console.log("Carrera seleccionada:", carreraSeleccionada);
     console.log("Carreras docente:", carrerasDocente);
-    console.log("Facultad seleccionada:", facultadSeleccionada);
+    
     try {
       const newUserPayload = {
         username: formData.username.trim(),
@@ -317,10 +231,6 @@ const CrearUsuarioA = () => {
             newUserPayload.carreras_ids = carrerasDocente.map(id => parseInt(id));
           }
         }
-      }
-
-      if (role === 'academico' && facultadSeleccionada) {
-        newUserPayload.idfacultad = parseInt(facultadSeleccionada);
       }
      
       console.log("FRONTEND - Payload enviado:", JSON.stringify(newUserPayload, null, 2));
@@ -347,7 +257,6 @@ const CrearUsuarioA = () => {
                 setRole(null);
                 setCarreraSeleccionada(null);
                 setCarrerasDocente([]);
-                setFacultadSeleccionada(null);
                 setCurrentStep(1);
                 
                 router.replace('/login') 
@@ -386,7 +295,7 @@ const CrearUsuarioA = () => {
                   stepToRevert = Math.min(stepToRevert, 1);
                 } else if (['email', 'contrasenia'].includes(fieldPath)) {
                   stepToRevert = Math.min(stepToRevert, 2);
-                } else if (['role', 'carrera', 'facultad_id', 'idcarrera','carreras_ids'].some(f => fieldPath.includes(f))) {
+                } else if (['role', 'carrera', 'idcarrera','carreras_ids'].some(f => fieldPath.includes(f))) {
                   stepToRevert = Math.min(stepToRevert, 3);
                 }
               }
@@ -416,7 +325,6 @@ const CrearUsuarioA = () => {
   const closeAllDropdowns = () => {
     setOpen(false);
     setOpenCarrera(false);
-    setOpenFacultad(false);
   };
 
   const renderProgressBar = () => (
@@ -593,7 +501,6 @@ const CrearUsuarioA = () => {
           placeholderStyle={styles.dropdownPlaceholder}
           onOpen={() => {
             setOpenCarrera(false);
-            setOpenFacultad(false);
           }}
           searchable={false}
           showArrowIcon={true}
@@ -621,7 +528,7 @@ const CrearUsuarioA = () => {
                 <Text style={styles.roleBadgeText}>Rol: Director de Carrera</Text>
               </View>
               <Text style={styles.roleInfoText}>
-                Selecciona la carrera y la facultad se asignará automáticamente
+                Selecciona la carrera que dirigirá
               </Text>
             </View>
           )}
@@ -663,7 +570,6 @@ const CrearUsuarioA = () => {
               multipleText={role === 'docente' ? "%d carreras seleccionadas" : undefined}
               onOpen={() => {
                 setOpen(false);
-                setOpenFacultad(false);
               }}
               searchable={role === 'academico'}
               searchPlaceholder={role === 'academico' ? "Buscar carrera..." : undefined}
@@ -684,71 +590,6 @@ const CrearUsuarioA = () => {
               {role === 'docente' && '💡 El docente podrá enseñar en las carreras seleccionadas'}
             </Text>
           </View>
-        </View>
-      )}
-
-      {roleNeedsFacultad(role) && (
-        <View style={styles.conditionalContainer}>
-          <Text style={styles.label}>
-            Seleccionar Facultad <Text style={styles.required}>*</Text>
-          </Text>
-          
-          <View style={[styles.dropdownContainer, { 
-            marginTop: 5,
-            zIndex: role === 'academico' ? 1000 : 1000
-          }]}>
-            <DropDownPicker
-              multiple={false}
-              open={openFacultad}
-              value={facultadSeleccionada}
-              items={opcionesFacultad}
-              setOpen={setOpenFacultad}
-              setValue={setFacultadSeleccionada}
-              placeholder="Selecciona la facultad a dirigir"
-              style={[styles.dropdown, errors.facultad && styles.inputError]}
-              dropDownContainerStyle={[
-                styles.dropdownList,
-                { 
-                  zIndex: 1000, 
-                  elevation: 1000,
-                  maxHeight: 200,
-                }
-              ]}
-              listMode={isWeb ? "FLATLIST" : "SCROLLVIEW"}
-              textStyle={styles.dropdownText}
-              placeholderStyle={styles.dropdownPlaceholder}
-              onOpen={() => {
-                setOpen(false);
-                setOpenCarrera(false);
-              }}
-              disabled={role === 'academico' && !!carreraSeleccionada}
-              disabledStyle={role === 'academico' && !!carreraSeleccionada ? {
-                backgroundColor: '#f0f0f0',
-              } : {}}
-              disabledTextStyle={role === 'academico' && !!carreraSeleccionada ? {
-                color: '#666',
-                fontWeight: '600',
-              } : {}}
-              searchable={false}
-              showArrowIcon={true}
-              showTickIcon={true}
-              itemSeparator={true}
-              itemSeparatorStyle={{
-                backgroundColor: "#f0f0f0"
-              }}
-            />
-          </View>
-          {errors.facultad && <Text style={styles.errorText}>{errors.facultad}</Text>}
-          
-          {/* ✅ Badge de selección automática solo para Director de Carrera */}
-          {role === 'academico' && carreraSeleccionada && facultadSeleccionada && (
-            <View style={styles.autoSelectionBadge}>
-              <Ionicons name="checkmark-circle" size={18} color="#27ae60" />
-              <Text style={styles.autoSelectionText}>
-                {NOMBRES_FACULTADES[facultadSeleccionada]} (asignada automáticamente)
-              </Text>
-            </View>
-          )}
         </View>
       )}
     </View>
@@ -1078,22 +919,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
-  },
-  autoSelectionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e8f8f5',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#27ae60',
-  },
-  autoSelectionText: {
-    fontSize: 14,
-    color: '#27ae60',
-    marginLeft: 8,
-    fontWeight: '500',
   },
   switchDescription: {
     fontSize: 14,
