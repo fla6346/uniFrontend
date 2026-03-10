@@ -130,7 +130,6 @@ const CrearUsuarioA = () => {
 
   const updateFormData = (field, value) => {
      let formattedValue = value;
-  // ✅ Auto-capitalizar nombre y apellidos
   if (['nombre', 'apellidopat', 'apellidomat'].includes(field)) {
     formattedValue = capitalizeFirstLetter(value);
   }
