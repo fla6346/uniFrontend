@@ -23,12 +23,32 @@ import DropDownPicker from 'react-native-dropdown-picker';
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const CARRERA_A_FACULTAD = {
+  '1': '5',  
+  '2': '3',  
+  '3': '4',  
+  '4': '2',  
+  '5': '2',  
+  '6': '2',  
+  '7': '2',  
+  '8': '2',  
+  '9': '2',  
+  '10': '4', 
+  '11': '4', 
+  '12': '4', 
+  '13': '3', 
+  '14': '3', 
+  '15': '3', 
+  '16': '3', 
+  '17': '1', 
+};
 
 const CrearUsuarioA = () => {
   const router = useRouter();
 
   const [open, setOpen] = useState(false); 
   const [role, setRole] = useState(null); 
+  const [facultadSeleccionada, setFacultadSeleccionada] = useState(null);
   const [items] = useState([ 
     { label: 'Administrador', value: 'admin', icon: () => <Ionicons name="shield-checkmark" size={20} color="#e74c3c" /> },
     { label: 'Admisiones', value: 'admisiones', icon: () => <Ionicons name="school" size={20} color="#3498db" /> },
@@ -81,7 +101,6 @@ const CrearUsuarioA = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
 
-  // ✅ FIX 1: Función getToken agregada
   const getToken = async () => {
     const TOKEN_KEY = 'adminAuthToken';
     try {
@@ -99,8 +118,15 @@ const CrearUsuarioA = () => {
   const roleNeedsCarreras = (selectedRole) => {
     return ['student', 'docente', 'academico'].includes(selectedRole);
   };
+useEffect(() => {
+  if (carreraSeleccionada) {
+    const facultadId = CARRERA_A_FACULTAD[carreraSeleccionada];
+    if (facultadId) {
+      setFacultadSeleccionada(facultadId);
+    }
+  }
+}, [carreraSeleccionada]);
 
-  // ✅ FIX 2: capitalizeFirstLetter
   const capitalizeFirstLetter = (text) => {
     return text
       .toLowerCase()
@@ -220,7 +246,6 @@ const CrearUsuarioA = () => {
     console.log("Carreras docente:", carrerasDocente);
     
     try {
-      // ✅ FIX 4: Obtener token correctamente
       const token = await getToken();
       if (!token) throw new Error('Token no encontrado. Por favor, inicia sesión nuevamente.');
 
@@ -239,6 +264,7 @@ const CrearUsuarioA = () => {
         if (role === 'student' || role === 'academico') {
           if (carreraSeleccionada) {
             newUserPayload.idcarrera = parseInt(carreraSeleccionada);
+            newUserPayload.idfacultad = parseInt(CARRERA_A_FACULTAD[carreraSeleccionada]);
           }
         } else if (role === 'docente') {
           if (carrerasDocente && carrerasDocente.length > 0) {
