@@ -88,6 +88,14 @@ const CrearUsuarioA = () => {
     return ['student', 'docente', 'academico'].includes(selectedRole);
   };
 
+  const capitalizeFirstLetter = (text) => {
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
   useEffect(() => {
     const checkAuth = async () => {
       const TOKEN_KEY = 'adminAuthToken';
@@ -121,17 +129,16 @@ const CrearUsuarioA = () => {
   }, [role]);
 
   const updateFormData = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: null
-      }));
-    }
-  };
+     let formattedValue = value;
+  // ✅ Auto-capitalizar nombre y apellidos
+  if (['nombre', 'apellidopat', 'apellidomat'].includes(field)) {
+    formattedValue = capitalizeFirstLetter(value);
+  }
+  setFormData(prev => ({ ...prev, [field]: formattedValue }));
+  if (errors[field]) {
+    setErrors(prev => ({ ...prev, [field]: null }));
+  }
+};
 
   const validateStep = (step) => {
     const newErrors = {};
