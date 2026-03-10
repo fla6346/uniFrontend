@@ -18,7 +18,6 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
-import apiClient from '../../src/api/axiosConfig'; 
 import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
@@ -28,7 +27,6 @@ const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const CrearUsuarioA = () => {
   const router = useRouter();
 
-  // Estados para dropdown de ROL
   const [open, setOpen] = useState(false); 
   const [role, setRole] = useState(null); 
   const [items] = useState([ 
@@ -44,7 +42,6 @@ const CrearUsuarioA = () => {
     { label: 'Servicios Estudiantiles', value: 'servicios', icon: () => <Ionicons name="help-circle" size={20} color="#16a085" /> },    
   ]);
 
-  // Estados para dropdown de CARRERA
   const [openCarrera, setOpenCarrera] = useState(false);
   const [carreraSeleccionada, setCarreraSeleccionada] = useState(null);
   const [carrerasDocente, setCarrerasDocente] = useState([]);
@@ -84,60 +81,72 @@ const CrearUsuarioA = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
 
+  // ✅ FIX 1: Función getToken agregada
+  const getToken = async () => {
+    const TOKEN_KEY = 'adminAuthToken';
+    try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem(TOKEN_KEY);
+      } else {
+        return await SecureStore.getItemAsync(TOKEN_KEY);
+      }
+    } catch (error) {
+      console.error('Error obteniendo token:', error);
+      return null;
+    }
+  };
+
   const roleNeedsCarreras = (selectedRole) => {
     return ['student', 'docente', 'academico'].includes(selectedRole);
   };
 
+  // ✅ FIX 2: capitalizeFirstLetter
   const capitalizeFirstLetter = (text) => {
-  return text
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
+    return text
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
-      const TOKEN_KEY = 'adminAuthToken';
       try {
-        if (Platform.OS === 'web') {
-          return localStorage.getItem(TOKEN_KEY);
-        } else {
-          return await SecureStore.getItemAsync(TOKEN_KEY);
+        const token = await getToken();
+        if (!token) {
+          Alert.alert("Acceso Denegado", "No estás autenticado. Por favor, inicia sesión.");
+          router.replace('/Login');
         }
-     
       } catch (error) {
         console.error('Error verificando autenticación:', error);
         Alert.alert("Error", "Error verificando la autenticación.");
       }
     };
-    
     checkAuth();
   }, []);
 
   useEffect(() => {
-    // Limpiar estados cuando cambia el rol
     if (role !== 'docente') {
       setCarrerasDocente([]);
     }
     if (role !== 'student' && role !== 'academico') {
       setCarreraSeleccionada(null);
     }
-    // Cerrar todos los dropdowns
     setOpenCarrera(false);
     setOpen(false);
   }, [role]);
 
+  // ✅ FIX 3: updateFormData con capitalización
   const updateFormData = (field, value) => {
-     let formattedValue = value;
-  if (['nombre', 'apellidopat', 'apellidomat'].includes(field)) {
-    formattedValue = capitalizeFirstLetter(value);
-  }
-  setFormData(prev => ({ ...prev, [field]: formattedValue }));
-  if (errors[field]) {
-    setErrors(prev => ({ ...prev, [field]: null }));
-  }
-};
+    let formattedValue = value;
+    if (['nombre', 'apellidopat', 'apellidomat'].includes(field)) {
+      formattedValue = capitalizeFirstLetter(value);
+    }
+    setFormData(prev => ({ ...prev, [field]: formattedValue }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: null }));
+    }
+  };
 
   const validateStep = (step) => {
     const newErrors = {};
@@ -170,12 +179,10 @@ const CrearUsuarioA = () => {
         if (!role) {
           newErrors.role = 'El rol es requerido.';
         }
-
         if (roleNeedsCarreras(role)) {
           const carreraValida = role === 'docente' ? 
             (carrerasDocente && carrerasDocente.length > 0) : 
             carreraSeleccionada;
-            
           if (!carreraValida) {
             if (role === 'student') {
               newErrors.carrera = 'Debe seleccionar la carrera del estudiante.';
@@ -213,6 +220,10 @@ const CrearUsuarioA = () => {
     console.log("Carreras docente:", carrerasDocente);
     
     try {
+      // ✅ FIX 4: Obtener token correctamente
+      const token = await getToken();
+      if (!token) throw new Error('Token no encontrado. Por favor, inicia sesión nuevamente.');
+
       const newUserPayload = {
         username: formData.username.trim(),
         nombre: formData.nombre.trim(),
@@ -240,10 +251,10 @@ const CrearUsuarioA = () => {
       
       const response = await axios.post(`${API_BASE_URL}/auth/register`, newUserPayload, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`, // ✅ token ahora definido
           'Content-Type': 'application/json'
         },
-        timeout: 30000  // ✅ aumentado a 30s para Render
+        timeout: 30000
       });
 
       if (response.status === 201 || response.status === 200) {
@@ -267,11 +278,9 @@ const CrearUsuarioA = () => {
                 setCarreraSeleccionada(null);
                 setCarrerasDocente([]);
                 setCurrentStep(1);
-                
-                router.replace('/login') 
-                }
+                router.replace('/login');
               }
-            
+            }
           ]
         );
       }
@@ -285,7 +294,6 @@ const CrearUsuarioA = () => {
 
       if (error.response) {
         console.error("Respuesta del servidor:", error.response.data);
-        console.error("Errores de validación:", error.response.data.errors);
         
         if (error.response.data?.message) {
           errorMessage = error.response.data.message;
@@ -304,7 +312,7 @@ const CrearUsuarioA = () => {
                   stepToRevert = Math.min(stepToRevert, 1);
                 } else if (['email', 'contrasenia'].includes(fieldPath)) {
                   stepToRevert = Math.min(stepToRevert, 2);
-                } else if (['role', 'carrera', 'idcarrera','carreras_ids'].some(f => fieldPath.includes(f))) {
+                } else if (['role', 'carrera', 'idcarrera', 'carreras_ids'].some(f => fieldPath.includes(f))) {
                   stepToRevert = Math.min(stepToRevert, 3);
                 }
               }
@@ -315,16 +323,19 @@ const CrearUsuarioA = () => {
         } else if (error.response.status === 409) {
           errorMessage = 'El usuario ya existe. Intenta con otro nombre de usuario o email.';
           stepToRevert = 1;
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data?.message || 'Datos inválidos. Verifica la información.';
         } else if (error.response.status >= 500) {
           errorMessage = 'Error del servidor. Intenta nuevamente más tarde.';
         }
       } else if (error.request) {
         errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+      } else {
+        errorMessage = error.message || 'Error al configurar la petición.';
       }
 
       setErrors(prev => ({ ...prev, ...newErrors }));
       setCurrentStep(stepToRevert);
-
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
@@ -367,16 +378,8 @@ const CrearUsuarioA = () => {
   );
 
   const renderStepTitle = () => {
-    const titles = [
-      'Información Personal',
-      'Credenciales',
-      'Rol y Configuración'
-    ];
-    return (
-      <Text style={styles.stepTitle}>
-        {titles[currentStep - 1]}
-      </Text>
-    );
+    const titles = ['Información Personal', 'Credenciales', 'Rol y Configuración'];
+    return <Text style={styles.stepTitle}>{titles[currentStep - 1]}</Text>;
   };
 
   const renderInputField = (label, field, placeholder, options = {}) => (
@@ -424,26 +427,16 @@ const CrearUsuarioA = () => {
   const renderStep1 = () => (
     <View style={styles.stepContainer}>
       {renderInputField('Nombre de Usuario', 'username', 'Ej: jperez', {
-        required: true,
-        icon: 'person-outline',
-        autoCapitalize: 'none'
+        required: true, icon: 'person-outline', autoCapitalize: 'none'
       })}
-      
       {renderInputField('Nombre(s)', 'nombre', 'Ej: Juan Carlos', {
-        required: true,
-        icon: 'card-outline',
-        autoCapitalize: 'words'
+        required: true, icon: 'card-outline', autoCapitalize: 'words'
       })}
-      
       {renderInputField('Apellido Paterno', 'apellidopat', 'Ej: Pérez', {
-        required: true,
-        icon: 'card-outline',
-        autoCapitalize: 'words'
+        required: true, icon: 'card-outline', autoCapitalize: 'words'
       })}
-      
       {renderInputField('Apellido Materno', 'apellidomat', 'Ej: López (Opcional)', {
-        icon: 'card-outline',
-        autoCapitalize: 'words'
+        icon: 'card-outline', autoCapitalize: 'words'
       })}
     </View>
   );
@@ -451,31 +444,16 @@ const CrearUsuarioA = () => {
   const renderStep2 = () => (
     <View style={styles.stepContainer}>
       {renderInputField('Correo Electrónico', 'email', 'ejemplo@correo.com', {
-        required: true,
-        icon: 'mail-outline',
-        keyboardType: 'email-address',
-        autoCapitalize: 'none'
+        required: true, icon: 'mail-outline', keyboardType: 'email-address', autoCapitalize: 'none'
       })}
-      
       {renderInputField('Contraseña', 'contrasenia', 'Mínimo 6 caracteres', {
-        required: true,
-        icon: 'lock-closed-outline'
+        required: true, icon: 'lock-closed-outline'
       })}
-      
       <View style={styles.passwordStrengthContainer}>
         <View style={styles.passwordStrength}>
-          <View style={[
-            styles.strengthBar,
-            formData.contrasenia.length >= 6 && styles.strengthBarWeak
-          ]} />
-          <View style={[
-            styles.strengthBar,
-            formData.contrasenia.length >= 8 && /[A-Z]/.test(formData.contrasenia) && styles.strengthBarMedium
-          ]} />
-          <View style={[
-            styles.strengthBar,
-            formData.contrasenia.length >= 8 && /[A-Z]/.test(formData.contrasenia) && /[0-9]/.test(formData.contrasenia) && styles.strengthBarStrong
-          ]} />
+          <View style={[styles.strengthBar, formData.contrasenia.length >= 6 && styles.strengthBarWeak]} />
+          <View style={[styles.strengthBar, formData.contrasenia.length >= 8 && /[A-Z]/.test(formData.contrasenia) && styles.strengthBarMedium]} />
+          <View style={[styles.strengthBar, formData.contrasenia.length >= 8 && /[A-Z]/.test(formData.contrasenia) && /[0-9]/.test(formData.contrasenia) && styles.strengthBarStrong]} />
         </View>
         <Text style={styles.passwordHint}>
           Usa al menos 6 caracteres con mayúsculas y números para mayor seguridad
@@ -489,7 +467,7 @@ const CrearUsuarioA = () => {
       <Text style={styles.label}>
         Rol <Text style={styles.required}>*</Text>
       </Text>
-      <View style={[styles.dropdownContainer, { zIndex: isWeb ? 3000 : 3000 }]}>
+      <View style={[styles.dropdownContainer, { zIndex: 3000 }]}>
         <DropDownPicker
           open={open}
           value={role}
@@ -498,19 +476,11 @@ const CrearUsuarioA = () => {
           setValue={setRole}
           placeholder="Selecciona un rol"
           style={[styles.dropdown, errors.role && styles.inputError]}
-          dropDownContainerStyle={[
-            styles.dropdownList,
-            { 
-              zIndex: isWeb ? 3000 : 3000, 
-              elevation: isWeb ? 0 : 3000,
-            }
-          ]}
+          dropDownContainerStyle={[styles.dropdownList, { zIndex: 3000, elevation: isWeb ? 0 : 3000 }]}
           listMode={isWeb ? "FLATLIST" : "SCROLLVIEW"}
           textStyle={styles.dropdownText}
           placeholderStyle={styles.dropdownPlaceholder}
-          onOpen={() => {
-            setOpenCarrera(false);
-          }}
+          onOpen={() => setOpenCarrera(false)}
           searchable={false}
           showArrowIcon={true}
           showTickIcon={true}
@@ -529,16 +499,13 @@ const CrearUsuarioA = () => {
             <Text style={styles.required}> *</Text>
           </Text>
           
-          {/* ✅ Badge informativo solo para Director de Carrera */}
           {role === 'academico' && (
             <View style={styles.roleBadgeContainer}>
               <View style={styles.roleBadge}>
                 <Ionicons name="person-circle" size={20} color="#8e44ad" />
                 <Text style={styles.roleBadgeText}>Rol: Director de Carrera</Text>
               </View>
-              <Text style={styles.roleInfoText}>
-                Selecciona la carrera que dirigirá
-              </Text>
+              <Text style={styles.roleInfoText}>Selecciona la carrera que dirigirá</Text>
             </View>
           )}
           
@@ -560,34 +527,23 @@ const CrearUsuarioA = () => {
                 role === 'academico' ? 'Selecciona la carrera a dirigir' : 
                 'Selecciona las carreras donde enseñará'
               }
-              style={[
-                styles.dropdown, 
-                role === 'academico' && styles.carreraDropdown,
-                errors.carrera && styles.inputError
-              ]}
-              dropDownContainerStyle={[
-                styles.dropdownList,
-                { 
-                  zIndex: role === 'academico' ? 2000 : 1500, 
-                  elevation: role === 'academico' ? 2000 : 1500,
-                  maxHeight: 250,
-                }
-              ]}
+              style={[styles.dropdown, role === 'academico' && styles.carreraDropdown, errors.carrera && styles.inputError]}
+              dropDownContainerStyle={[styles.dropdownList, { 
+                zIndex: role === 'academico' ? 2000 : 1500, 
+                elevation: role === 'academico' ? 2000 : 1500,
+                maxHeight: 250,
+              }]}
               listMode={isWeb ? "FLATLIST" : "SCROLLVIEW"}
               textStyle={styles.dropdownText}
               placeholderStyle={styles.dropdownPlaceholder}
               multipleText={role === 'docente' ? "%d carreras seleccionadas" : undefined}
-              onOpen={() => {
-                setOpen(false);
-              }}
+              onOpen={() => setOpen(false)}
               searchable={role === 'academico'}
               searchPlaceholder={role === 'academico' ? "Buscar carrera..." : undefined}
               showArrowIcon={true}
               showTickIcon={true}
               itemSeparator={true}
-              itemSeparatorStyle={{
-                backgroundColor: "#f0f0f0"
-              }}
+              itemSeparatorStyle={{ backgroundColor: "#f0f0f0" }}
             />
           </View>
           {errors.carrera && <Text style={styles.errorText}>{errors.carrera}</Text>}
@@ -613,13 +569,9 @@ const CrearUsuarioA = () => {
         <Stack.Screen 
           options={{ 
             title: 'Nuevo Usuario',
-            headerStyle: {
-              backgroundColor: '#e95a0c',
-            },
+            headerStyle: { backgroundColor: '#e95a0c' },
             headerTintColor: '#fff',
-            headerTitleStyle: {
-              fontWeight: 'bold',
-            },
+            headerTitleStyle: { fontWeight: 'bold' },
           }} 
         />
         
@@ -679,316 +631,98 @@ const CrearUsuarioA = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#e95a0c',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 150,
-  },
-  header: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  progressStep: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  safeArea: { flex: 1, backgroundColor: '#e95a0c' },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  scrollContainer: { paddingHorizontal: 20, paddingBottom: 150 },
+  header: { paddingVertical: 20, alignItems: 'center' },
+  progressContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  progressStep: { flexDirection: 'row', alignItems: 'center' },
   progressCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#e0e0e0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#e0e0e0', justifyContent: 'center', alignItems: 'center',
   },
-  progressCircleActive: {
-    backgroundColor: '#e95a0c',
-  },
-  progressNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#999',
-  },
-  progressNumberActive: {
-    color: '#fff',
-  },
-  progressLine: {
-    width: 50,
-    height: 2,
-    backgroundColor: '#e0e0e0',
-    marginHorizontal: 5,
-  },
-  confirmationText: {
-    fontSize: 14,
-    color: '#27ae60',
-    marginTop: 5,
-    fontStyle: 'italic',
-  },
-  progressLineActive: {
-    backgroundColor: '#e95a0c',
-  },
-  stepTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
-  stepContainer: {
-    paddingVertical: 20,
-    paddingBottom: 200,
-  },
-  conditionalContainer: {
-    marginTop: 20,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  required: {
-    color: '#e74c3c',
-  },
-  inputWrapper: {
-    position: 'relative',
-  },
+  progressCircleActive: { backgroundColor: '#e95a0c' },
+  progressNumber: { fontSize: 16, fontWeight: 'bold', color: '#999' },
+  progressNumberActive: { color: '#fff' },
+  progressLine: { width: 50, height: 2, backgroundColor: '#e0e0e0', marginHorizontal: 5 },
+  confirmationText: { fontSize: 14, color: '#27ae60', marginTop: 5, fontStyle: 'italic' },
+  progressLineActive: { backgroundColor: '#e95a0c' },
+  stepTitle: { fontSize: 24, fontWeight: 'bold', color: '#333', textAlign: 'center' },
+  stepContainer: { paddingVertical: 20, paddingBottom: 200 },
+  conditionalContainer: { marginTop: 20 },
+  inputContainer: { marginBottom: 20 },
+  label: { fontSize: 16, color: '#333', marginBottom: 8, fontWeight: '600' },
+  required: { color: '#e74c3c' },
+  inputWrapper: { position: 'relative' },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 15,
-    fontSize: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 2,
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd',
+    borderRadius: 12, paddingHorizontal: 15, paddingVertical: 15, fontSize: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 3.84, elevation: 2,
   },
-  inputWithIcon: {
-    paddingLeft: 50,
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: 15,
-    top: 17,
-    zIndex: 1,
-  },
-  passwordToggle: {
-    position: 'absolute',
-    right: 15,
-    top: 17,
-  },
-  inputError: {
-    borderColor: '#e74c3c',
-    borderWidth: 2,
-  },
-  errorText: {
-    color: '#e74c3c',
-    fontSize: 12,
-    marginTop: 5,
-    marginLeft: 5,
-  },
-  passwordStrengthContainer: {
-    marginTop: 10,
-  },
-  passwordStrength: {
-    flexDirection: 'row',
-    marginBottom: 5,
-  },
-  strengthBar: {
-    height: 4,
-    flex: 1,
-    backgroundColor: '#e0e0e0',
-    marginRight: 5,
-    borderRadius: 2,
-  },
-  strengthBarWeak: {
-    backgroundColor: '#e74c3c',
-  },
-  strengthBarMedium: {
-    backgroundColor: '#f39c12',
-  },
-  strengthBarStrong: {
-    backgroundColor: '#27ae60',
-  },
-  passwordHint: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  dropdownContainer: {
-    marginBottom: 15,
-  },
-  dropdown: {
-    backgroundColor: '#fff',
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 50,
-  },
+  inputWithIcon: { paddingLeft: 50 },
+  inputIcon: { position: 'absolute', left: 15, top: 17, zIndex: 1 },
+  passwordToggle: { position: 'absolute', right: 15, top: 17 },
+  inputError: { borderColor: '#e74c3c', borderWidth: 2 },
+  errorText: { color: '#e74c3c', fontSize: 12, marginTop: 5, marginLeft: 5 },
+  passwordStrengthContainer: { marginTop: 10 },
+  passwordStrength: { flexDirection: 'row', marginBottom: 5 },
+  strengthBar: { height: 4, flex: 1, backgroundColor: '#e0e0e0', marginRight: 5, borderRadius: 2 },
+  strengthBarWeak: { backgroundColor: '#e74c3c' },
+  strengthBarMedium: { backgroundColor: '#f39c12' },
+  strengthBarStrong: { backgroundColor: '#27ae60' },
+  passwordHint: { fontSize: 12, color: '#666', fontStyle: 'italic' },
+  dropdownContainer: { marginBottom: 15 },
+  dropdown: { backgroundColor: '#fff', borderColor: '#ddd', borderWidth: 1, borderRadius: 12, minHeight: 50 },
   carreraDropdown: {
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    minHeight: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    paddingVertical: 15, paddingHorizontal: 15,
+    minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: '#ddd',
   },
-  dropdownList: {
-    backgroundColor: '#fff',
-    borderColor: '#ddd',
-    borderWidth: 1,
-    borderRadius: 12,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  dropdownPlaceholder: {
-    fontSize: 16,
-    color: '#999',
-  },
+  dropdownList: { backgroundColor: '#fff', borderColor: '#ddd', borderWidth: 1, borderRadius: 12 },
+  dropdownText: { fontSize: 16, color: '#333' },
+  dropdownPlaceholder: { fontSize: 16, color: '#999' },
   switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
-    elevation: 2,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff', borderRadius: 12, padding: 20, marginTop: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 3.84, elevation: 2,
   },
-  switchInfo: {
-    flex: 1,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 5,
-  },
+  switchInfo: { flex: 1 },
+  switchLabel: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 5 },
   roleInfoContainer: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#e95a0c',
+    backgroundColor: '#f8f9fa', borderRadius: 8, padding: 12,
+    marginTop: 10, borderLeftWidth: 3, borderLeftColor: '#e95a0c',
   },
-  roleInfoText: {
-    fontSize: 14,
-    color: '#666',
-  },
+  roleInfoText: { fontSize: 14, color: '#666' },
   roleBadgeContainer: {
-    backgroundColor: '#f5f0ff',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 20,
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    borderLeftColor: '#8e44ad',
+    backgroundColor: '#f5f0ff', borderRadius: 12, padding: 15,
+    marginBottom: 20, alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#8e44ad',
   },
   roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#8e44ad',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#8e44ad',
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 8,
   },
-  roleBadgeText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  switchDescription: {
-    fontSize: 14,
-    color: '#666',
-  },
+  roleBadgeText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  switchDescription: { fontSize: 14, color: '#666' },
   buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 30,
-    paddingBottom: 20,
-    gap: 15,
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingTop: 30, paddingBottom: 20, gap: 15,
   },
   primaryButton: {
-    backgroundColor: '#e95a0c',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    flex: 1,
-    shadowColor: '#e95a0c',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    backgroundColor: '#e95a0c', paddingVertical: 15, paddingHorizontal: 30,
+    borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', flex: 1, shadowColor: '#e95a0c',
+    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 8,
   },
   secondaryButton: {
-    backgroundColor: '#fff',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    flex: 1,
-    borderWidth: 2,
-    borderColor: '#e95a0c',
+    backgroundColor: '#fff', paddingVertical: 15, paddingHorizontal: 30,
+    borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', flex: 1, borderWidth: 2, borderColor: '#e95a0c',
   },
-  fullWidthButton: {
-    flex: 1,
-  },
-  buttonDisabled: {
-    backgroundColor: '#f9bda3',
-    shadowOpacity: 0.1,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
-  },
-  secondaryButtonText: {
-    color: '#e95a0c',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
+  fullWidthButton: { flex: 1 },
+  buttonDisabled: { backgroundColor: '#f9bda3', shadowOpacity: 0.1 },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginRight: 8 },
+  secondaryButtonText: { color: '#e95a0c', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
 });
 
 export default CrearUsuarioA;
