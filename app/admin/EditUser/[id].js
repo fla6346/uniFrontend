@@ -263,7 +263,7 @@ const EditUser = () => {
       setSuccessMessage('¡Usuario actualizado correctamente!');
       setTimeout(() => {
         setSuccessMessage(null);
-        router.replace('/admin/UsuarioA');
+        router.replace('/admin/UsuariosA');
       }, 2000);
 
     } catch (error) {
