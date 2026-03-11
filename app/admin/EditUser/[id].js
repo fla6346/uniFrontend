@@ -131,7 +131,7 @@ const EditUser = () => {
   useEffect(() => {
     if (!id) {
       Alert.alert('Error', 'ID de usuario no válido');
-      router.replace('/admin/UsuarioA');
+      router.replace('/admin/UsuariosA');
       return;
     }
     fetchUserData();
