@@ -42,10 +42,20 @@ const CARRERA_A_FACULTAD = {
   '16': '3', 
   '17': '1', 
 };
-
+const Toast = ({ visible, message }) => {
+  if (!visible) return null;
+  return (
+    <View style={styles.toastContainer}>
+      <View style={styles.toastContent}>
+        <Ionicons name="checkmark-circle" size={24} color="#fff" />
+        <Text style={styles.toastText}>{message}</Text>
+      </View>
+    </View>
+  );
+};
 const CrearUsuarioA = () => {
   const router = useRouter();
-
+  const [successMessage, setSuccessMessage] = useState(null);
   const [open, setOpen] = useState(false); 
   const [role, setRole] = useState(null); 
   const [facultadSeleccionada, setFacultadSeleccionada] = useState(null);
@@ -284,31 +294,20 @@ useEffect(() => {
       });
 
       if (response.status === 201 || response.status === 200) {
-        Alert.alert(
-          '¡Éxito!', 
-          'Usuario creado correctamente.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setFormData({
-                  username: '',
-                  nombre: '',
-                  apellidopat: '',
-                  apellidomat: '',
-                  email: '',
-                  contrasenia: '',
-                  habilitado: true,
-                });
-                setRole(null);
-                setCarreraSeleccionada(null);
-                setCarrerasDocente([]);
-                setCurrentStep(1);
-                router.replace('/login');
-              }
-            }
-          ]
-        );
+        setSuccessMessage('¡Usuario creado correctamente!');
+          setTimeout(() => {
+            setFormData({
+              username: '', nombre: '', apellidopat: '',
+              apellidomat: '', email: '', contrasenia: '', habilitado: true,
+            });
+            setRole(null);
+            setCarreraSeleccionada(null);
+            setCarrerasDocente([]);
+            setCurrentStep(1);
+            setSuccessMessage(null);
+            router.replace('/login');
+          }, 2000);
+          return;
       }
       
     } catch (error) {
@@ -651,6 +650,7 @@ useEffect(() => {
             </TouchableOpacity>
           </View>
         </ScrollView>
+         <Toast visible={!!successMessage} message={successMessage} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -748,7 +748,20 @@ const styles = StyleSheet.create({
   fullWidthButton: { flex: 1 },
   buttonDisabled: { backgroundColor: '#f9bda3', shadowOpacity: 0.1 },
   primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginRight: 8 },
-  secondaryButtonText: { color: '#e95a0c', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+  secondaryButtonText: { color: '#e95a0c', fontSize: 16, fontWeight: 'bold', marginLeft: 8 
+
+  },
+  toastContainer: {
+  position: 'absolute', bottom: 60, left: 0, right: 0,
+  alignItems: 'center', zIndex: 9999, paddingHorizontal: 20,
+  },
+toastContent: {
+  backgroundColor: '#27ae60', flexDirection: 'row', alignItems: 'center',
+  paddingHorizontal: 24, paddingVertical: 16, borderRadius: 12,
+  shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, minWidth: 280,
+},
+toastText: { color: '#fff', fontSize: 16, fontWeight: '600', marginLeft: 12, textAlign: 'center' },
 });
 
 export default CrearUsuarioA;
