@@ -24,23 +24,23 @@ const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const CARRERA_A_FACULTAD = {
-  '1': '5',  
-  '2': '3',  
-  '3': '4',  
-  '4': '2',  
-  '5': '2',  
-  '6': '2',  
-  '7': '2',  
-  '8': '2',  
-  '9': '2',  
-  '10': '4', 
-  '11': '4', 
-  '12': '4', 
-  '13': '3', 
-  '14': '3', 
-  '15': '3', 
-  '16': '3', 
-  '17': '1', 
+  '1':'1',  
+  '2':'2',  
+  '3':'2',  
+  '4':'2',  
+  '5':'2',  
+  '6':'2',  
+  '7':'2',  
+  '8':'3',  
+  '9':'3',  
+  '10':'3', 
+  '11':'3', 
+  '12':'4', 
+  '13':'4', 
+  '14':'4', 
+  '15':'5', 
+  '16':'5', 
+  '17':'5', 
 };
 const Toast = ({ visible, message }) => {
   if (!visible) return null;
@@ -76,23 +76,23 @@ const CrearUsuarioA = () => {
   const [carreraSeleccionada, setCarreraSeleccionada] = useState(null);
   const [carrerasDocente, setCarrerasDocente] = useState([]);
   const [opcionesCarrera] = useState([ 
-    { label: 'Derecho', value: '15' },
-    { label: 'Psicología', value: '16' },
-    { label: 'Periodismo', value: '17' },
-    { label: 'Administración de Empresas', value: '3' },
-    { label: 'Administración de Hotelería y Turismo', value: '4' },
-    { label: 'Contaduría Pública', value: '5' },
-    { label: 'Ingeniería Comercial', value: '6' },
-    { label: 'Ingeniería Económica', value: '7' },
-    { label: 'Ingeniería Económica y Financiera', value: '8' },
+    { label: 'Ingeniería de Sistemas', value: '1' },
+    { label: 'Administración de Empresas', value: '2' },
+    { label: 'Administración de Hotelería y Turismo', value: '3' },
+    { label: 'Contaduría Pública', value: '4' },
+    { label: 'Ingeniería Comercial', value: '5' },
+    { label: 'Ingeniería Económica', value: '6' },
+    { label: 'Ingeniería Económica y Financiera', value: '7' },
+    { label: 'Bioquímica y Farmacia', value: '8' },
+    { label: 'Enfermería', value: '9' },
+    { label: 'Medicina', value: '10' },
+    { label: 'Odontología', value: '11' },
     { label: 'Arquitectura', value: '12' },
     { label: 'Diseño Gráfico y Producción Cross Media', value: '13' },
     { label: 'Publicidad y Marketing', value: '14' },
-    { label: 'Bioquímica y Farmacia', value: '9' },
-    { label: 'Enfermería', value: '10' },
-    { label: 'Medicina', value: '11' },
-    { label: 'Odontología', value: '8' },
-    { label: 'Ingeniería de Sistemas', value: '1' },
+    { label: 'Derecho', value: '15' },
+    { label: 'Psicología', value: '16' },
+    { label: 'Periodismo', value: '17' },
   ]);
 
   const [formData, setFormData] = useState({
@@ -305,7 +305,7 @@ useEffect(() => {
             setCarrerasDocente([]);
             setCurrentStep(1);
             setSuccessMessage(null);
-            router.replace('/login');
+            router.replace('Login');
           }, 2000);
           return;
       }
