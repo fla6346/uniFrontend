@@ -869,7 +869,6 @@ const styles = StyleSheet.create({
   managementToolCardBadgeMinimal: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, position: 'absolute', top: 20, right: 20 },
   managementToolCardBadgeTextMinimal: { fontSize: 11, fontWeight: '700', color: COLORS.white },
 
-  // Dock
   dock: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: COLORS.primary, borderTopLeftRadius: 20, borderTopRightRadius: 20,
