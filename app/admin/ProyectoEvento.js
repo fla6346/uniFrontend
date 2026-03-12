@@ -586,6 +586,8 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
   const presupuestoSectionRef = useRef(null);
   const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
   const [usuariosComite,setUsuariosComite] = useState([]);
+  const [comiteLoading, setComiteLoading] = useState(true);
+  const [comiteError, setComiteError] = useState(false);  
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
   const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeRecursoTecnologico = (index) => setRecursosTecnologicos(prev => prev.filter((_, i) => i !== index));
@@ -706,6 +708,8 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
     }
   };
 const fetchUsuariosComite = async () => {
+  const [comiteLoading, setComiteLoading] = useState(true);
+  const [comiteError, setComiteError] = useState(false);
   try {
      const token = await getTokenAsync();
       console.log("Token obtenido:", token);
@@ -783,7 +787,6 @@ const fetchUsuariosComite = async () => {
         axios.get(`${API_BASE_URL}/recursos`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
-        fetchUsuariosComite(), // ← ESTO es lo que faltaba
       ]);
 
       let recursosRaw = responseRecursos.data;
@@ -1519,39 +1522,55 @@ if (objetivos.otro) {
           <View style={styles.formSection}>
             <Text style={styles.sectionTitle}>IV. COMITÉ DEL EVENTO</Text>
            <Text style={styles.comiteDescription}>Selecciona a los miembros del comité del evento:</Text>
-{usuariosComite.length > 0 ? (
-  <View style={styles.comiteList}>
-    {usuariosComite.map(usuario => (
-  <TouchableOpacity
-    key={usuario.id}
-    style={styles.checkboxRow}
-    onPress={() => {
-      if (comiteSeleccionado.includes(usuario.id)) {
-        setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
-      } else {
-        setComiteSeleccionado(prev => [...prev, usuario.id]);
-      }
-    }}
-  >
-    <Ionicons
-      name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
-      size={24}
-      color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
-    />
-    <View style={styles.comiteUserText}>
-      <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
-   <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666', fontStyle: 'italic' }]}>
-        {usuario.role === 'academico'
-          ? `Académico - ${usuario.facultad || 'Sin facultad'}${usuario.carrera ? ` (${usuario.carrera})` : ''}  `
-          : usuario.role.charAt(0).toUpperCase() + usuario.role.slice(1)}
-      </Text>
-          </View>
+              {comiteLoading ? (
+    <ActivityIndicator size="small" color="#e95a0c" style={{ marginTop: 10 }} />
+) : comiteError ? (
+    <View style={{ alignItems: 'center', marginTop: 10 }}>
+        <Text style={{ color: 'red', marginBottom: 10 }}>No se pudieron cargar los usuarios.</Text>
+        <TouchableOpacity onPress={fetchUsuariosComite} style={{ backgroundColor: '#e95a0c', padding: 10, borderRadius: 5 }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Reintentar</Text>
         </TouchableOpacity>
-      ))}
-  </View>
-) : (
-  <Text style={styles.comitePlaceholder}>Cargando usuarios...</Text>
-)}
+    </View>
+) : usuariosComite.length > 0 ? (
+
+
+<View style={styles.comiteList}>
+                    {usuariosComite.map(usuario => (
+                  <TouchableOpacity
+                    key={usuario.id}
+                    style={styles.checkboxRow}
+                    onPress={() => {
+                      if (comiteSeleccionado.includes(usuario.id)) {
+                        setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
+                      } else {
+                        setComiteSeleccionado(prev => [...prev, usuario.id]);
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
+                      size={24}
+                      color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
+                    />
+                    <View style={styles.comiteUserText}>
+                      <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
+                  <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666', fontStyle: 'italic' }]}>
+                        {usuario.role === 'academico'
+                          ? `Académico - ${usuario.facultad || 'Sin facultad'}${usuario.carrera ? ` (${usuario.carrera})` : ''}  `
+                          : usuario.role.charAt(0).toUpperCase() + usuario.role.slice(1)}
+                      </Text>
+                          </View>
+                        </TouchableOpacity>
+                      )
+                      
+                      
+                      )}
+                  </View>
+
+
+                ) : (
+                   <Text style={styles.comitePlaceholder}>No hay usuarios disponibles para el comité.</Text>
+                )}
             <TouchableOpacity style={styles.gotoButton} onPress={scrollToRecursos}>
               <Ionicons name="arrow-forward" size={20} color="#ffffff" />
               <Text style={styles.gotoButtonText}>Ir a Recursos Necesarios</Text>
