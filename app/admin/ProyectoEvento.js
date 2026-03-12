@@ -5,7 +5,8 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
   Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder, Dimensions
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
@@ -789,6 +790,37 @@ const fetchUsuariosComite = async (retries = 3) => {
       setFechaHoraSeleccionada(newDate);
     }
   };
+  const cargarRecursos = useCallback(async () => {
+  const token = await getTokenAsync();
+  if (!token) return;
+  try {
+    const response = await axios.get(`${API_BASE_URL}/recursos`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    let recursosRaw = response.data;
+    if (!Array.isArray(recursosRaw)) {
+      recursosRaw = response.data.data || response.data.recursos || [];
+    }
+
+    const validResources = recursosRaw
+      .map(recurso => ({
+        ...recurso,
+        idrecurso: recurso.idrecurso ?? recurso.id ?? null,
+        nombre_recurso: recurso.nombre_recurso || recurso.nombre || 'Recurso sin nombre',
+        recurso_tipo: recurso.recurso_tipo || 'otro'
+      }))
+      .filter(r => r.idrecurso != null && r.nombre_recurso?.trim() !== '');
+
+    setRecursosDisponibles(validResources);
+  } catch (error) {
+    console.error("Error al cargar recursos:", error);
+  }
+}, []);
+
+// Se ejecuta cada vez que la pantalla obtiene el foco (incluyendo al volver de CrearRecurso)
+useFocusEffect(cargarRecursos);
+
   useEffect(() => {
     if (authToken) {
       fetchUserInfo();
