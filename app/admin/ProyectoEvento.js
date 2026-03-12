@@ -722,7 +722,7 @@ const fetchUsuariosComite = async () => {
       headers: { 'Authorization': `Bearer ${token}`}
     });
      console.log("Usuarios del comité:", response.data);
-     setUsuariosComite(uniqueUsuarios);
+     
       const uniqueUsuarios = [];
     const seenIds = new Set();
     
@@ -735,11 +735,26 @@ const fetchUsuariosComite = async () => {
     }
     
     setUsuariosComite(uniqueUsuarios);
+    return;
 
   } catch (error) {
-    console.error('Error al cargar usuarios para comité:', error);
-    Alert.alert("Error", "No se pudieron cargar los miembros del comité. Revisa la consola.");
-  }
+      console.error(`Intento ${i + 1} fallido:`, error.message);
+      if (i === retries - 1) {
+        // Último intento fallido
+        setUsuariosComite([]); // Evitar que quede cargando infinitamente
+        Alert.alert(
+          "Error de conexión",
+          "No se pudieron cargar los miembros del comité. El servidor puede estar iniciando. ¿Deseas reintentar?",
+          [
+            { text: "Cancelar", style: "cancel" },
+            { text: "Reintentar", onPress: () => fetchUsuariosComite() }
+          ]
+        );
+      } else {
+        // Esperar antes del siguiente reintento (exponencial)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
+      }
+    }
 };
   const verificarConflictoHorario = (fechaHora) => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
