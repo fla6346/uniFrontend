@@ -136,8 +136,7 @@ const getNotificationIcon = (type) => {
     default: return 'notifications';
   }
 };
- const [comiteLoading, setComiteLoading] = useState(true);
-  const [comiteError, setComiteError] = useState(false);  
+
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
     <Ionicons name="notifications-outline" size={24} color="#333" />
@@ -588,7 +587,8 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
   const presupuestoSectionRef = useRef(null);
   const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
   const [usuariosComite,setUsuariosComite] = useState([]);
- 
+  const [comiteLoading, setComiteLoading] = useState(true);
+  const [comiteError, setComiteError] = useState(false);  
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
   const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeRecursoTecnologico = (index) => setRecursosTecnologicos(prev => prev.filter((_, i) => i !== index));
