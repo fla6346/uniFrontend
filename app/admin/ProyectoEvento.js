@@ -722,6 +722,7 @@ const fetchUsuariosComite = async () => {
       headers: { 'Authorization': `Bearer ${token}`}
     });
      console.log("Usuarios del comité:", response.data);
+     setUsuariosComite(uniqueUsuarios);
       const uniqueUsuarios = [];
     const seenIds = new Set();
     
