@@ -136,6 +136,8 @@ const getNotificationIcon = (type) => {
     default: return 'notifications';
   }
 };
+ const [comiteLoading, setComiteLoading] = useState(true);
+  const [comiteError, setComiteError] = useState(false);  
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
     <Ionicons name="notifications-outline" size={24} color="#333" />
@@ -586,8 +588,7 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
   const presupuestoSectionRef = useRef(null);
   const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
   const [usuariosComite,setUsuariosComite] = useState([]);
-  const [comiteLoading, setComiteLoading] = useState(true);
-  const [comiteError, setComiteError] = useState(false);  
+ 
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
   const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeRecursoTecnologico = (index) => setRecursosTecnologicos(prev => prev.filter((_, i) => i !== index));
@@ -707,54 +708,62 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
       return null;
     }
   };
-const fetchUsuariosComite = async () => {
-  const [comiteLoading, setComiteLoading] = useState(true);
-  const [comiteError, setComiteError] = useState(false);
-  try {
-     const token = await getTokenAsync();
-      console.log("Token obtenido:", token);
-     if (!token) {
-    console.warn("Token inválido, redirigiendo al login");
-    router.replace('/login');
-    return;
-  }
-    const response = await axios.get(`${API_BASE_URL}/users/comite`, {
-      headers: { 'Authorization': `Bearer ${token}`}
-    });
-     console.log("Usuarios del comité:", response.data);
-     
-      const uniqueUsuarios = [];
-    const seenIds = new Set();
-    
-    for (const usuario of response.data) {
-      // Si el usuario no ha sido visto antes, añádelo a la lista
-      if (!seenIds.has(usuario.id)) {
-        seenIds.add(usuario.id);
-        uniqueUsuarios.push(usuario);
+const fetchUsuariosComite = async (retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      setComiteLoading(true);
+      setComiteError(false);
+      
+      const token = await getTokenAsync();
+      if (!token) {
+        console.warn("Token inválido");
+        router.replace('/login');
+        return;
       }
-    }
-    
-    setUsuariosComite(uniqueUsuarios);
-    return;
 
-  } catch (error) {
+      const response = await axios.get(`${API_BASE_URL}/users/comite`, {
+        headers: { 'Authorization': `Bearer ${token}`},
+        timeout: 15000, // 15 segundos para Render
+      });
+
+      console.log("Usuarios del comité recibidos:", response.data.length);
+      
+      // Filtrar usuarios únicos
+      const uniqueUsuarios = [];
+      const seenIds = new Set();
+      for (const usuario of response.data) {
+        if (!seenIds.has(usuario.id)) {
+          seenIds.add(usuario.id);
+          uniqueUsuarios.push(usuario);
+        }
+      }
+      
+      setUsuariosComite(uniqueUsuarios);
+      return; // Éxito, salir del bucle
+      
+    } catch (error) {
       console.error(`Intento ${i + 1} fallido:`, error.message);
+      
       if (i === retries - 1) {
         // Último intento fallido
-        setUsuariosComite([]); // Evitar que quede cargando infinitamente
-        Alert.alert(
-          "Error de conexión",
-          "No se pudieron cargar los miembros del comité. El servidor puede estar iniciando. ¿Deseas reintentar?",
-          [
-            { text: "Cancelar", style: "cancel" },
-            { text: "Reintentar", onPress: () => fetchUsuariosComite() }
-          ]
-        );
+        setComiteLoading(false);
+        setComiteError(true);
+        setUsuariosComite([]);
+        
+        // Solo mostrar alerta si es error de conexión real
+        if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
+          Alert.alert(
+            "Error de conexión",
+            "El servidor está tardando en responder. Puede estar iniciando.",
+            [{ text: "Reintentar", onPress: () => fetchUsuariosComite() }]
+          );
+        }
       } else {
-        // Esperar antes del siguiente reintento (exponencial)
+        // Esperar exponencialmente antes del siguiente reintento
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
       }
     }
+  }
 };
   const verificarConflictoHorario = (fechaHora) => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
