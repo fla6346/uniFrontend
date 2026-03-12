@@ -739,7 +739,8 @@ const fetchUsuariosComite = async (retries = 3) => {
       }
       
       setUsuariosComite(uniqueUsuarios);
-      return; // Éxito, salir del bucle
+      setComiteLoading(false); // ✅ AGREGAR ESTA LÍNEA
+      return;
       
     } catch (error) {
       console.error(`Intento ${i + 1} fallido:`, error.message);
