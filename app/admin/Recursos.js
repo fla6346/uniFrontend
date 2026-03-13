@@ -223,9 +223,7 @@ export default function CrearRecurso() {
         <TouchableOpacity style={styles.editBtn} onPress={() => abrirEdicion(recurso)}>
           <Ionicons name="pencil" size={18} color={COLORS.primary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => eliminarRecurso(recurso)}>
-          <Ionicons name="trash" size={18} color={COLORS.danger} />
-        </TouchableOpacity>
+      
       </View>
     </View>
   );
@@ -237,7 +235,7 @@ export default function CrearRecurso() {
 
       {/* ── Formulario Crear ──────────────────────────────────────────── */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>➕ Registrar Nuevo Recurso</Text>
+        <Text style={styles.sectionTitle}>Registrar Nuevo Recurso</Text>
 
         <Text style={styles.label}>Nombre del recurso *</Text>
         <TextInput
@@ -262,31 +260,9 @@ export default function CrearRecurso() {
           </Picker>
         </View>
 
-        <Text style={styles.label}>Descripción (opcional)</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Detalles del recurso..."
-          value={descripcion}
-          onChangeText={setDescripcion}
-          multiline
-          numberOfLines={4}
-        />
+       
 
-        <Text style={styles.label}>Estado</Text>
-        <View style={styles.row}>
-          <TouchableOpacity
-            style={[styles.radio, habilitado === '1' && styles.radioSelected]}
-            onPress={() => setHabilitado('1')}
-          >
-            <Text style={habilitado === '1' ? styles.radioTextSelected : styles.radioText}>Habilitado</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.radio, habilitado === '0' && styles.radioSelected]}
-            onPress={() => setHabilitado('0')}
-          >
-            <Text style={habilitado === '0' ? styles.radioTextSelected : styles.radioText}>Deshabilitado</Text>
-          </TouchableOpacity>
-        </View>
+       
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -303,7 +279,7 @@ export default function CrearRecurso() {
       {/* ── Lista de Recursos ─────────────────────────────────────────── */}
       <View style={styles.section}>
         <View style={styles.listHeader}>
-          <Text style={styles.sectionTitle}>📦 Recursos Registrados</Text>
+          <Text style={styles.sectionTitle}> Recursos Registrados</Text>
           <TouchableOpacity onPress={cargarRecursos} style={styles.refreshBtn}>
             <Ionicons name="refresh" size={20} color={COLORS.primary} />
           </TouchableOpacity>
@@ -322,7 +298,6 @@ export default function CrearRecurso() {
         )}
       </View>
 
-      {/* ── Modal Editar ──────────────────────────────────────────────── */}
       <Modal
         visible={editModalVisible}
         transparent
