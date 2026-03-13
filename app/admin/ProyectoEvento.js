@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import {
@@ -6,7 +6,6 @@ import {
   Platform, ActivityIndicator, Alert, KeyboardAvoidingView, Modal, PanResponder, Dimensions
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
@@ -127,7 +126,6 @@ const OBJETIVOS_EVENTO_MAP = {
   fidelizacion: 5,
   otro: 6
 };
-// Función para obtener el icono según el tipo de notificación
 const getNotificationIcon = (type) => {
   switch (type) {
     case 'nuevo_evento': return 'calendar';
@@ -386,7 +384,6 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
                 )}
                 {dayEvents.length > 0 && isSelected && (
                   <View style={styles.eventPreview}>
-                    {dayjs(evento.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
                     {dayEvents.slice(0, 2).map((evento, idx) => (
                       <Text key={idx} style={styles.eventPreviewText}>
                         {dayjs(evento.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} {evento.nombreevento}
@@ -548,7 +545,7 @@ const ProyectoEvento = () => {
   const [conflictoDetectado, setConflictoDetectado] = useState(null);
   const scrollViewRef = useRef(null);
   const objetivosSectionRef = useRef(null);
-  const [objetivosSectionY, setObjetivosSectionY] = useState(0); // ✅ Nueva variable para guardar posición
+  const [objetivosSectionY, setObjetivosSectionY] = useState(0);
   const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   const [nombreevento, setNombreevento] = useState('');
   const [lugarevento, setLugarevento] = useState('');
@@ -568,8 +565,8 @@ const ProyectoEvento = () => {
   const [showClasificacionModal, setShowClasificacionModal] = useState(false);
   const [showSubcategoriaModal, setShowSubcategoriaModal] = useState(false);
   const [showLugarModal, setShowLugarModal] = useState(false);
-const [campusSeleccionado, setCampusSeleccionado] = useState(null);
-const [areaSeleccionada, setAreaSeleccionada] = useState(null); 
+  const [campusSeleccionado, setCampusSeleccionado] = useState(null);
+  const [areaSeleccionada, setAreaSeleccionada] = useState(null); 
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -587,10 +584,11 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
   const [recursos, setRecursos] = useState([{ nombre_recurso: '', cantidad: '' }]);
   const presupuestoSectionRef = useRef(null);
   const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
-  const [usuariosComite,setUsuariosComite] = useState([]);
+  const [usuariosComite, setUsuariosComite] = useState([]);
   const [comiteLoading, setComiteLoading] = useState(true);
   const [comiteError, setComiteError] = useState(false);  
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
+
   const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeRecursoTecnologico = (index) => setRecursosTecnologicos(prev => prev.filter((_, i) => i !== index));
   const updateRecursoTecnologico = (value, index, field) => {
@@ -598,7 +596,6 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
     nuevos[index][field] = value;
     setRecursosTecnologicos(nuevos);
   };
-  // Mobiliario
   const addMobiliario = () => setMobiliario(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeMobiliario = (index) => setMobiliario(prev => prev.filter((_, i) => i !== index));
   const updateMobiliario = (value, index, field) => {
@@ -606,7 +603,6 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
     nuevos[index][field] = value;
     setMobiliario(nuevos);
   };
-  // Vajilla
   const addVajilla = () => setVajilla(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeVajilla = (index) => setVajilla(prev => prev.filter((_, i) => i !== index));
   const updateVajilla = (value, index, field) => {
@@ -658,35 +654,31 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
   
   const fetchNotifications = async () => {
     try {
-    const token = await getTokenAsync();
-    console.log("Token obtenido:", token);
-    if (!token || token === 'null' || token === '') {
-      console.warn("Token inválido, redirigiendo al login");
-      router.replace('/login');
-      return;
-    }
+      const token = await getTokenAsync();
+      if (!token || token === 'null' || token === '') {
+        console.warn("Token inválido, redirigiendo al login");
+        router.replace('/login');
+        return;
+      }
       const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-         headers: { 'Authorization': `Bearer ${token}` } 
-        });
-      console.log("Notificaciones:", response.data);
-   const mappedNotifications = (response.data || []).map(notif => ({
-      id: notif.id || notif.idnotification,           // ID único
-      idusuario: notif.idusuario,
-      title: notif.titulo || notif.title,             // Título
-      message: notif.mensaje || notif.message,         // Mensaje
-      type: notif.tipo || notif.type,                 // Tipo
-      estado: notif.estado,                           // Estado (leido/no_leido)
-      read: notif.estado === 'leido',                 // Convertir estado a booleano
-      created_at: notif.created_at || notif.timestamp // Fecha
-    }));
-
-    setNotifications(mappedNotifications);
-    setUnreadCount(mappedNotifications.filter(n => !n.read).length);
-
-  } catch (error) {
-    console.error('Error al obtener notificaciones:', error);
-  }
-};
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
+      const mappedNotifications = (response.data || []).map(notif => ({
+        id: notif.id || notif.idnotification,
+        idusuario: notif.idusuario,
+        title: notif.titulo || notif.title,
+        message: notif.mensaje || notif.message,
+        type: notif.tipo || notif.type,
+        estado: notif.estado,
+        read: notif.estado === 'leido',
+        created_at: notif.created_at || notif.timestamp
+      }));
+      setNotifications(mappedNotifications);
+      setUnreadCount(mappedNotifications.filter(n => !n.read).length);
+    } catch (error) {
+      console.error('Error al obtener notificaciones:', error);
+    }
+  };
 
   const markNotificationAsRead = async (notificationId) => {
     if (!authToken || authToken === 'null' || authToken === '') return;
@@ -698,6 +690,7 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
       console.error('Error al marcar notificación como leída:', error);
     }
   };
+
   const fetchUserInfo = async () => {
     if (!authToken) return null;
     try {
@@ -709,64 +702,54 @@ const [areaSeleccionada, setAreaSeleccionada] = useState(null);
       return null;
     }
   };
-const fetchUsuariosComite = async (retries = 3) => {
-  for (let i = 0; i < retries; i++) {
-    try {
-      setComiteLoading(true);
-      setComiteError(false);
-      
-      const token = await getTokenAsync();
-      if (!token) {
-        console.warn("Token inválido");
-        router.replace('/login');
-        return;
-      }
 
-      const response = await axios.get(`${API_BASE_URL}/users/comite`, {
-        headers: { 'Authorization': `Bearer ${token}`},
-        timeout: 15000, // 15 segundos para Render
-      });
-
-      console.log("Usuarios del comité recibidos:", response.data.length);
-      
-      // Filtrar usuarios únicos
-      const uniqueUsuarios = [];
-      const seenIds = new Set();
-      for (const usuario of response.data) {
-        if (!seenIds.has(usuario.id)) {
-          seenIds.add(usuario.id);
-          uniqueUsuarios.push(usuario);
+  const fetchUsuariosComite = async (retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        setComiteLoading(true);
+        setComiteError(false);
+        const token = await getTokenAsync();
+        if (!token) {
+          console.warn("Token inválido");
+          router.replace('/login');
+          return;
         }
-      }
-      
-      setUsuariosComite(uniqueUsuarios);
-      setComiteLoading(false); // ✅ AGREGAR ESTA LÍNEA
-      return;
-      
-    } catch (error) {
-      console.error(`Intento ${i + 1} fallido:`, error.message);
-      
-      if (i === retries - 1) {
-        // Último intento fallido
+        const response = await axios.get(`${API_BASE_URL}/users/comite`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          timeout: 15000,
+        });
+        console.log("Usuarios del comité recibidos:", response.data.length);
+        const uniqueUsuarios = [];
+        const seenIds = new Set();
+        for (const usuario of response.data) {
+          if (!seenIds.has(usuario.id)) {
+            seenIds.add(usuario.id);
+            uniqueUsuarios.push(usuario);
+          }
+        }
+        setUsuariosComite(uniqueUsuarios);
         setComiteLoading(false);
-        setComiteError(true);
-        setUsuariosComite([]);
-        
-        // Solo mostrar alerta si es error de conexión real
-        if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
-          Alert.alert(
-            "Error de conexión",
-            "El servidor está tardando en responder. Puede estar iniciando.",
-            [{ text: "Reintentar", onPress: () => fetchUsuariosComite() }]
-          );
+        return;
+      } catch (error) {
+        console.error(`Intento ${i + 1} fallido:`, error.message);
+        if (i === retries - 1) {
+          setComiteLoading(false);
+          setComiteError(true);
+          setUsuariosComite([]);
+          if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
+            Alert.alert(
+              "Error de conexión",
+              "El servidor está tardando en responder. Puede estar iniciando.",
+              [{ text: "Reintentar", onPress: () => fetchUsuariosComite() }]
+            );
+          }
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
         }
-      } else {
-        // Esperar exponencialmente antes del siguiente reintento
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
       }
     }
-  }
-};
+  };
+
   const verificarConflictoHorario = (fechaHora) => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
     const horaFormateada = dayjs(fechaHora).format('HH:mm');
@@ -781,6 +764,7 @@ const fetchUsuariosComite = async (retries = 3) => {
     });
     return conflictos;
   };
+
   const handleClockTimeChange = (newDate) => {
     const conflictos = verificarConflictoHorario(newDate);
     if (conflictos.length > 0) {
@@ -790,36 +774,41 @@ const fetchUsuariosComite = async (retries = 3) => {
       setFechaHoraSeleccionada(newDate);
     }
   };
+
+  // ✅ UNA SOLA declaración de cargarRecursos — con logs para debug
   const cargarRecursos = useCallback(async () => {
-  const token = await getTokenAsync();
-  if (!token) return;
-  try {
-    const response = await axios.get(`${API_BASE_URL}/recursos`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const token = await getTokenAsync();
+    if (!token) return;
+    try {
+      const response = await axios.get(`${API_BASE_URL}/recursos`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    let recursosRaw = response.data;
-    if (!Array.isArray(recursosRaw)) {
-      recursosRaw = response.data.data || response.data.recursos || [];
+      console.log('📦 Recursos response:', JSON.stringify(response.data));
+
+      let recursosRaw = response.data;
+      if (!Array.isArray(recursosRaw)) {
+        recursosRaw = response.data.data || response.data.recursos || [];
+      }
+
+      const validResources = recursosRaw
+        .map(recurso => ({
+          ...recurso,
+          idrecurso: recurso.idrecurso ?? recurso.id ?? null,
+          nombre_recurso: recurso.nombre_recurso || recurso.nombre || 'Recurso sin nombre',
+          recurso_tipo: recurso.recurso_tipo || 'otro'
+        }))
+        .filter(r => r.idrecurso != null && r.nombre_recurso?.trim() !== '');
+
+      console.log('✅ Recursos válidos:', validResources.length);
+      setRecursosDisponibles(validResources);
+    } catch (error) {
+      console.error("❌ Error recursos:", error.response?.status, error.response?.data);
     }
+  }, []);
 
-    const validResources = recursosRaw
-      .map(recurso => ({
-        ...recurso,
-        idrecurso: recurso.idrecurso ?? recurso.id ?? null,
-        nombre_recurso: recurso.nombre_recurso || recurso.nombre || 'Recurso sin nombre',
-        recurso_tipo: recurso.recurso_tipo || 'otro'
-      }))
-      .filter(r => r.idrecurso != null && r.nombre_recurso?.trim() !== '');
-
-    setRecursosDisponibles(validResources);
-  } catch (error) {
-    console.error("Error al cargar recursos:", error);
-  }
-}, []);
-
-// Se ejecuta cada vez que la pantalla obtiene el foco (incluyendo al volver de CrearRecurso)
-useFocusEffect(cargarRecursos);
+  // Se ejecuta cada vez que la pantalla obtiene el foco (incluyendo al volver de CrearRecurso)
+  useFocusEffect(cargarRecursos);
 
   useEffect(() => {
     if (authToken) {
@@ -830,6 +819,7 @@ useFocusEffect(cargarRecursos);
       return () => clearInterval(interval);
     }
   }, [authToken]);
+
   useEffect(() => {
     const initialize = async () => {
       setIsLoading(true);
@@ -840,47 +830,11 @@ useFocusEffect(cargarRecursos);
         router.push("/login");
         return;
       }
-      try {
-         const [responseRecursos] = await Promise.all([
-        axios.get(`${API_BASE_URL}/recursos`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-      ]);
-
-      let recursosRaw = responseRecursos.data;
-      if (!Array.isArray(recursosRaw)) {
-        if (Array.isArray(responseRecursos.data.data)) {
-          recursosRaw = responseRecursos.data.data;
-        } else if (Array.isArray(responseRecursos.data.recursos)) {
-          recursosRaw = responseRecursos.data.recursos;
-        } else {
-          recursosRaw = [];
-        }
-      }
-
-      const validResources = recursosRaw
-        .map(recurso => ({
-          ...recurso,
-          idrecurso: recurso.idrecurso ?? recurso.id ?? null,
-          nombre_recurso: recurso.nombre_recurso || recurso.nombre || 'Recurso sin nombre',
-          recurso_tipo: recurso.recurso_tipo || 'otro'
-        }))
-        .filter(recurso =>
-          recurso.idrecurso != null &&
-          recurso.nombre_recurso &&
-          recurso.nombre_recurso.trim() !== ''
-        );
-
-      setRecursosDisponibles(validResources);
-         } catch (error) {
-        console.error("Error al cargar datos:", error);
-        Alert.alert("Error", "No se pudieron cargar los datos necesarios.");
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     };
     initialize();
   }, []);
+
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
     const selectedLabels = selectedIds.map(id => {
@@ -889,18 +843,20 @@ useFocusEffect(cargarRecursos);
     });
     setTextoTiposSeleccionados(selectedLabels.join(', '));
   }, [tiposSeleccionados]);
+
   useEffect(() => {
     const selectedDateStr = dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD');
     const eventsDelDia = eventos.filter(e => e.fechaevento === selectedDateStr);
     setEventosDelDia(eventsDelDia);
   }, [eventos, fechaHoraSeleccionada]);
+
   const addResource = () => setRecursos(prev => [...prev, { nombre_recurso: '', cantidad: '' }]);
   const removeResource = (indexToRemove) => setRecursos(prev => prev.filter((_, index) => index !== indexToRemove));
   const updateResource = (text, indexToUpdate, field) => {
-  const nuevosRecursos = [...recursos];
-  nuevosRecursos[indexToUpdate][field] = text;
-  setRecursos(nuevosRecursos);
-};
+    const nuevosRecursos = [...recursos];
+    nuevosRecursos[indexToUpdate][field] = text;
+    setRecursos(nuevosRecursos);
+  };
   const handleInputChange = (field, value) => {
     if (field === 'nombreevento') setNombreevento(value);
     if (field === 'lugarevento') setLugarevento(value);
@@ -937,14 +893,14 @@ useFocusEffect(cargarRecursos);
   };
   const handleRecursoChange = (idrecurso) => {
     if (idrecurso == null) return;
-     const idString = String(idrecurso);
+    const idString = String(idrecurso);
     setRecursosSeleccionados(prev => {
-      if(prev.includes(idString)){
+      if (prev.includes(idString)) {
         return prev.filter(r => r !== idString);
       } else {
         return [...prev, idString];
       }
-  });
+    });
   };
   const handleTipoEventoChange = (id) => {
     setTiposSeleccionados(prev => {
@@ -959,159 +915,140 @@ useFocusEffect(cargarRecursos);
     newObjetivos[index] = value;
     setObjetivosPDI(newObjetivos);
   };
-const scrollToObjetivos = () => {
-  setSeccionObjetivosVisible(true);
-  setTimeout(() => {
-    if (objetivosSectionRef.current && scrollViewRef.current) {
-      setIsScrollingToObjetivos(true);
-      objetivosSectionRef.current.measureLayout(
-        scrollViewRef.current.getInnerViewNode(),
-        (x, y) => {
-          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
-          setTimeout(() => setIsScrollingToObjetivos(false), 1000);
-        },
-        (error) => {
-          console.warn("Error al medir layout:", error);
-          setIsScrollingToObjetivos(false);
-        }
-      );
-    }
-  }, 0); 
-};
-const scrollToResultados = () => {
-  setSeccionResultadosVisible(true)
-  setTimeout(() => {
-    if (resultadosSectionRef.current && scrollViewRef.current) {
-      setIsScrollingToResultados(true);
-      resultadosSectionRef.current.measureLayout(
-        scrollViewRef.current.getInnerViewNode(),
-        (x, y) => {
-          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
-          setTimeout(() => setIsScrollingToResultados(false), 1000);
-        },
-        (error) => {
-          console.warn("Error al medir layout para Resultados:", error);
-          setIsScrollingToResultados(false);
-        }
-      );
-    }
-  }, 0);
-};
-const scrollToComite = () => {
-  setSeccionComiteVisible(true);
-  setTimeout(() => {
-    if (comiteSectionRef.current && scrollViewRef.current) { 
-      setisScrollingToComite(true); 
-      comiteSectionRef.current.measureLayout(
-        scrollViewRef.current.getInnerViewNode(),
-        (x, y) => {
-          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
-          setTimeout(() => setisScrollingToComite(false), 1000);
-        },
-        (error) => {
-          console.warn("Error al medir layout para Comité:", error);
-          setisScrollingToComite(false);
-        }
-      );
-    }
-  }, 0);
-};
-const scrollToRecursos = () => {
-  setSeccionRecursosVisible(true);
-  setTimeout(() => {
-    if (recursosSectionRef.current && scrollViewRef.current) { 
-      setIsScrollingToRecursos(true); 
-      recursosSectionRef.current.measureLayout(
-        scrollViewRef.current.getInnerViewNode(),
-        (x, y) => {
-          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
-          setTimeout(() => setIsScrollingToRecursos(false), 1000);
-        },
-        (error) => {
-          console.warn("Error al medir layout para Recursos:", error);
-          setIsScrollingToRecursos(false);
-        }
-      );
-    }
-  }, 0);
-};
-const scrollToPresupuesto = () => {
-  setSeccionPresupuestoVisible(true);
-  setTimeout(() => {
-    if (presupuestoSectionRef.current && scrollViewRef.current) { // ✅ Referencia correcta
-      setIsScrollingToPresupuesto(true); // ✅ Estado correcto
-      presupuestoSectionRef.current.measureLayout(
-        scrollViewRef.current.getInnerViewNode(),
-        (x, y) => {
-          scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
-          setTimeout(() => setIsScrollingToPresupuesto(false), 1000);
-        },
-        (error) => {
-          console.warn("Error al medir layout para Presupuesto:", error);
-          setIsScrollingToPresupuesto(false);
-        }
-      );
-    }
-  }, 0);
-};
+  const scrollToObjetivos = () => {
+    setSeccionObjetivosVisible(true);
+    setTimeout(() => {
+      if (objetivosSectionRef.current && scrollViewRef.current) {
+        setIsScrollingToObjetivos(true);
+        objetivosSectionRef.current.measureLayout(
+          scrollViewRef.current.getInnerViewNode(),
+          (x, y) => {
+            scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+            setTimeout(() => setIsScrollingToObjetivos(false), 1000);
+          },
+          (error) => {
+            console.warn("Error al medir layout:", error);
+            setIsScrollingToObjetivos(false);
+          }
+        );
+      }
+    }, 0); 
+  };
+  const scrollToResultados = () => {
+    setSeccionResultadosVisible(true);
+    setTimeout(() => {
+      if (resultadosSectionRef.current && scrollViewRef.current) {
+        setIsScrollingToResultados(true);
+        resultadosSectionRef.current.measureLayout(
+          scrollViewRef.current.getInnerViewNode(),
+          (x, y) => {
+            scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+            setTimeout(() => setIsScrollingToResultados(false), 1000);
+          },
+          (error) => {
+            console.warn("Error al medir layout para Resultados:", error);
+            setIsScrollingToResultados(false);
+          }
+        );
+      }
+    }, 0);
+  };
+  const scrollToComite = () => {
+    setSeccionComiteVisible(true);
+    setTimeout(() => {
+      if (comiteSectionRef.current && scrollViewRef.current) { 
+        setisScrollingToComite(true); 
+        comiteSectionRef.current.measureLayout(
+          scrollViewRef.current.getInnerViewNode(),
+          (x, y) => {
+            scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+            setTimeout(() => setisScrollingToComite(false), 1000);
+          },
+          (error) => {
+            console.warn("Error al medir layout para Comité:", error);
+            setisScrollingToComite(false);
+          }
+        );
+      }
+    }, 0);
+  };
+  const scrollToRecursos = () => {
+    setSeccionRecursosVisible(true);
+    setTimeout(() => {
+      if (recursosSectionRef.current && scrollViewRef.current) { 
+        setIsScrollingToRecursos(true); 
+        recursosSectionRef.current.measureLayout(
+          scrollViewRef.current.getInnerViewNode(),
+          (x, y) => {
+            scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+            setTimeout(() => setIsScrollingToRecursos(false), 1000);
+          },
+          (error) => {
+            console.warn("Error al medir layout para Recursos:", error);
+            setIsScrollingToRecursos(false);
+          }
+        );
+      }
+    }, 0);
+  };
+  const scrollToPresupuesto = () => {
+    setSeccionPresupuestoVisible(true);
+    setTimeout(() => {
+      if (presupuestoSectionRef.current && scrollViewRef.current) {
+        setIsScrollingToPresupuesto(true);
+        presupuestoSectionRef.current.measureLayout(
+          scrollViewRef.current.getInnerViewNode(),
+          (x, y) => {
+            scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
+            setTimeout(() => setIsScrollingToPresupuesto(false), 1000);
+          },
+          (error) => {
+            console.warn("Error al medir layout para Presupuesto:", error);
+            setIsScrollingToPresupuesto(false);
+          }
+        );
+      }
+    }, 0);
+  };
   const validateForm = () => {
-  const newErrors = {};
-  if (!nombreevento.trim()) {
-    newErrors.nombreevento = 'El nombre del evento es obligatorio.';
-  }
-  if (Object.values(tiposSeleccionados).every(v => !v)) {
-    newErrors.tipos = 'Selecciona al menos un tipo de evento.';
-  }
-  if (tiposSeleccionados['5'] && !textoOtroTipo.trim()) {
-    newErrors.textoOtroTipo = 'Describe el otro tipo de evento.';
-  }
-  if (Object.values(objetivos).every(v => !v)) {
-    newErrors.objetivos = 'Selecciona al menos un objetivo.';
-  }
-  if (objetivos.otro && !objetivos.otroTexto.trim()) {
-    newErrors.objetivosOtroTexto = 'Describe el otro objetivo.';
-  }
-  if (!argumentacion.trim()) {
-    newErrors.argumentacion = 'La argumentación es obligatoria.';
-  }
-  if (!clasificacionSeleccionada) {
-    newErrors.clasificacionSeleccionada = 'La clasificación estratégica es obligatoria.';
-  }
-  if (clasificacionSeleccionada && 
-      CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && 
-      !subcategoriaSeleccionada) {
-    newErrors.subcategoriaSeleccionada = 'Selecciona una subcategoría.';
-  }
-  console.log('Errores de validación:', newErrors);
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
-const confirmSubmit = () => {
-  console.log("Validando formulario...");
-  console.log("Estado actual:", {
-    nombreevento,
-    lugarevento,
-    tiposSeleccionados,
-    objetivos,
-    argumentacion,
-    clasificacionSeleccionada,
-    subcategoriaSeleccionada,
-    fechaHoraSeleccionada: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD HH:mm:ss'),
-    comiteSeleccionado,
-    recursosTecnologicos,
-    mobiliario,
-    vajilla
-  });
-  if (!validateForm()) {
-    console.log("Formulario inválido:", errors);
-    Alert.alert(
-      'Formulario Incompleto',
-      'Por favor, corrige los campos marcados en rojo antes de continuar.'
-    );
-    return;
-  }
-  setShowConfirmModal(true);
-};
+    const newErrors = {};
+    if (!nombreevento.trim()) {
+      newErrors.nombreevento = 'El nombre del evento es obligatorio.';
+    }
+    if (Object.values(tiposSeleccionados).every(v => !v)) {
+      newErrors.tipos = 'Selecciona al menos un tipo de evento.';
+    }
+    if (tiposSeleccionados['5'] && !textoOtroTipo.trim()) {
+      newErrors.textoOtroTipo = 'Describe el otro tipo de evento.';
+    }
+    if (Object.values(objetivos).every(v => !v)) {
+      newErrors.objetivos = 'Selecciona al menos un objetivo.';
+    }
+    if (objetivos.otro && !objetivos.otroTexto.trim()) {
+      newErrors.objetivosOtroTexto = 'Describe el otro objetivo.';
+    }
+    if (!argumentacion.trim()) {
+      newErrors.argumentacion = 'La argumentación es obligatoria.';
+    }
+    if (!clasificacionSeleccionada) {
+      newErrors.clasificacionSeleccionada = 'La clasificación estratégica es obligatoria.';
+    }
+    if (clasificacionSeleccionada && 
+        CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && 
+        !subcategoriaSeleccionada) {
+      newErrors.subcategoriaSeleccionada = 'Selecciona una subcategoría.';
+    }
+    console.log('Errores de validación:', newErrors);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  const confirmSubmit = () => {
+    if (!validateForm()) {
+      Alert.alert('Formulario Incompleto', 'Por favor, corrige los campos marcados en rojo antes de continuar.');
+      return;
+    }
+    setShowConfirmModal(true);
+  };
   const handleSubmitConfirmed = async () => {
     console.log("Iniciando envío del evento...");
     setShowConfirmModal(false);
@@ -1134,79 +1071,76 @@ const confirmSubmit = () => {
         })
         .filter(item => item !== null);
       if (tiposParaEnviar.length === 0) throw new Error('Debes seleccionar al menos un tipo de evento');
-       const objetivoParaEnviar = [];
-       Object.keys(objetivos)
-      .filter(key => objetivos[key] === true && key !== 'otroTexto')
-      .forEach(key => {
-          if (objetivos[key]) { // Si está seleccionado
-        objetivoParaEnviar.push(OBJETIVOS_EVENTO_MAP[key]);
-       }
-      });
+      const objetivoParaEnviar = [];
+      Object.keys(objetivos)
+        .filter(key => objetivos[key] === true && key !== 'otroTexto')
+        .forEach(key => {
+          if (objetivos[key]) {
+            objetivoParaEnviar.push(OBJETIVOS_EVENTO_MAP[key]);
+          }
+        });
       if (objetivos.otro && objetivos.otroTexto.trim()) {
-    objetivoParaEnviar.push({
-        id: OBJETIVOS_EVENTO_MAP.otro,
-        texto_personalizado: objetivos.otroTexto.trim()
-    });
-}
-if (objetivos.otro) {
-    const pdiObjetivos = objetivosPDI
-        .filter(o => o.trim() !== '') // Solo los que tienen texto
-        .map(texto => ({
-            id: OBJETIVOS_EVENTO_MAP.otro, // Todos estos van con el ID 6 ('otro')
+        objetivoParaEnviar.push({
+          id: OBJETIVOS_EVENTO_MAP.otro,
+          texto_personalizado: objetivos.otroTexto.trim()
+        });
+      }
+      if (objetivos.otro) {
+        const pdiObjetivos = objetivosPDI
+          .filter(o => o.trim() !== '')
+          .map(texto => ({
+            id: OBJETIVOS_EVENTO_MAP.otro,
             texto_personalizado: texto.trim()
-        }));
-    objetivoParaEnviar.push(...pdiObjetivos); // Agregarlos al arreglo
-}
-      if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo ');
-        const segmentosParaEnviar = [];
-    const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
-    Object.keys(segmentoObjetivo)
-      .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
-      .forEach(key => {
-        const label = {
-          estudiantes: 'Estudiantes',
-          docentes: 'Docentes',
-          publicoExterno: 'Público Externo',
-          influencers: 'Influencers'
-        }[key];
-        const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
-        if (segmentoData) {
-          segmentosParaEnviar.push({
-            id: parseInt(segmentoData.id, 10),
-            texto_personalizado: segmentosTextoPersonalizado[key] || null
-          });
-        }
-      });
-   const nuevosRecursos = [
-      // Recursos tecnológicos
-      ...recursosTecnologicos
-        .filter(r => r.nombre && r.nombre.trim() !== '')
-        .map(r => ({
-          nombre_recurso: r.nombre.trim(),
-          cantidad: parseInt(r.cantidad) || 1,
-          recurso_tipo: 'tecnologico'
-        })),
-      // Mobiliario
-      ...mobiliario
-        .filter(r => r.nombre && r.nombre.trim() !== '')
-        .map(r => ({
-          nombre_recurso: r.nombre.trim(),
-          cantidad: parseInt(r.cantidad) || 1,
-          recurso_tipo: 'mobiliario'
-        })),
-      // Vajilla
-      ...vajilla
-        .filter(r => r.nombre && r.nombre.trim() !== '')
-        .map(r => ({
-          nombre_recurso: r.nombre.trim(),
-          cantidad: parseInt(r.cantidad) || 1,
-          recurso_tipo: 'vajilla'
-        }))
-    ];
-    const recursosExistentes = recursosSeleccionados
-      .filter(id => id != null)
-      .map(id => parseInt(id, 10))
-      .filter(id => !isNaN(id));
+          }));
+        objetivoParaEnviar.push(...pdiObjetivos);
+      }
+      if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo');
+      const segmentosParaEnviar = [];
+      const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
+      Object.keys(segmentoObjetivo)
+        .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
+        .forEach(key => {
+          const label = {
+            estudiantes: 'Estudiantes',
+            docentes: 'Docentes',
+            publicoExterno: 'Público Externo',
+            influencers: 'Influencers'
+          }[key];
+          const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
+          if (segmentoData) {
+            segmentosParaEnviar.push({
+              id: parseInt(segmentoData.id, 10),
+              texto_personalizado: segmentosTextoPersonalizado[key] || null
+            });
+          }
+        });
+      const nuevosRecursos = [
+        ...recursosTecnologicos
+          .filter(r => r.nombre && r.nombre.trim() !== '')
+          .map(r => ({
+            nombre_recurso: r.nombre.trim(),
+            cantidad: parseInt(r.cantidad) || 1,
+            recurso_tipo: 'tecnologico'
+          })),
+        ...mobiliario
+          .filter(r => r.nombre && r.nombre.trim() !== '')
+          .map(r => ({
+            nombre_recurso: r.nombre.trim(),
+            cantidad: parseInt(r.cantidad) || 1,
+            recurso_tipo: 'mobiliario'
+          })),
+        ...vajilla
+          .filter(r => r.nombre && r.nombre.trim() !== '')
+          .map(r => ({
+            nombre_recurso: r.nombre.trim(),
+            cantidad: parseInt(r.cantidad) || 1,
+            recurso_tipo: 'vajilla'
+          }))
+      ];
+      const recursosExistentes = recursosSeleccionados
+        .filter(id => id != null)
+        .map(id => parseInt(id, 10))
+        .filter(id => !isNaN(id));
       const presupuestoData = {
         egresos: egresos
           .filter(item => item.descripcion.trim() !== '')
@@ -1229,66 +1163,56 @@ if (objetivos.otro) {
         balance: balance
       };
       const todosLosObjetivos = [
-  ...objetivoParaEnviar,
-  // Añade los objetivos PDI como objetivos de tipo "otro"
-  ...objetivosPDI
-    .filter(texto => texto.trim() !== '')
-    .map(texto => ({
-      id: OBJETIVOS_EVENTO_MAP.otro, // Usa el ID para "otro"
-      texto_personalizado: texto.trim()
-    }))
-];
+        ...objetivoParaEnviar,
+        ...objetivosPDI
+          .filter(texto => texto.trim() !== '')
+          .map(texto => ({
+            id: OBJETIVOS_EVENTO_MAP.otro,
+            texto_personalizado: texto.trim()
+          }))
+      ];
       const eventoPayload = {
-         nombreevento: nombreevento.trim(),
-      lugarevento: lugarevento.trim() || 'Por definir',
-      fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
-      horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'), // ✅ CORRECCIÓN AQUÍ
-      argumentacion: argumentacion.trim() || null,
-     
-      
-      resultados_esperados: JSON.stringify(resultadosEsperados),
-      tipos_de_evento: tiposParaEnviar,
-      objetivos: todosLosObjetivos,
-      segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
-      recursos_existentes: recursosExistentes.length > 0 ? recursosExistentes : null, // ✅ NUEVO
-      recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
-      presupuesto: presupuestoData, // ✅ NUEVO
-      idclasificacion: parseInt(clasificacionSeleccionada, 10) || null,
-      idsubcategoria: parseInt(subcategoriaSeleccionada, 10) || null,
-      comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
+        nombreevento: nombreevento.trim(),
+        lugarevento: lugarevento.trim() || 'Por definir',
+        fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
+        horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'),
+        argumentacion: argumentacion.trim() || null,
+        resultados_esperados: JSON.stringify(resultadosEsperados),
+        tipos_de_evento: tiposParaEnviar,
+        objetivos: todosLosObjetivos,
+        segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
+        recursos_existentes: recursosExistentes.length > 0 ? recursosExistentes : null,
+        recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
+        presupuesto: presupuestoData,
+        idclasificacion: parseInt(clasificacionSeleccionada, 10) || null,
+        idsubcategoria: parseInt(subcategoriaSeleccionada, 10) || null,
+        comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
       };
-       console.log('Payload a enviar:', JSON.stringify(eventoPayload, null, 2));
+      console.log('Payload a enviar:', JSON.stringify(eventoPayload, null, 2));
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
- console.log('Respuesta del servidor:', response.data);
-  console.log('Respuesta del servidor:', response.data);
+      console.log('Respuesta del servidor:', response.data);
       Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [
-  {
-    text: 'OK',
-    onPress: () => router.replace('/')
-  }
-]);
+        { text: 'OK', onPress: () => router.replace('/') }
+      ]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
       if (error.response) {
-      // Error del servidor
-      errorMessage = error.response.data.message 
-        || error.response.data.error 
-        || JSON.stringify(error.response.data)
-        || `Error del servidor: ${error.response.status}`;
-    } else if (error.request) {
-      // No hay respuesta del servidor
-      errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión.";
-    } else {
-      // Error en la configuración
-      errorMessage = error.message || "Error desconocido";
+        errorMessage = error.response.data.message 
+          || error.response.data.error 
+          || JSON.stringify(error.response.data)
+          || `Error del servidor: ${error.response.status}`;
+      } else if (error.request) {
+        errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión.";
+      } else {
+        errorMessage = error.message || "Error desconocido";
+      }
+      Alert.alert('Error al crear el evento', errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    Alert.alert('Error al crear el evento', errorMessage);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingContainer}>
       <View style={styles.header}>
@@ -1363,22 +1287,20 @@ if (objetivos.otro) {
                 {errors.subcategoriaSeleccionada && <Text style={styles.errorText}>{errors.subcategoriaSeleccionada}</Text>}
               </>
             )}
-    <Text style={styles.label}>Lugar del Evento</Text>
-<TouchableOpacity
-  style={[styles.inputGroup, errors.lugarevento && styles.inputError]}
-  onPress={() => {
-    setCampusSeleccionado(null);
-    setShowLugarModal(true);
-  }}
->
-  <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
-  <Text style={styles.input}>
-    {lugarevento
-      ? lugarevento
-      : 'Selecciona un lugar para el evento'}
-  </Text>
-</TouchableOpacity>
-{errors.lugarevento && <Text style={styles.errorText}>{errors.lugarevento}</Text>}
+            <Text style={styles.label}>Lugar del Evento</Text>
+            <TouchableOpacity
+              style={[styles.inputGroup, errors.lugarevento && styles.inputError]}
+              onPress={() => {
+                setCampusSeleccionado(null);
+                setShowLugarModal(true);
+              }}
+            >
+              <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
+              <Text style={styles.input}>
+                {lugarevento ? lugarevento : 'Selecciona un lugar para el evento'}
+              </Text>
+            </TouchableOpacity>
+            {errors.lugarevento && <Text style={styles.errorText}>{errors.lugarevento}</Text>}
             {width <= 768 && (
               <>
                 <Text style={styles.label}>Fecha de Realización</Text>
@@ -1415,327 +1337,307 @@ if (objetivos.otro) {
           </View>
           {seccionObjetivosVisible && (
             <>
-          <View
-            style={[styles.formSection, isScrollingToObjetivos && styles.formSectionHighlighted]}
-            ref={objetivosSectionRef}
-            onLayout={(event) => {
-              const { y } = event.nativeEvent.layout;
-              setObjetivosSectionY(y);
-            }}
-          >
-            <Text style={styles.sectionTitle}>II. OBJETIVOS</Text>
-          <Text style={styles.label}>Objetivos de Evento (puede seleccionar más de un objetivo):</Text>
-<View style={styles.checkboxContainer}>
-  <View style={styles.checkboxColumn}>
-    {[
-      { key: 'modeloPedagogico', label: 'Modelo Pedagógico' },
-      { key: 'posicionamiento', label: 'Posicionamiento' },
-      { key: 'internacionalizacion', label: 'Internacionalización' }
-    ].map((item) => (
-      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
-        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
-        <Text style={styles.checkboxLabel}>{item.label}</Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-  <View style={styles.checkboxColumn}>
-    {[
-      { key: 'rsu', label: 'RSU' },
-      { key: 'fidelizacion', label: 'Fidelización' },
-      { key: 'otro', label: 'Otro' }
-    ].map((item) => (
-      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
-        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
-        <Text style={styles.checkboxLabel}>{item.label}</Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-</View>
-{errors.objetivos && <Text style={styles.errorText}>{errors.objetivos}</Text>}
-{objetivos.otro && (
-  <View style={styles.otroInputContainer}>
-    <TextInput
-      style={styles.input}
-      value={objetivos.otroTexto}
-      onChangeText={(text) => handleOtroTextChange(setObjetivos, text)}
-      placeholder="¿Cuál?"
-    />
-    {objetivos.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {objetivos.otroTexto}</Text>}
-  </View>
-)}
-   <Text style={styles.label}>Objetivo(s) del PDI Asociado(s):</Text>
-<View style={styles.objetivosPDIGrid}>
-  {objetivosPDI.map((objetivo, index) => (
-    <View key={index} style={[styles.objetivoPDIRow, styles.objetivoPDIColumn]}>
-      <Text style={styles.objetivoPDINumber}>{index + 1}.</Text>
-      <TextInput
-        style={styles.objetivoPDIInput}
-        value={objetivo}
-        onChangeText={(text) => handleObjetivoPDIChange(index, text)}
-        placeholder={`Objetivo ${index + 1}`}
-        multiline
-      />
-    </View>
-  ))}
-</View>
-           <Text style={styles.label}>Definición del Segmento Objetivo (puede seleccionar más de un público):</Text>
-<View style={styles.checkboxContainer}>
-  <View style={styles.checkboxColumn}>
-    {[
-      { key: 'estudiantes', label: 'Estudiantes' },
-      { key: 'docentes', label: 'Docentes' }
-    ].map((item) => {
-      const stateKey = item.key;
-      return (
-        <TouchableOpacity key={stateKey} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, stateKey)}>
-          <Ionicons name={segmentoObjetivo[stateKey] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[stateKey] ? "#e95a0c" : "#888"} />
-          <Text style={styles.checkboxLabel}>{item.label}</Text>
-        </TouchableOpacity>
-      );
-    })}
-  </View>
-  <View style={styles.checkboxColumn}>
-    {[
-      { key: 'publicoExterno', label: 'Público Externo' },
-      { key: 'influencers', label: 'Influencers' },
-      { key: 'otro', label: 'Otro' }
-    ].map((item) => {
-      const stateKey = item.key;
-      return (
-        <TouchableOpacity key={stateKey} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, stateKey)}>
-          <Ionicons name={segmentoObjetivo[stateKey] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[stateKey] ? "#e95a0c" : "#888"} />
-          <Text style={styles.checkboxLabel}>{item.label}</Text>
-        </TouchableOpacity>
-      );
-    })}
-  </View>
-</View>
-            {segmentoObjetivo.otro && (
-              <View style={styles.otroInputContainer}>
-                <TextInput
-                  style={styles.input}
-                  value={segmentoObjetivo.otroTexto}
-                  onChangeText={(text) => handleOtroTextChange(setSegmentoObjetivo, text)}
-                  placeholder="¿Cuál?"
-                />
-                {segmentoObjetivo.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>}
-              </View>
-            )}
-            <Text style={styles.label}>Argumentación:</Text>
-            <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
-              <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                multiline
-                numberOfLines={4}
-                placeholder="Breve descripción sustentada de la congruencia del evento con los objetivos especificados"
-                value={argumentacion}
-                onChangeText={setArgumentacion}
-              />
-            </View>
-            {errors.argumentacion && <Text style={styles.errorText}>{errors.argumentacion}</Text>}
-            <TouchableOpacity style={styles.gotoButton} onPress={scrollToResultados}>
-              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-              <Text style={styles.gotoButtonText}>Ir a Resultados Esperados y Comite</Text>
-            </TouchableOpacity>
-          </View>
-           </>
-          )}
-            {seccionResultadosVisible && (
-              <>
-          <View 
-          style={[styles.formSection, isScrollingToResultados && styles.formSectionHighlighted]}
-            ref={resultadosSectionRef}
-            >
-            <Text style={styles.sectionTitle}>III. RESULTADOS ESPERADOS</Text>
-            <View style={styles.resultadoRow}>
-              <Text style={styles.resultadoLabel}>Participación Efectiva</Text>
-              <TextInput
-                style={styles.resultadoInput}
-                placeholder="Ej: 150"
-                value={resultadosEsperados.participacion}
-                onChangeText={(text) => handleResultadoChange('participacion', text)}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.resultadoRow}>
-              <Text style={styles.resultadoLabel}>Índice de Satisfacción</Text>
-              <TextInput
-                style={styles.resultadoInput}
-                placeholder="Ej: 90% de satisfacción"
-                value={resultadosEsperados.satisfaccion}
-                onChangeText={(text) => handleResultadoChange('satisfaccion', text)}
-              />
-            </View>
-            <View style={styles.resultadoRow}>
-              <Text style={styles.resultadoLabel}>Otro</Text>
-              <TextInput
-                style={styles.resultadoInput}
-                placeholder="Otro resultado medible"
-                value={resultadosEsperados.otro}
-                onChangeText={(text) => handleResultadoChange('otro', text)}
-              />
-            </View>
-          </View>
-          <View style={styles.formSection}>
-            <Text style={styles.sectionTitle}>IV. COMITÉ DEL EVENTO</Text>
-           <Text style={styles.comiteDescription}>Selecciona a los miembros del comité del evento:</Text>
-              {comiteLoading ? (
-    <ActivityIndicator size="small" color="#e95a0c" style={{ marginTop: 10 }} />
-) : comiteError ? (
-    <View style={{ alignItems: 'center', marginTop: 10 }}>
-        <Text style={{ color: 'red', marginBottom: 10 }}>No se pudieron cargar los usuarios.</Text>
-        <TouchableOpacity onPress={fetchUsuariosComite} style={{ backgroundColor: '#e95a0c', padding: 10, borderRadius: 5 }}>
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Reintentar</Text>
-        </TouchableOpacity>
-    </View>
-) : usuariosComite.length > 0 ? (
-
-
-<View style={styles.comiteList}>
-                    {usuariosComite.map(usuario => (
-                  <TouchableOpacity
-                    key={usuario.id}
-                    style={styles.checkboxRow}
-                    onPress={() => {
-                      if (comiteSeleccionado.includes(usuario.id)) {
-                        setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
-                      } else {
-                        setComiteSeleccionado(prev => [...prev, usuario.id]);
-                      }
-                    }}
-                  >
-                    <Ionicons
-                      name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
-                      size={24}
-                      color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
-                    />
-                    <View style={styles.comiteUserText}>
-                      <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
-                  <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666', fontStyle: 'italic' }]}>
-                        {usuario.role === 'academico'
-                          ? `Académico - ${usuario.facultad || 'Sin facultad'}${usuario.carrera ? ` (${usuario.carrera})` : ''}  `
-                          : usuario.role.charAt(0).toUpperCase() + usuario.role.slice(1)}
-                      </Text>
-                          </View>
-                        </TouchableOpacity>
-                      )
-                      
-                      
-                      )}
+              <View
+                style={[styles.formSection, isScrollingToObjetivos && styles.formSectionHighlighted]}
+                ref={objetivosSectionRef}
+                onLayout={(event) => {
+                  const { y } = event.nativeEvent.layout;
+                  setObjetivosSectionY(y);
+                }}
+              >
+                <Text style={styles.sectionTitle}>II. OBJETIVOS</Text>
+                <Text style={styles.label}>Objetivos de Evento (puede seleccionar más de un objetivo):</Text>
+                <View style={styles.checkboxContainer}>
+                  <View style={styles.checkboxColumn}>
+                    {[
+                      { key: 'modeloPedagogico', label: 'Modelo Pedagógico' },
+                      { key: 'posicionamiento', label: 'Posicionamiento' },
+                      { key: 'internacionalizacion', label: 'Internacionalización' }
+                    ].map((item) => (
+                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
+                        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
+                        <Text style={styles.checkboxLabel}>{item.label}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-
-
-                ) : (
-                   <Text style={styles.comitePlaceholder}>No hay usuarios disponibles para el comité.</Text>
+                  <View style={styles.checkboxColumn}>
+                    {[
+                      { key: 'rsu', label: 'RSU' },
+                      { key: 'fidelizacion', label: 'Fidelización' },
+                      { key: 'otro', label: 'Otro' }
+                    ].map((item) => (
+                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
+                        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
+                        <Text style={styles.checkboxLabel}>{item.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                {errors.objetivos && <Text style={styles.errorText}>{errors.objetivos}</Text>}
+                {objetivos.otro && (
+                  <View style={styles.otroInputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      value={objetivos.otroTexto}
+                      onChangeText={(text) => handleOtroTextChange(setObjetivos, text)}
+                      placeholder="¿Cuál?"
+                    />
+                    {objetivos.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {objetivos.otroTexto}</Text>}
+                  </View>
                 )}
-            <TouchableOpacity style={styles.gotoButton} onPress={scrollToRecursos}>
-              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-              <Text style={styles.gotoButtonText}>Ir a Recursos Necesarios</Text>
-            </TouchableOpacity>
-          </View>
-          </>
-            )}
-          {seccionRecursosVisible && (
-  <>
-    <View
-      style={[styles.formSection, isScrollingToRecursos && styles.formSectionHighlighted]}
-      ref={recursosSectionRef}
-    >
-      <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
-      
-      {/* === Recursos Disponibles de la Base de Datos === */}
-      <View style={styles.subsection}>
-        <Text style={styles.subsectionTitle}>Recursos Disponibles</Text>
-        <Text style={styles.subsectionDescription}>
-          Selecciona los recursos existentes que necesitarás para tu evento:
-        </Text>
-        
-        {recursosDisponibles.length > 0 ? (
-          <View style={styles.recursosDisponiblesGrid}>
-            {recursosDisponibles.map((recurso) => {
-              // ✅ Usa SIEMPRE idrecurso para consistencia
-              const isSelected = recursosSeleccionados.includes(recurso.idrecurso);
-              return (
-                <TouchableOpacity
-                  key={String(recurso.idrecurso)} // ✅ Convierte a string para evitar problemas de tipo
-                  style={[
-                    styles.recursoDisponibleCard,
-                    isSelected && styles.recursoDisponibleCardSelected
-                  ]}
-                  onPress={() => handleRecursoChange(recurso.idrecurso)}
-                >
-                  <View style={styles.recursoCheckboxContainer}>
-                    <Ionicons
-                      name={isSelected ? "checkbox" : "square-outline"}
-                      size={24}
-                      color={isSelected ? "#e95a0c" : "#888"}
+                <Text style={styles.label}>Objetivo(s) del PDI Asociado(s):</Text>
+                <View style={styles.objetivosPDIGrid}>
+                  {objetivosPDI.map((objetivo, index) => (
+                    <View key={index} style={[styles.objetivoPDIRow, styles.objetivoPDIColumn]}>
+                      <Text style={styles.objetivoPDINumber}>{index + 1}.</Text>
+                      <TextInput
+                        style={styles.objetivoPDIInput}
+                        value={objetivo}
+                        onChangeText={(text) => handleObjetivoPDIChange(index, text)}
+                        placeholder={`Objetivo ${index + 1}`}
+                        multiline
+                      />
+                    </View>
+                  ))}
+                </View>
+                <Text style={styles.label}>Definición del Segmento Objetivo (puede seleccionar más de un público):</Text>
+                <View style={styles.checkboxContainer}>
+                  <View style={styles.checkboxColumn}>
+                    {[
+                      { key: 'estudiantes', label: 'Estudiantes' },
+                      { key: 'docentes', label: 'Docentes' }
+                    ].map((item) => (
+                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, item.key)}>
+                        <Ionicons name={segmentoObjetivo[item.key] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[item.key] ? "#e95a0c" : "#888"} />
+                        <Text style={styles.checkboxLabel}>{item.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.checkboxColumn}>
+                    {[
+                      { key: 'publicoExterno', label: 'Público Externo' },
+                      { key: 'influencers', label: 'Influencers' },
+                      { key: 'otro', label: 'Otro' }
+                    ].map((item) => (
+                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, item.key)}>
+                        <Ionicons name={segmentoObjetivo[item.key] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[item.key] ? "#e95a0c" : "#888"} />
+                        <Text style={styles.checkboxLabel}>{item.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                {segmentoObjetivo.otro && (
+                  <View style={styles.otroInputContainer}>
+                    <TextInput
+                      style={styles.input}
+                      value={segmentoObjetivo.otroTexto}
+                      onChangeText={(text) => handleOtroTextChange(setSegmentoObjetivo, text)}
+                      placeholder="¿Cuál?"
                     />
+                    {segmentoObjetivo.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>}
                   </View>
-                  <View style={styles.recursoInfo}>
-                    <Text style={styles.recursoNombre}>{recurso.nombre_recurso}</Text>
-                    <Text style={styles.recursoTipo}>
-                      {recurso.recurso_tipo === 'tecnologico' ? 'Tecnológico' : 
-                       recurso.recurso_tipo === 'mobiliario' ? 'Mobiliario' : 'Vajilla'}
-                    </Text>
-                    <Text style={styles.recursoCantidad}>
-                      Disponibles: {recurso.cantidad || 'N/A'}
-                    </Text>
-                  </View>
+                )}
+                <Text style={styles.label}>Argumentación:</Text>
+                <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
+                  <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    multiline
+                    numberOfLines={4}
+                    placeholder="Breve descripción sustentada de la congruencia del evento con los objetivos especificados"
+                    value={argumentacion}
+                    onChangeText={setArgumentacion}
+                  />
+                </View>
+                {errors.argumentacion && <Text style={styles.errorText}>{errors.argumentacion}</Text>}
+                <TouchableOpacity style={styles.gotoButton} onPress={scrollToResultados}>
+                  <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+                  <Text style={styles.gotoButtonText}>Ir a Resultados Esperados y Comite</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : (
-          <Text style={styles.noRecursosText}>
-            📦 No hay recursos disponibles en este momento. Puedes agregar recursos nuevos manualmente más abajo.
-          </Text>
-        )}
-      </View>
-      
-      {/* ... resto de las secciones (Recursos Tecnológicos, Mobiliario, Vajilla) ... */}
-      
-      <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
-        <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-        <Text style={styles.gotoButtonText}>Ir a Presupuesto</Text>
-      </TouchableOpacity>
-    </View>
-  </>
-)} 
-            {seccionPresupuestoVisible && (
-              <>
+              </View>
+            </>
+          )}
+          {seccionResultadosVisible && (
+            <>
               <View 
-              style={[styles.formSection, isScrollingToPresupuesto && styles.formSectionHighlighted]}
-              ref={presupuestoSectionRef}
-            >
-            <Text style={styles.sectionTitle}>VI. PRESUPUESTO</Text>
-            <TablaPresupuesto
-              titulo="EGRESOS"
-              items={egresos}
-              setItems={setEgresos}
-              totalGeneral={totalEgresos}
-              handlePresupuestoChange={handlePresupuestoChange}
-              eliminarFilaPresupuesto={eliminarFilaPresupuesto}
-              agregarFilaPresupuesto={agregarFilaPresupuesto}
-            />
-            <TablaPresupuesto
-              titulo="INGRESOS"
-              items={ingresos}
-              setItems={setIngresos}
-              totalGeneral={totalIngresos}
-              handlePresupuestoChange={handlePresupuestoChange}
-              eliminarFilaPresupuesto={eliminarFilaPresupuesto}
-              agregarFilaPresupuesto={agregarFilaPresupuesto}
-            />
-            <View style={styles.balanceContainer}>
-              <Text style={styles.balanceText}>BALANCE ECONÓMICO</Text>
-              <Text style={[styles.balanceAmount, { color: balance >= 0 ? '#27ae60' : '#c0392b' }]}>
-                {formatCurrency(balance)}
-              </Text>
-            </View>
-          </View>
-          </>
-        )}
+                style={[styles.formSection, isScrollingToResultados && styles.formSectionHighlighted]}
+                ref={resultadosSectionRef}
+              >
+                <Text style={styles.sectionTitle}>III. RESULTADOS ESPERADOS</Text>
+                <View style={styles.resultadoRow}>
+                  <Text style={styles.resultadoLabel}>Participación Efectiva</Text>
+                  <TextInput
+                    style={styles.resultadoInput}
+                    placeholder="Ej: 150"
+                    value={resultadosEsperados.participacion}
+                    onChangeText={(text) => handleResultadoChange('participacion', text)}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.resultadoRow}>
+                  <Text style={styles.resultadoLabel}>Índice de Satisfacción</Text>
+                  <TextInput
+                    style={styles.resultadoInput}
+                    placeholder="Ej: 90% de satisfacción"
+                    value={resultadosEsperados.satisfaccion}
+                    onChangeText={(text) => handleResultadoChange('satisfaccion', text)}
+                  />
+                </View>
+                <View style={styles.resultadoRow}>
+                  <Text style={styles.resultadoLabel}>Otro</Text>
+                  <TextInput
+                    style={styles.resultadoInput}
+                    placeholder="Otro resultado medible"
+                    value={resultadosEsperados.otro}
+                    onChangeText={(text) => handleResultadoChange('otro', text)}
+                  />
+                </View>
+              </View>
+              <View style={styles.formSection}>
+                <Text style={styles.sectionTitle}>IV. COMITÉ DEL EVENTO</Text>
+                <Text style={styles.comiteDescription}>Selecciona a los miembros del comité del evento:</Text>
+                {comiteLoading ? (
+                  <ActivityIndicator size="small" color="#e95a0c" style={{ marginTop: 10 }} />
+                ) : comiteError ? (
+                  <View style={{ alignItems: 'center', marginTop: 10 }}>
+                    <Text style={{ color: 'red', marginBottom: 10 }}>No se pudieron cargar los usuarios.</Text>
+                    <TouchableOpacity onPress={fetchUsuariosComite} style={{ backgroundColor: '#e95a0c', padding: 10, borderRadius: 5 }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold' }}>Reintentar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : usuariosComite.length > 0 ? (
+                  <View style={styles.comiteList}>
+                    {usuariosComite.map(usuario => (
+                      <TouchableOpacity
+                        key={usuario.id}
+                        style={styles.checkboxRow}
+                        onPress={() => {
+                          if (comiteSeleccionado.includes(usuario.id)) {
+                            setComiteSeleccionado(prev => prev.filter(id => id !== usuario.id));
+                          } else {
+                            setComiteSeleccionado(prev => [...prev, usuario.id]);
+                          }
+                        }}
+                      >
+                        <Ionicons
+                          name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
+                          size={24}
+                          color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
+                        />
+                        <View style={styles.comiteUserText}>
+                          <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
+                          <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666', fontStyle: 'italic' }]}>
+                            {usuario.role === 'academico'
+                              ? `Académico - ${usuario.facultad || 'Sin facultad'}${usuario.carrera ? ` (${usuario.carrera})` : ''}`
+                              : usuario.role.charAt(0).toUpperCase() + usuario.role.slice(1)}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.comitePlaceholder}>No hay usuarios disponibles para el comité.</Text>
+                )}
+                <TouchableOpacity style={styles.gotoButton} onPress={scrollToRecursos}>
+                  <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+                  <Text style={styles.gotoButtonText}>Ir a Recursos Necesarios</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+          {seccionRecursosVisible && (
+            <>
+              <View
+                style={[styles.formSection, isScrollingToRecursos && styles.formSectionHighlighted]}
+                ref={recursosSectionRef}
+              >
+                <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
+                <View style={styles.subsection}>
+                  <Text style={styles.subsectionTitle}>Recursos Disponibles</Text>
+                  <Text style={styles.subsectionDescription}>
+                    Selecciona los recursos existentes que necesitarás para tu evento:
+                  </Text>
+                  {recursosDisponibles.length > 0 ? (
+                    <View style={styles.recursosDisponiblesGrid}>
+                      {recursosDisponibles.map((recurso) => {
+                        const isSelected = recursosSeleccionados.includes(String(recurso.idrecurso));
+                        return (
+                          <TouchableOpacity
+                            key={String(recurso.idrecurso)}
+                            style={[
+                              styles.recursoDisponibleCard,
+                              isSelected && styles.recursoDisponibleCardSelected
+                            ]}
+                            onPress={() => handleRecursoChange(recurso.idrecurso)}
+                          >
+                            <View style={styles.recursoCheckboxContainer}>
+                              <Ionicons
+                                name={isSelected ? "checkbox" : "square-outline"}
+                                size={24}
+                                color={isSelected ? "#e95a0c" : "#888"}
+                              />
+                            </View>
+                            <View style={styles.recursoInfo}>
+                              <Text style={styles.recursoNombre}>{recurso.nombre_recurso}</Text>
+                              <Text style={styles.recursoTipo}>
+                                {recurso.recurso_tipo === 'tecnologico' ? 'Tecnológico' : 
+                                 recurso.recurso_tipo === 'mobiliario' ? 'Mobiliario' : 'Vajilla'}
+                              </Text>
+                              <Text style={styles.recursoCantidad}>
+                                Disponibles: {recurso.cantidad || 'N/A'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    <Text style={styles.noRecursosText}>
+                      📦 No hay recursos disponibles en este momento. Puedes agregar recursos nuevos manualmente más abajo.
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
+                  <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+                  <Text style={styles.gotoButtonText}>Ir a Presupuesto</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+          {seccionPresupuestoVisible && (
+            <>
+              <View 
+                style={[styles.formSection, isScrollingToPresupuesto && styles.formSectionHighlighted]}
+                ref={presupuestoSectionRef}
+              >
+                <Text style={styles.sectionTitle}>VI. PRESUPUESTO</Text>
+                <TablaPresupuesto
+                  titulo="EGRESOS"
+                  items={egresos}
+                  setItems={setEgresos}
+                  totalGeneral={totalEgresos}
+                  handlePresupuestoChange={handlePresupuestoChange}
+                  eliminarFilaPresupuesto={eliminarFilaPresupuesto}
+                  agregarFilaPresupuesto={agregarFilaPresupuesto}
+                />
+                <TablaPresupuesto
+                  titulo="INGRESOS"
+                  items={ingresos}
+                  setItems={setIngresos}
+                  totalGeneral={totalIngresos}
+                  handlePresupuestoChange={handlePresupuestoChange}
+                  eliminarFilaPresupuesto={eliminarFilaPresupuesto}
+                  agregarFilaPresupuesto={agregarFilaPresupuesto}
+                />
+                <View style={styles.balanceContainer}>
+                  <Text style={styles.balanceText}>BALANCE ECONÓMICO</Text>
+                  <Text style={[styles.balanceAmount, { color: balance >= 0 ? '#27ae60' : '#c0392b' }]}>
+                    {formatCurrency(balance)}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
           {/* Modales */}
           <Modal visible={showClasificacionModal} transparent animationType="fade" onRequestClose={() => setShowClasificacionModal(false)}>
             <View style={styles.modalOverlay}>
@@ -1787,63 +1689,60 @@ if (objetivos.otro) {
             </View>
           </Modal>
           <Modal
-  visible={showLugarModal}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setShowLugarModal(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContent}>
-      <Text style={styles.modalTitle}>
-        {campusSeleccionado ? `Selecciona un área en ${LUGARES_CON_AREAS[campusSeleccionado].label}` : 'Selecciona un campus'}
-      </Text>
-      <ScrollView>
-        {campusSeleccionado ? (
-          // Mostrar áreas del campus seleccionado
-          LUGARES_CON_AREAS[campusSeleccionado].areas.map((area) => (
-            <TouchableOpacity
-              key={area.id}
-              style={styles.modalOption}
-              onPress={() => {
-                setLugarevento(area.nombre);
-                setShowLugarModal(false);
-                setCampusSeleccionado(null);
-              }}
-            >
-              <Text style={styles.modalOptionText}>{area.nombre}</Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          // Mostrar lista de campus
-          Object.entries(LUGARES_CON_AREAS).map(([key, data]) => (
-            <TouchableOpacity
-              key={key}
-              style={styles.modalOption}
-              onPress={() => setCampusSeleccionado(key)}
-            >
-              <Text style={styles.modalOptionText}>{data.label}</Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-      {/* Botón "Volver" si ya se eligió campus */}
-      {campusSeleccionado && (
-        <TouchableOpacity
-          style={[styles.modalButtonSecondary, { marginTop: 10 }]}
-          onPress={() => setCampusSeleccionado(null)}
-        >
-          <Text style={styles.modalButtonSecondaryText}>← Volver a campus</Text>
-        </TouchableOpacity>
-      )}
-      <TouchableOpacity
-        style={styles.modalButtonSecondary}
-        onPress={() => setShowLugarModal(false)}
-      >
-        <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+            visible={showLugarModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLugarModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>
+                  {campusSeleccionado ? `Selecciona un área en ${LUGARES_CON_AREAS[campusSeleccionado].label}` : 'Selecciona un campus'}
+                </Text>
+                <ScrollView>
+                  {campusSeleccionado ? (
+                    LUGARES_CON_AREAS[campusSeleccionado].areas.map((area) => (
+                      <TouchableOpacity
+                        key={area.id}
+                        style={styles.modalOption}
+                        onPress={() => {
+                          setLugarevento(area.nombre);
+                          setShowLugarModal(false);
+                          setCampusSeleccionado(null);
+                        }}
+                      >
+                        <Text style={styles.modalOptionText}>{area.nombre}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    Object.entries(LUGARES_CON_AREAS).map(([key, data]) => (
+                      <TouchableOpacity
+                        key={key}
+                        style={styles.modalOption}
+                        onPress={() => setCampusSeleccionado(key)}
+                      >
+                        <Text style={styles.modalOptionText}>{data.label}</Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+                {campusSeleccionado && (
+                  <TouchableOpacity
+                    style={[styles.modalButtonSecondary, { marginTop: 10 }]}
+                    onPress={() => setCampusSeleccionado(null)}
+                  >
+                    <Text style={styles.modalButtonSecondaryText}>← Volver a campus</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.modalButtonSecondary}
+                  onPress={() => setShowLugarModal(false)}
+                >
+                  <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       </View>
       <View style={styles.fixedBottomContainer}>
@@ -1878,7 +1777,7 @@ if (objetivos.otro) {
         setConflictoDetectado={setConflictoDetectado}
       />
     </KeyboardAvoidingView>
-);
+  );
 };
 const styles = StyleSheet.create({
   gotoButton: {
@@ -1899,7 +1798,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  // ... resto de estilos originales
   confirmModalContent: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -1954,82 +1852,86 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   formSectionHighlighted: {
-  backgroundColor: '#fff5f0', // Fondo naranja muy claro
-  borderColor: '#e95a0c', // Borde naranja
-  borderWidth: 2,
-  shadowColor: '#e95a0c',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.2,
-  shadowRadius: 4,
-  elevation: 4,
-},
+    backgroundColor: '#fff5f0',
+    borderColor: '#e95a0c',
+    borderWidth: 2,
+    shadowColor: '#e95a0c',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
   checkboxColumn: {
     flex: 1,
     marginRight: 10,
   },
-  // === Estilos para recursos disponibles ===
-recursosDisponiblesGrid: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 10,
-  marginBottom: 15,
-},
-recursoDisponibleCard: {
-  backgroundColor: '#f8f9fa',
-  borderRadius: 8,
-  padding: 12,
-  borderWidth: 1,
-  borderColor: '#e0e0e0',
-  width: '48%',
-  marginBottom: 10,
-  flexDirection: 'row',
-  alignItems: 'center',
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.1,
-  shadowRadius: 2,
-  elevation: 2,
-},
-recursoDisponibleCardSelected: {
-  backgroundColor: '#fff5f0',
-  borderColor: '#e95a0c',
-  borderWidth: 2,
-},
-recursoCheckboxContainer: {
-  marginRight: 10,
-},
-recursoInfo: {
-  flex: 1,
-},
-recursoNombre: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: '#333',
-  marginBottom: 4,
-},
-recursoTipo: {
-  fontSize: 12,
-  color: '#666',
-  fontStyle: 'italic',
-  marginBottom: 2,
-},
-recursoCantidad: {
-  fontSize: 12,
-  color: '#27ae60',
-  fontWeight: '500',
-},
-noRecursosText: {
-  fontStyle: 'italic',
-  color: '#999',
-  textAlign: 'center',
-  marginTop: 10,
-  fontSize: 14,
-  paddingVertical: 15,
-},
+  recursosDisponiblesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 15,
+  },
+  recursoDisponibleCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    width: '48%',
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  recursoDisponibleCardSelected: {
+    backgroundColor: '#fff5f0',
+    borderColor: '#e95a0c',
+    borderWidth: 2,
+  },
+  recursoCheckboxContainer: {
+    marginRight: 10,
+  },
+  recursoInfo: {
+    flex: 1,
+  },
+  recursoNombre: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  recursoTipo: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 2,
+  },
+  recursoCantidad: {
+    fontSize: 12,
+    color: '#27ae60',
+    fontWeight: '500',
+  },
+  noRecursosText: {
+    fontStyle: 'italic',
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
+    fontSize: 14,
+    paddingVertical: 15,
+  },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
+  },
+  checkboxLabel: {
+    marginLeft: 8,
+    fontSize: 15,
+    color: '#333',
   },
   header: {
     flexDirection: 'row',
@@ -2109,24 +2011,24 @@ noRecursosText: {
     elevation: 10,
   },
   comiteList: {
-  marginTop: 10,
-},
-comiteUserText: {
-  marginLeft: 10,
-},
-comiteUserRole: {
-  fontSize: 14,
-  color: '#333',
-  fontWeight:'600',
-  marginBottom:2,
-  fontStyle: 'italic',
-},
-comitePlaceholder: {
-  fontStyle: 'italic',
-  color: '#999',
-  textAlign: 'center',
-  marginTop: 10,
-},
+    marginTop: 10,
+  },
+  comiteUserText: {
+    marginLeft: 10,
+  },
+  comiteUserRole: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 2,
+    fontStyle: 'italic',
+  },
+  comitePlaceholder: {
+    fontStyle: 'italic',
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   notificationsModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2172,33 +2074,32 @@ comitePlaceholder: {
     shadowRadius: 2,
     elevation: 2,
   },
-  // ... dentro de StyleSheet.create({
-objetivoPDIRow: {
-  flexDirection: 'row',
-  alignItems: 'flex-start', // Alinea el número y el input desde la parte superior
-  marginBottom: 10,
-},
-objetivoPDINumber: {
-  fontSize: 16,
-  color: '#333',
-  marginRight: 10,
-  marginTop: 12,
-  fontWeight: '500'
-},
-objetivoPDIInput: {
-  flex: 1,
-  backgroundColor: '#F4F7F9',
-  borderWidth: 1,
-  borderColor: '#E0E0E0',
-  borderRadius: 8,
-  paddingVertical: 12,
-  paddingHorizontal: 16,
-  fontSize: 16,
-  color: '#333',
-  textAlignVertical: 'top',
-  minHeight: 50,
-  maxHeight: 100, 
-},
+  objetivoPDIRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  objetivoPDINumber: {
+    fontSize: 16,
+    color: '#333',
+    marginRight: 10,
+    marginTop: 12,
+    fontWeight: '500'
+  },
+  objetivoPDIInput: {
+    flex: 1,
+    backgroundColor: '#F4F7F9',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#333',
+    textAlignVertical: 'top',
+    minHeight: 50,
+    maxHeight: 100, 
+  },
   notificationIconContainer: {
     position: 'relative',
     marginRight: 15,
@@ -2207,63 +2108,6 @@ objetivoPDIInput: {
   notificationIcon: {
     marginRight: 0,
   },
-  recursosDisponiblesGrid: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 10,
-},
-recursoDisponibleCard: {
-  backgroundColor: '#f8f9fa',
-  borderRadius: 8,
-  padding: 12,
-  borderWidth: 1,
-  borderColor: '#e0e0e0',
-  width: '48%',
-  marginBottom: 10,
-  flexDirection: 'row',
-  alignItems: 'center',
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.1,
-  shadowRadius: 2,
-  elevation: 2,
-},
-recursoDisponibleCardSelected: {
-  backgroundColor: '#fff5f0',
-  borderColor: '#e95a0c',
-  borderWidth: 2,
-},
-recursoCheckboxContainer: {
-  marginRight: 10,
-},
-recursoInfo: {
-  flex: 1,
-},
-recursoNombre: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: '#333',
-  marginBottom: 4,
-},
-recursoTipo: {
-  fontSize: 12,
-  color: '#666',
-  fontStyle: 'italic',
-  marginBottom: 2,
-},
-recursoCantidad: {
-  fontSize: 12,
-  color: '#27ae60',
-  fontWeight: '500',
-},
-noRecursosText: {
-  fontStyle: 'italic',
-  color: '#999',
-  textAlign: 'center',
-  marginTop: 10,
-  fontSize: 14,
-  paddingVertical: 15,
-},
   unreadDot: {
     position: 'absolute',
     top: -2,
@@ -2290,20 +2134,6 @@ noRecursosText: {
     color: '#666',
     marginBottom: 8,
   },
-  eventDataContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 5,
-    borderLeftWidth: 3,
-    borderLeftColor: '#e95a0c',
-  },
-  eventDataText: {
-    fontSize: 12,
-    color: '#555',
-    marginBottom: 2,
-    lineHeight: 16,
-  },
   confirmModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2313,14 +2143,14 @@ noRecursosText: {
     borderBottomColor: '#e0e0e0',
   },
   objetivosPDIGrid: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  justifyContent: 'space-between',
-},
-objetivoPDIColumn: {
-  width: '48%', // Aproximadamente la mitad del ancho, con un pequeño margen entre columnas
-  marginBottom: 10,
-},
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  objetivoPDIColumn: {
+    width: '48%',
+    marginBottom: 10,
+  },
   confirmModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -2481,31 +2311,6 @@ objetivoPDIColumn: {
     borderRadius: 8,
     backgroundColor: '#F8F9FA'
   },
-  objetivoPDIRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10
-  },
-  objetivoPDINumber: {
-    fontSize: 16,
-    color: '#333',
-    marginRight: 10,
-    marginTop: 12,
-    fontWeight: '500'
-  },
-  objetivoPDIInput: {
-    flex: 1,
-    backgroundColor: '#F4F7F9',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#333',
-    textAlignVertical: 'top',
-    minHeight: 50
-  },
   resultadoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2625,21 +2430,18 @@ objetivoPDIColumn: {
   },
   submitButton: {
     backgroundColor: '#e95a0c',
-    paddingVertical:16,
+    paddingVertical: 16,
     paddingHorizontal: 25,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor:"#000",
-      shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity:0.3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
     elevation: 8,
     marginTop: 20
   },
-    floatingActionButton: {
+  floatingActionButton: {
     position: 'absolute',
     right: 20,
     bottom: 20,
@@ -2650,13 +2452,14 @@ objetivoPDIColumn: {
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
+  },
+  fixedBottomContainer: {
+    position: 'relative',
+    height: 80,
   },
   buttonDisabled: {
     backgroundColor: '#f9bda3'
@@ -3007,6 +2810,16 @@ objetivoPDIColumn: {
     fontWeight: 'bold',
     color: '#333',
     marginLeft: 8,
+  },
+  modalOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalOptionText: {
+    fontSize: 15,
+    color: '#333',
   },
   modalMessage: {
     fontSize: 14,
