@@ -201,7 +201,7 @@ export default function CrearRecurso() {
   };
 
   // ── Render tarjeta de recurso ───────────────────────────────────────────
-  const RecursoCard = ({ recurso }) => (
+  const renderRecursoCard = (recurso) => (
     <View style={styles.recursoCard}>
       <View style={styles.recursoCardLeft}>
         <View style={[styles.tipoBadge, { backgroundColor: TIPO_COLORS[recurso.recurso_tipo] + '20' }]}>
@@ -229,6 +229,8 @@ export default function CrearRecurso() {
       </View>
     </View>
   );
+
+
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -313,7 +315,9 @@ export default function CrearRecurso() {
           <Text style={styles.emptyText}>No hay recursos registrados aún.</Text>
         ) : (
           recursos.map((recurso) => (
-            <RecursoCard key={String(recurso.idrecurso)} recurso={recurso} />
+            <View key={String(recurso.idrecurso)}>
+              {renderRecursoCard(recurso)}
+            </View>
           ))
         )}
       </View>
