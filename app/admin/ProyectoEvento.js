@@ -90,6 +90,62 @@ const CLASIFICACION_ESTRATEGICA = {
     { id: '5h', label: 'Lanzamientos estratégicos o de marca universitaria' },
   ] }
 };
+const SUBCATEGORIA_ID_MAP = {
+  // Clasificación 1 - Académica y Científica
+  '1a': 1,   // Congresos
+  '1b': 2,   // Seminarios
+  '1c': 3,   // Simposios
+  '1d': 4,   // Conferencias
+  '1e': 5,   // Charlas Especializadas
+  '1f': 6,   // Master Class
+  '1g': 7,   // Conversatorio
+  '1h': 8,   // Coloquios
+  '1i': 9,   // Mesas Redondas
+  '1j': 10,  // Paneles
+  '1k': 11,  // Ferias Academicas
+  '1l': 12,  // Defenzas de Proyecto de grado
+  '1m': 13,  // evaluaciones Integrales
+  '1n': 14,  // Jornada de actualizacion
+ 
+  '2a': 15,  // Actos de colacion
+  '2b': 16,  // Aniversarios institucionales
+  '2c': 17,  // Inauguraciones de infraestructura o programas
+  '2d': 18,  // Reconocimientos y premiaciones
+  '2e': 19,  // Lanzamientos oficiales institucionales
+  '2f': 20,  // Firma de convenios y alianzas
+  '2g': 21,  // Tertulias
+  '2h': 22,  // Ceremonias protocolares
+  '3a': 23,  // Ferias culturales y artísticas
+  '3b': 24,  // Campeonatos deportivos
+  '3c': 25,  // Actividades recreativas o festivas (Día del Estudiante, Día de la Mujer, Día del Maestro)
+  '3d': 26,  // Talleres de bienestar físico o mental
+  '3e': 27,  // Jornadas de voluntariado interno
+  '3f': 28,  // Eventos culturales
+  '4a': 29,  // Visita de colegios
+  '4b': 30,  // Visita a ferias en colegios
+  '4c': 31,  // Auspicios actividades intercolegiales (Ej: El y Ella, torneos deportivos)
+  '4d': 32,  // Torneo de Padel Intercolegial
+  '4e': 33,  // Ferias de innovación y emprendimiento
+  '4f': 34,  // Ferias de empleabilidad
+  '4g': 35,  // Hackathons, bootcamps, pitch days
+  '4h': 36,  // Charlas y talleres con empresas
+  '4i': 37,  // Proyectos de responsabilidad universitaria
+  '4j': 38,  // Campañas solidarias
+  '4k': 39,  // Voluntariados
+  '4l': 40,  // Encuentros de egresados y networking
+  '4m': 41,  // Lanzamientos de proyectos estratégicos o colaborativos
+  '5a': 42,  // Programas internacionales y de intercambio
+  '5b': 43,  // Semana Nomads
+  '5c': 44,  // Actividades con consulados y embajadas
+  '5d': 45,  // TEDx UNIFRANZ
+  '5e': 46,  // Foro Internacional de Economía Creativa
+  '5f': 47,  // Cartel Bienal BICEBE
+  '5g': 48,  // Eventos internacionales de visibilidad y alianzas
+  '5h': 49,  // Lanzamientos estratégicos o de marca universitaria
+};
+const getSubcategoriaId = (subcategoriaId) => {
+  return SUBCATEGORIA_ID_MAP[subcategoriaId] || null;
+};
 const LUGARES_CON_AREAS = {
   'Cala-Cala': {
     label: 'Campus CalaCala',
@@ -702,7 +758,6 @@ const ProyectoEvento = () => {
       return null;
     }
   };
-
   const fetchUsuariosComite = async (retries = 3) => {
     for (let i = 0; i < retries; i++) {
       try {
@@ -1184,11 +1239,14 @@ const ProyectoEvento = () => {
         recursos_existentes: recursosExistentes.length > 0 ? recursosExistentes : null,
         recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
         presupuesto: presupuestoData,
-        idclasificacion: parseInt(clasificacionSeleccionada, 10) || null,
-        idsubcategoria: parseInt(subcategoriaSeleccionada, 10) || null,
+        idclasificacion: clasificacionSeleccionada ? parseInt(clasificacionSeleccionada, 10) : null,
+        idsubcategoria: subcategoriaSeleccionada ? parseInt(subcategoriaSeleccionada, 10) : null,
         comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
       };
       console.log('Payload a enviar:', JSON.stringify(eventoPayload, null, 2));
+      console.log('🔢 ID Clasificación:', clasificacionSeleccionada);
+console.log('🔢 ID Subcategoría (frontend):', subcategoriaSeleccionada);
+console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcategoriaSeleccionada));
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
