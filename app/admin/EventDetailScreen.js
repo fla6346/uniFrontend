@@ -306,7 +306,7 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
         { headers: { Authorization: `Bearer ${token}` } }
       );
       Alert.alert('Éxito', 'Evento aprobado correctamente');
-      router.replace('./Area2');
+      router.replace('./EventosPendientes.js');
     } catch (error) {
       console.error('Approve error:', error);
       Alert.alert('Error', 'No se pudo aprobar el evento: ' + error.message);

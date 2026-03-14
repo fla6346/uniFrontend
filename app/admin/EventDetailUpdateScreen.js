@@ -539,31 +539,7 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
           </View>
         )}
 
-        {/* Segmentos Objetivo del Evento - ¡MEJORADO! */}
-        {event.objetivos && event.objetivos.some(obj => obj.segmentos && obj.segmentos.length > 0) && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Segmentos Objetivo</Text>
-            {event.objetivos.map((obj, objIndex) => {
-              if (!obj.segmentos || obj.segmentos.length === 0) return null;
-              
-              return obj.segmentos.map((seg, segIndex) => (
-                <View key={`seg-${seg.idsegmento || segIndex}`} style={styles.segmentItem}>
-                  <View style={styles.segmentHeader}>
-                    <Ionicons name="person-outline" size={16} color={COLORS.primary} style={styles.segmentIcon} />
-                    <Text style={styles.segmentName}>
-                      {seg.nombre_segmento || `Segmento ID ${seg.idsegmento}`}
-                    </Text>
-                  </View>
-                  {seg.texto_personalizado && (
-                    <Text style={styles.segmentDescription}>
-                      {seg.texto_personalizado}
-                    </Text>
-                  )}
-                </View>
-              ));
-            })}
-          </View>
-        )}
+       
 
         {/* Resultados Esperados */}
         {event.resultados && (
