@@ -714,7 +714,7 @@ const handleActionPress = (action) => {
   renderItem={({ item }) => (
     <TouchableOpacity
       style={styles.tableRow}
-      onPress={() => router.push(`/admin/EventDetailScreen?eventId=${item.idevento}`)}
+      onPress={() => router.push(`/admin/EventDetailComite?eventId=${item.idevento}`)}
       activeOpacity={0.8}
     >
       {/* Estado - columna izquierda */}
