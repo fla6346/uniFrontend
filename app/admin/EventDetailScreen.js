@@ -517,30 +517,44 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
           </View>
         )}
 
-        {event.objetivos && event.objetivos.some(obj => obj.segmentos && obj.segmentos.length > 0) && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Segmentos Objetivo</Text>
-            {event.objetivos.map((obj, objIndex) => {
-              if (!obj.segmentos || obj.segmentos.length === 0) return null;
-              
-              return obj.segmentos.map((seg, segIndex) => (
-                <View key={`seg-${seg.idsegmento || segIndex}`} style={styles.segmentItem}>
-                  <View style={styles.segmentHeader}>
-                    <Ionicons name="person-outline" size={16} color={COLORS.primary} style={styles.segmentIcon} />
-                    <Text style={styles.segmentName}>
-                      {seg.nombre_segmento || `Segmento ID ${seg.idsegmento}`}
-                    </Text>
-                  </View>
-                  {seg.texto_personalizado && (
-                    <Text style={styles.segmentDescription}>
-                      {seg.texto_personalizado}
-                    </Text>
-                  )}
-                </View>
-              ));
-            })}
+       {event.objetivos && event.objetivos.some(obj => obj.segmentos && obj.segmentos.length > 0) && (
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>Segmentos Objetivo</Text>
+    {(() => {
+      // 1️⃣ Extraer todos los segmentos de todos los objetivos
+      const allSegments = event.objetivos
+        .filter(obj => obj.segmentos && obj.segmentos.length > 0)
+        .flatMap(obj => obj.segmentos);
+      
+      // 2️⃣ Eliminar duplicados usando un Map (por idsegmento)
+      const uniqueSegmentsMap = new Map();
+      allSegments.forEach(seg => {
+        if (!uniqueSegmentsMap.has(seg.idsegmento)) {
+          uniqueSegmentsMap.set(seg.idsegmento, seg);
+        }
+      });
+      
+      // 3️⃣ Convertir a array y renderizar
+      const uniqueSegments = Array.from(uniqueSegmentsMap.values());
+      
+      return uniqueSegments.map((seg, index) => (
+        <View key={`seg-unique-${seg.idsegmento || index}`} style={styles.segmentItem}>
+          <View style={styles.segmentHeader}>
+            <Ionicons name="person-outline" size={16} color={COLORS.primary} style={styles.segmentIcon} />
+            <Text style={styles.segmentName}>
+              {seg.nombre_segmento || `Segmento ID ${seg.idsegmento}`}
+            </Text>
           </View>
-        )}
+          {seg.texto_personalizado && (
+            <Text style={styles.segmentDescription}>
+              {seg.texto_personalizado}
+            </Text>
+          )}
+        </View>
+      ));
+    })()}
+  </View>
+)}
 
         {event.resultados && (
           <View style={styles.sectionCard}>
