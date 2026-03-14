@@ -233,6 +233,8 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
   recursos: eventData.Recursos || [],
   comite: eventData.Comite || [],
   presupuesto: eventData.Presupuesto || null,
+  egresos: eventData.Egresos || [],  
+  ingresos: eventData.Ingresos || [],
   tags: eventData.tags || [],
   
   creador: eventData.creador ? {
@@ -666,27 +668,95 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
         )}
 
         {event.presupuesto && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Presupuesto</Text>
-            <View style={styles.budgetRow}>
-              <Text>Total Egresos:</Text>
-              <Text>Bs {(event.presupuesto.total_egresos || 0).toFixed(2)}</Text>
-            </View>
-            <View style={styles.budgetRow}>
-              <Text>Total Ingresos:</Text>
-              <Text>Bs {(event.presupuesto.total_ingresos || 0).toFixed(2)}</Text>
-            </View>
-            <View style={styles.budgetRow}>
-              <Text style={{ fontWeight: 'bold' }}>Balance:</Text>
-              <Text style={{ 
-                fontWeight: 'bold',
-                color: (event.presupuesto.balance || 0) >= 0 ? COLORS.success : COLORS.logout
-              }}>
-                Bs {(event.presupuesto.balance || 0).toFixed(2)}
-              </Text>
-            </View>
+  <View style={styles.sectionCard}>
+    <Text style={styles.sectionTitle}>Presupuesto del Evento</Text>
+    
+    {/* EGRESOS */}
+    {event.egresos && event.egresos.length > 0 && (
+      <View style={styles.budgetSubsection}>
+        <View style={styles.budgetHeader}>
+          <Ionicons name="arrow-down-circle" size={20} color={COLORS.logout} />
+          <Text style={styles.budgetSubtitle}>Egresos</Text>
+        </View>
+        
+        {/* Header de tabla */}
+        <View style={styles.budgetTableHeader}>
+          <Text style={[styles.budgetCell, styles.budgetCellDesc]}>Descripción</Text>
+          <Text style={[styles.budgetCell, styles.budgetCellNum]}>Cant.</Text>
+          <Text style={[styles.budgetCell, styles.budgetCellNum]}>Precio</Text>
+          <Text style={[styles.budgetCell, styles.budgetCellNum]}>Total</Text>
+        </View>
+        
+        {/* Filas de egresos */}
+        {event.egresos.map((egreso, index) => (
+          <View key={egreso.idegreso || index} style={styles.budgetTableRow}>
+            <Text style={[styles.budgetCell, styles.budgetCellDesc]}>{egreso.descripcion}</Text>
+            <Text style={[styles.budgetCell, styles.budgetCellNum]}>{egreso.cantidad}</Text>
+            <Text style={[styles.budgetCell, styles.budgetCellNum]}>Bs {parseFloat(egreso.precio_unitario).toFixed(2)}</Text>
+            <Text style={[styles.budgetCell, styles.budgetCellNum, styles.budgetCellTotal]}>
+              Bs {parseFloat(egreso.total).toFixed(2)}
+            </Text>
           </View>
-        )}
+        ))}
+        
+        {/* Total Egresos */}
+        <View style={styles.budgetTotalRow}>
+          <Text style={[styles.budgetTotalLabel, { flex: 3 }]}>TOTAL EGRESOS:</Text>
+          <Text style={styles.budgetTotalValue}>Bs {(event.presupuesto.total_egresos || 0).toFixed(2)}</Text>
+        </View>
+      </View>
+    )}
+    
+    {/* INGRESOS */}
+    {event.ingresos && event.ingresos.length > 0 && (
+      <View style={styles.budgetSubsection}>
+        <View style={styles.budgetHeader}>
+          <Ionicons name="arrow-up-circle" size={20} color={COLORS.success} />
+          <Text style={styles.budgetSubtitle}>Ingresos</Text>
+        </View>
+        
+        {/* Header de tabla */}
+        <View style={styles.budgetTableHeader}>
+          <Text style={[styles.budgetCell, styles.budgetCellDesc]}>Descripción</Text>
+          <Text style={[styles.budgetCell, styles.budgetCellNum]}>Cant.</Text>
+          <Text style={[styles.budgetCell, styles.budgetCellNum]}>Precio</Text>
+          <Text style={[styles.budgetCell, styles.budgetCellNum]}>Total</Text>
+        </View>
+        
+        {/* Filas de ingresos */}
+        {event.ingresos.map((ingreso, index) => (
+          <View key={ingreso.idingreso || index} style={styles.budgetTableRow}>
+            <Text style={[styles.budgetCell, styles.budgetCellDesc]}>{ingreso.descripcion}</Text>
+            <Text style={[styles.budgetCell, styles.budgetCellNum]}>{ingreso.cantidad}</Text>
+            <Text style={[styles.budgetCell, styles.budgetCellNum]}>Bs {parseFloat(ingreso.precio_unitario).toFixed(2)}</Text>
+            <Text style={[styles.budgetCell, styles.budgetCellNum, styles.budgetCellTotal]}>
+              Bs {parseFloat(ingreso.total).toFixed(2)}
+            </Text>
+          </View>
+        ))}
+        
+        {/* Total Ingresos */}
+        <View style={styles.budgetTotalRow}>
+          <Text style={[styles.budgetTotalLabel, { flex: 3 }]}>TOTAL INGRESOS:</Text>
+          <Text style={[styles.budgetTotalValue, { color: COLORS.success }]}>
+            Bs {(event.presupuesto.total_ingresos || 0).toFixed(2)}
+          </Text>
+        </View>
+      </View>
+    )}
+    
+    {/* BALANCE FINAL */}
+    <View style={styles.balanceFinal}>
+      <Text style={styles.balanceFinalLabel}>BALANCE ECONÓMICO:</Text>
+      <Text style={[
+        styles.balanceFinalValue,
+        { color: (event.presupuesto.balance || 0) >= 0 ? COLORS.success : COLORS.logout }
+      ]}>
+        Bs {(event.presupuesto.balance || 0).toFixed(2)}
+      </Text>
+    </View>
+  </View>
+)}
 
         {event.status !== 'Aprobado' && (
           <View style={styles.actionButtons}>
@@ -1173,6 +1243,94 @@ userInfoValue: {
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
+  },
+    budgetSubsection: {
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: COLORS.primary,
+  },
+  budgetSubtitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+    marginLeft: 8,
+  },
+  budgetTableHeader: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.grayLight,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  budgetTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+  },
+  budgetCell: {
+    fontSize: 13,
+    color: COLORS.darkText,
+  },
+  budgetCellDesc: {
+    flex: 3,
+    fontWeight: '500',
+  },
+  budgetCellNum: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  budgetCellTotal: {
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  budgetTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 2,
+    borderTopColor: COLORS.primary,
+  },
+  budgetTotalLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+  },
+  budgetTotalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+  },
+  balanceFinal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.grayLight,
+    padding: 15,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  balanceFinalLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.darkText,
+  },
+  balanceFinalValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 
