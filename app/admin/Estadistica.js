@@ -61,7 +61,7 @@ const EstadisticaScreen = () => {
       }
 
       const [statsRes, historicalRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/dashboard/my-stats`, {
+        axios.get(`${API_BASE_URL}/dashboard/stats`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         axios.get(`${API_BASE_URL}/dashboard/my-historical`, {
