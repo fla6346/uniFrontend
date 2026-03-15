@@ -551,14 +551,6 @@ useEffect(() => {
     badgeColor: COLORS.black
   },
   {
-    id: '4',
-    title: 'Análisis de Datos',
-    iconName: 'analytics-outline',
-    route: '/admin/Estadistica',
-    color: COLORS.info,
-    description: 'Informes y métricas del sistema',
-  },
-  {
     id: '5',
     title: 'Reportes Avanzados',
     iconName: 'document-text-outline',
