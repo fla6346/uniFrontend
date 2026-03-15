@@ -8,7 +8,6 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { PieChart, LineChart, BarChart } from 'react-native-chart-kit';
-import { COLORS } from '../constants/theme'; // O importa tus COLORS desde donde los tengas
 
 const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
@@ -20,7 +19,26 @@ const getTokenAsync = async () => {
     return await SecureStore.getItemAsync('adminAuthToken');
   }
 };
-
+// ✅ AGREGA ESTO:
+const COLORS = {
+  primary: '#E95A0C',
+  primaryLight: '#FFEDD5',
+  secondary: '#4B5563',
+  accent: '#EF4444',
+  success: '#10B981',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  background: '#F9FAFB',
+  surface: '#FFFFFF',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  border: '#E5E7EB',
+  divider: '#D1D5DB',
+  shadow: 'rgba(0, 0, 0, 0.05)',
+  white: '#FFFFFF',
+  black: '#000000',
+};
 const EstadisticaScreen = () => {
   const router = useRouter();
   const { width: windowWidth } = Dimensions.get('window');
