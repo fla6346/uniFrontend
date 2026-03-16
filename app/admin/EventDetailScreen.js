@@ -330,20 +330,44 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
           onPress: async () => {
             try {
               const token = await getTokenAsync();
-              if (!token) throw new Error('Token inválido');
-              await axios.put(
-                `${API_BASE_URL}/eventos/${event.id}/reject`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              Alert.alert('Evento Rechazado', 'El evento ha sido rechazado');
-              router.back();
-            } catch (error) {
-              console.error('Reject error:', error);
-              Alert.alert('Error', 'No se pudo rechazar el evento: ' + error.message);
-            }
-          },
+            if (!token) throw new Error('Token inválido');
+
+            // Preparar datos del evento para pasar a la pantalla de rechazo
+            const eventDataForRejection = {
+              eventId: event.id,
+              eventName: event.title,
+              eventDate: event.date,
+              eventTime: event.time,
+              organizer: event.organizer,
+              location: event.location,
+              rejectionDate: new Date().toISOString(),
+            };
+
+            console.log('Rechazando evento:', eventDataForRejection);
+
+            await axios.put(
+              `${API_BASE_URL}/eventos/${event.id}/reject`,
+              {},
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            Alert.alert('Éxito', 'El evento ha sido rechazado correctamente');
+
+            // Redirigir a la pantalla de eventos rechazados con los datos
+            router.replace({
+              pathname: '/admin/EventosRechazados',
+              params: eventDataForRejection
+            });
+
+          } catch (error) {
+            console.error('Error al rechazar:', error);
+            Alert.alert(
+              'Error', 
+              `No se pudo rechazar el evento: ${error.response?.data?.message || error.message}`
+            );
+          }
         },
+      },
       ]
     );
   };
