@@ -314,64 +314,88 @@ console.log('objetivos_pdi del backend:', eventData.objetivos_pdi);
   };
 
   const handleRejectEvent = async () => {
+     console.log('🔴 handleRejectEvent llamado');
+    console.log('🔴 Event:', event);
+    console.log('🔴 Event ID:', event?.id);
+  
     if (!event || !event.id) {
       Alert.alert('Error', 'No hay evento cargado para rechazar.');
       return;
     }
 
-    Alert.alert(
-      'Rechazar Evento',
-      '¿Estás seguro de que quieres rechazar este evento?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Rechazar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const token = await getTokenAsync();
-            if (!token) throw new Error('Token inválido');
-
-            // Preparar datos del evento para pasar a la pantalla de rechazo
-            const eventDataForRejection = {
-              eventId: event.id,
-              eventName: event.title,
-              eventDate: event.date,
-              eventTime: event.time,
-              organizer: event.organizer,
-              location: event.location,
-              rejectionDate: new Date().toISOString(),
-            };
-
-            console.log('Rechazando evento:', eventDataForRejection);
-
-            await axios.put(
-              `${API_BASE_URL}/eventos/${event.id}/reject`,
+   Alert.alert(
+    'Rechazar Evento',
+    `¿Estás seguro de que quieres rechazar el evento "${event.title}"?`,
+    [
+      { 
+        text: 'Cancelar', 
+        style: 'cancel',
+        onPress: () => console.log('❌ Cancelado por usuario')
+      },
+      {
+        text: 'Rechazar',
+        style: 'destructive',
+        onPress: async () => {
+          console.log('✅ Usuario confirmó rechazo');
+          try {
+            const token = await getTokenAsync();
+            console.log('🔑 Token:', token ? 'Obtenido' : 'NULL');
+            
+            if (!token) {
+              throw new Error('Token inválido');
+            }
+            
+            const url = `${API_BASE_URL}/eventos/${event.id}/reject`;
+            console.log('📡 URL:', url);
+            
+            const response = await axios.put(
+              url,
               {},
-              { headers: { Authorization: `Bearer ${token}` } }
+              { 
+                headers: { 
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                timeout: 10000
+              }
             );
-
-            Alert.alert('Éxito', 'El evento ha sido rechazado correctamente');
-
-            // Redirigir a la pantalla de eventos rechazados con los datos
-            router.replace({
-              pathname: '/admin/EventosRechazados',
-              params: eventDataForRejection
-            });
-
-          } catch (error) {
-            console.error('Error al rechazar:', error);
+            
+            console.log('✅ Respuesta del servidor:', response.data);
+            
             Alert.alert(
-              'Error', 
-              `No se pudo rechazar el evento: ${error.response?.data?.message || error.message}`
+              'Éxito', 
+              'El evento ha sido rechazado correctamente',
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    console.log('🔙 Redirigiendo...');
+                    router.replace('/admin/EventosPendientes');
+                  }
+                }
+              ]
             );
+          } catch (error) {
+            console.error('❌ Error al rechazar:', error);
+            console.error('❌ Error response:', error.response?.data);
+            console.error('❌ Error status:', error.response?.status);
+            
+            let errorMessage = 'No se pudo rechazar el evento';
+            if (error.response) {
+              errorMessage = error.response.data.message || `Error ${error.response.status}`;
+            } else if (error.request) {
+              errorMessage = 'No hay respuesta del servidor. Verifica tu conexión.';
+            } else {
+              errorMessage = error.message;
+            }
+            
+            Alert.alert('Error', errorMessage);
           }
         },
       },
-      ]
-    );
-  };
-
+    ]
+  );
+};
   if (loading) {
     return (
       <View style={styles.centered}>
