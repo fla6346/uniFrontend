@@ -11,10 +11,12 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 
+const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
+
+// ... (TIPOS_DE_EVENTO, SEGMENTO_OBJETIVO, CLASIFICACION_ESTRATEGICA, etc. se mantienen igual) ...
 const TIPOS_DE_EVENTO = [
   { id: '1', label: 'Curricular' },
   { id: '2', label: 'Extracurricular' },
@@ -22,6 +24,7 @@ const TIPOS_DE_EVENTO = [
   { id: '4', label: 'Internacionalización/Marketing' },
   { id: '5', label: 'Marketing/Extracurricular ' }
 ];
+
 const SEGMENTO_OBJETIVO = [
   { id: '1', label: 'Estudiantes' },
   { id: '2', label: 'Docentes' },
@@ -29,6 +32,7 @@ const SEGMENTO_OBJETIVO = [
   { id: '4', label: 'Influencers' },
   { id: '5', label: 'Otro' }
 ];
+
 const CLASIFICACION_ESTRATEGICA = {
   '1': { label: 'Academica y Cientifica', subcategorias: [
     { id: '1a', label: 'Congresos' },
@@ -90,6 +94,7 @@ const CLASIFICACION_ESTRATEGICA = {
     { id: '5h', label: 'Lanzamientos estratégicos o de marca universitaria' },
   ] }
 };
+
 const SUBCATEGORIA_ID_MAP = {
   '1a': 1, '1b': 2, '1c': 3, '1d': 4, '1e': 5, '1f': 6, '1g': 7, '1h': 8,
   '1i': 9, '1j': 10, '1k': 11, '1l': 12, '1m': 13, '1n': 14,
@@ -99,6 +104,7 @@ const SUBCATEGORIA_ID_MAP = {
   '4h': 36, '4i': 37, '4j': 38, '4k': 39, '4l': 40, '4m': 41,
   '5a': 42, '5b': 43, '5c': 44, '5d': 45, '5e': 46, '5f': 47, '5g': 48, '5h': 49,
 };
+
 const getSubcategoriaId = (subcategoriaId) => SUBCATEGORIA_ID_MAP[subcategoriaId] || null;
 
 const LUGARES_CON_AREAS = {
@@ -129,6 +135,7 @@ const LUGARES_CON_AREAS = {
     ]
   }
 };
+
 const OBJETIVOS_EVENTO_MAP = {
   modeloPedagogico: 1,
   posicionamiento: 2,
@@ -137,6 +144,7 @@ const OBJETIVOS_EVENTO_MAP = {
   fidelizacion: 5,
   otro: 6
 };
+
 const QUICK_TIMES = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 const getNotificationIcon = (type) => {
@@ -149,6 +157,7 @@ const getNotificationIcon = (type) => {
   }
 };
 
+// ─── TimePicker component ────────────────────────────────────────────────────
 const TimePicker = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
   const [showNativePicker, setShowNativePicker] = useState(false);
@@ -182,7 +191,7 @@ const TimePicker = ({ value, onChange }) => {
           animationType="slide"
           onRequestClose={() => setShowNativePicker(false)}
         >
-          <View style={styles.modalOverlay}>
+          <View style={styles.mobilePickerOverlay}>
             <View style={styles.pickerModalContent}>
               <View style={styles.pickerHeader}>
                 <Text style={styles.pickerTitle}>Seleccionar Hora de Inicio</Text>
@@ -242,11 +251,11 @@ const TimePicker = ({ value, onChange }) => {
         onRequestClose={() => setOpen(false)}
       >
         <TouchableOpacity 
-          style={styles.modalOverlayTransparent} 
-          activeOpacity={1} 
-          onPress={() => setOpen(false)} 
+          style={styles.modalOverlayTransparent}
+          activeOpacity={1}
+          onPress={() => setOpen(false)}
         />
-        <View style={styles.timePickerModalContent}>
+        <View style={styles.timePickerModalCentered}>
           {/* Tambores */}
           <View style={styles.drumRow}>
             {/* Horas */}
@@ -312,6 +321,7 @@ const TimePicker = ({ value, onChange }) => {
     </>
   );
 };
+
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
     <Ionicons name="notifications-outline" size={24} color="#333" />
@@ -1948,6 +1958,37 @@ timePickerSectionTitle: {
     borderColor: '#e0e0e0',
     backgroundColor: '#f8f9fa',
   },
+  mobilePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  
+  pickerModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  
+  timePickerModalCentered: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 20,
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
   quickTimeBtnActive: {
     backgroundColor: '#fff5f0',
     borderColor: '#e95a0c',
@@ -2324,33 +2365,8 @@ doneButtonText: {
   fontSize: 16,
   fontWeight: 'bold',
 },
-modalOverlayTransparent: {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0,0,0,0.3)',
-  zIndex: 9998,
-},
-timePickerModalContent: {
-  position: 'absolute',
-  top: '40%',
-  left: '50%',
-  transform: [{ translateX: -140 }, { translateY: -150 }],
-  backgroundColor: '#fff',
-  borderRadius: 12,
-  borderWidth: 2,
-  borderColor: '#e95a0c',
-  padding: 16,
-  zIndex: 9999,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 10 },
-  shadowOpacity: 0.3,
-  shadowRadius: 20,
-  elevation: 20,
-  minWidth: 280,
-},
+
+
 });
 
 export default ProyectoEvento;
