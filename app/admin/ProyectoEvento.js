@@ -91,61 +91,16 @@ const CLASIFICACION_ESTRATEGICA = {
   ] }
 };
 const SUBCATEGORIA_ID_MAP = {
-  // Clasificación 1 - Académica y Científica
-  '1a': 1,   // Congresos
-  '1b': 2,   // Seminarios
-  '1c': 3,   // Simposios
-  '1d': 4,   // Conferencias
-  '1e': 5,   // Charlas Especializadas
-  '1f': 6,   // Master Class
-  '1g': 7,   // Conversatorio
-  '1h': 8,   // Coloquios
-  '1i': 9,   // Mesas Redondas
-  '1j': 10,  // Paneles
-  '1k': 11,  // Ferias Academicas
-  '1l': 12,  // Defenzas de Proyecto de grado
-  '1m': 13,  // evaluaciones Integrales
-  '1n': 14,  // Jornada de actualizacion
- 
-  '2a': 15,  // Actos de colacion
-  '2b': 16,  // Aniversarios institucionales
-  '2c': 17,  // Inauguraciones de infraestructura o programas
-  '2d': 18,  // Reconocimientos y premiaciones
-  '2e': 19,  // Lanzamientos oficiales institucionales
-  '2f': 20,  // Firma de convenios y alianzas
-  '2g': 21,  // Tertulias
-  '2h': 22,  // Ceremonias protocolares
-  '3a': 23,  // Ferias culturales y artísticas
-  '3b': 24,  // Campeonatos deportivos
-  '3c': 25,  // Actividades recreativas o festivas (Día del Estudiante, Día de la Mujer, Día del Maestro)
-  '3d': 26,  // Talleres de bienestar físico o mental
-  '3e': 27,  // Jornadas de voluntariado interno
-  '3f': 28,  // Eventos culturales
-  '4a': 29,  // Visita de colegios
-  '4b': 30,  // Visita a ferias en colegios
-  '4c': 31,  // Auspicios actividades intercolegiales (Ej: El y Ella, torneos deportivos)
-  '4d': 32,  // Torneo de Padel Intercolegial
-  '4e': 33,  // Ferias de innovación y emprendimiento
-  '4f': 34,  // Ferias de empleabilidad
-  '4g': 35,  // Hackathons, bootcamps, pitch days
-  '4h': 36,  // Charlas y talleres con empresas
-  '4i': 37,  // Proyectos de responsabilidad universitaria
-  '4j': 38,  // Campañas solidarias
-  '4k': 39,  // Voluntariados
-  '4l': 40,  // Encuentros de egresados y networking
-  '4m': 41,  // Lanzamientos de proyectos estratégicos o colaborativos
-  '5a': 42,  // Programas internacionales y de intercambio
-  '5b': 43,  // Semana Nomads
-  '5c': 44,  // Actividades con consulados y embajadas
-  '5d': 45,  // TEDx UNIFRANZ
-  '5e': 46,  // Foro Internacional de Economía Creativa
-  '5f': 47,  // Cartel Bienal BICEBE
-  '5g': 48,  // Eventos internacionales de visibilidad y alianzas
-  '5h': 49,  // Lanzamientos estratégicos o de marca universitaria
+  '1a': 1, '1b': 2, '1c': 3, '1d': 4, '1e': 5, '1f': 6, '1g': 7, '1h': 8,
+  '1i': 9, '1j': 10, '1k': 11, '1l': 12, '1m': 13, '1n': 14,
+  '2a': 15, '2b': 16, '2c': 17, '2d': 18, '2e': 19, '2f': 20, '2g': 21, '2h': 22,
+  '3a': 23, '3b': 24, '3c': 25, '3d': 26, '3e': 27, '3f': 28,
+  '4a': 29, '4b': 30, '4c': 31, '4d': 32, '4e': 33, '4f': 34, '4g': 35,
+  '4h': 36, '4i': 37, '4j': 38, '4k': 39, '4l': 40, '4m': 41,
+  '5a': 42, '5b': 43, '5c': 44, '5d': 45, '5e': 46, '5f': 47, '5g': 48, '5h': 49,
 };
-const getSubcategoriaId = (subcategoriaId) => {
-  return SUBCATEGORIA_ID_MAP[subcategoriaId] || null;
-};
+const getSubcategoriaId = (subcategoriaId) => SUBCATEGORIA_ID_MAP[subcategoriaId] || null;
+
 const LUGARES_CON_AREAS = {
   'Cala-Cala': {
     label: 'Campus CalaCala',
@@ -182,6 +137,8 @@ const OBJETIVOS_EVENTO_MAP = {
   fidelizacion: 5,
   otro: 6
 };
+const QUICK_TIMES = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+
 const getNotificationIcon = (type) => {
   switch (type) {
     case 'nuevo_evento': return 'calendar';
@@ -191,6 +148,133 @@ const getNotificationIcon = (type) => {
     default: return 'notifications';
   }
 };
+
+// ─── TimePicker component ────────────────────────────────────────────────────
+const TimePicker = ({ value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [showNativePicker, setShowNativePicker] = useState(false);
+  const h = dayjs(value).hour();
+  const m = dayjs(value).minute();
+  const pad = (n) => String(n).padStart(2, '0');
+
+  const apply = (newH, newM) => {
+    const d = new Date(value);
+    d.setHours(newH, newM, 0, 0);
+    onChange(d);
+  };
+
+  // iOS / Android: usar picker nativo
+  if (Platform.OS !== 'web') {
+    return (
+      <>
+        <TouchableOpacity
+          onPress={() => setShowNativePicker(true)}
+          style={styles.timePickerTrigger}
+        >
+          <Ionicons name="time-outline" size={20} color="#e95a0c" />
+          <Text style={styles.timePickerTriggerText}>{pad(h)}:{pad(m)}</Text>
+          <Ionicons name="chevron-down" size={16} color="#888" />
+        </TouchableOpacity>
+        {showNativePicker && (
+          <DateTimePicker
+            value={value}
+            mode="time"
+            display="spinner"
+            is24Hour={true}
+            onChange={(e, selected) => {
+              setShowNativePicker(Platform.OS === 'ios');
+              if (selected) onChange(selected);
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Web: tambor visual
+  return (
+    <View>
+      {/* Trigger */}
+      <TouchableOpacity
+        onPress={() => setOpen(!open)}
+        style={styles.timePickerTrigger}
+      >
+        <Ionicons name="time-outline" size={20} color="#e95a0c" />
+        <Text style={styles.timePickerTriggerText}>{pad(h)}:{pad(m)}</Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#888" />
+      </TouchableOpacity>
+
+      {/* Panel desplegable */}
+      {open && (
+        <View style={styles.timePickerPanel}>
+          {/* Tambores */}
+          <View style={styles.drumRow}>
+            {/* Horas */}
+            <View style={styles.drum}>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply((h + 1) % 24, m)}>
+                <Ionicons name="chevron-up" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+              <Text style={styles.drumVal}>{pad(h)}</Text>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply((h + 23) % 24, m)}>
+                <Ionicons name="chevron-down" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.drumColon}>:</Text>
+
+            {/* Minutos */}
+            <View style={styles.drum}>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply(h, (m + 5) % 60)}>
+                <Ionicons name="chevron-up" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+              <Text style={styles.drumVal}>{pad(m)}</Text>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply(h, m - 5 < 0 ? 55 : m - 5)}>
+                <Ionicons name="chevron-down" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Accesos rápidos */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 14 }}
+            contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}
+          >
+            {QUICK_TIMES.map((qt) => (
+              <TouchableOpacity
+                key={qt}
+                style={[
+                  styles.quickTimeBtn,
+                  h === qt && m === 0 && styles.quickTimeBtnActive
+                ]}
+                onPress={() => { apply(qt, 0); setOpen(false); }}
+              >
+                <Text style={[
+                  styles.quickTimeBtnText,
+                  h === qt && m === 0 && styles.quickTimeBtnTextActive
+                ]}>
+                  {pad(qt)}:00
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Botón confirmar */}
+          <TouchableOpacity
+            style={styles.timePickerApply}
+            onPress={() => setOpen(false)}
+          >
+            <Text style={styles.timePickerApplyText}>
+              Confirmar {pad(h)}:{pad(m)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+};
+// ────────────────────────────────────────────────────────────────────────────
 
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
@@ -233,11 +317,11 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
                 onPress={() => markAsRead(notification.id || notification.idnotification)}
               >
                 <View style={styles.notificationIconContainer}>
-                  <Ionicons 
-                    name={getNotificationIcon(notification.type || notification.tipo)} 
-                    size={20} 
-                    color="#e95a0c" 
-                    style={styles.notificationIcon} 
+                  <Ionicons
+                    name={getNotificationIcon(notification.type || notification.tipo)}
+                    size={20}
+                    color="#e95a0c"
+                    style={styles.notificationIcon}
                   />
                   {(!notification.read && notification.estado !== 'leido') && (
                     <View style={styles.unreadDot} />
@@ -282,13 +366,8 @@ const getTokenAsync = async () => {
 };
 const formatCurrency = (value) => `Bs ${Number(value).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')}`;
 const TablaPresupuesto = ({
-  titulo,
-  items,
-  setItems,
-  totalGeneral,
-  handlePresupuestoChange,
-  eliminarFilaPresupuesto,
-  agregarFilaPresupuesto
+  titulo, items, setItems, totalGeneral,
+  handlePresupuestoChange, eliminarFilaPresupuesto, agregarFilaPresupuesto
 }) => (
   <View style={styles.tablaContainer}>
     <Text style={styles.tablaTitulo}>{titulo}</Text>
@@ -622,7 +701,7 @@ const ProyectoEvento = () => {
   const [showSubcategoriaModal, setShowSubcategoriaModal] = useState(false);
   const [showLugarModal, setShowLugarModal] = useState(false);
   const [campusSeleccionado, setCampusSeleccionado] = useState(null);
-  const [areaSeleccionada, setAreaSeleccionada] = useState(null); 
+  const [areaSeleccionada, setAreaSeleccionada] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -642,7 +721,7 @@ const ProyectoEvento = () => {
   const [isScrollingToPresupuesto, setIsScrollingToPresupuesto] = useState(false);
   const [usuariosComite, setUsuariosComite] = useState([]);
   const [comiteLoading, setComiteLoading] = useState(true);
-  const [comiteError, setComiteError] = useState(false);  
+  const [comiteError, setComiteError] = useState(false);
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
 
   const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
@@ -677,7 +756,6 @@ const ProyectoEvento = () => {
     }
     return new Date();
   });
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [objetivos, setObjetivos] = useState({
     modeloPedagogico: false,
     posicionamiento: false,
@@ -707,17 +785,16 @@ const ProyectoEvento = () => {
   const totalEgresos = useMemo(() => egresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0), [egresos]);
   const totalIngresos = useMemo(() => ingresos.reduce((acc, item) => acc + (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0), 0), [ingresos]);
   const balance = useMemo(() => totalIngresos - totalEgresos, [totalIngresos, totalEgresos]);
-  
+
   const fetchNotifications = async () => {
     try {
       const token = await getTokenAsync();
       if (!token || token === 'null' || token === '') {
-        console.warn("Token inválido, redirigiendo al login");
         router.replace('/login');
         return;
       }
       const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
-        headers: { 'Authorization': `Bearer ${token}` } 
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const mappedNotifications = (response.data || []).map(notif => ({
         id: notif.id || notif.idnotification,
@@ -758,22 +835,18 @@ const ProyectoEvento = () => {
       return null;
     }
   };
+
   const fetchUsuariosComite = async (retries = 3) => {
     for (let i = 0; i < retries; i++) {
       try {
         setComiteLoading(true);
         setComiteError(false);
         const token = await getTokenAsync();
-        if (!token) {
-          console.warn("Token inválido");
-          router.replace('/login');
-          return;
-        }
+        if (!token) { router.replace('/login'); return; }
         const response = await axios.get(`${API_BASE_URL}/users/comite`, {
           headers: { 'Authorization': `Bearer ${token}` },
           timeout: 15000,
         });
-        console.log("Usuarios del comité recibidos:", response.data.length);
         const uniqueUsuarios = [];
         const seenIds = new Set();
         for (const usuario of response.data) {
@@ -786,17 +859,12 @@ const ProyectoEvento = () => {
         setComiteLoading(false);
         return;
       } catch (error) {
-        console.error(`Intento ${i + 1} fallido:`, error.message);
         if (i === retries - 1) {
           setComiteLoading(false);
           setComiteError(true);
           setUsuariosComite([]);
           if (error.code === 'ECONNABORTED' || error.message.includes('Network Error')) {
-            Alert.alert(
-              "Error de conexión",
-              "El servidor está tardando en responder. Puede estar iniciando.",
-              [{ text: "Reintentar", onPress: () => fetchUsuariosComite() }]
-            );
+            Alert.alert("Error de conexión", "El servidor está tardando en responder.", [{ text: "Reintentar", onPress: () => fetchUsuariosComite() }]);
           }
         } else {
           await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
@@ -809,15 +877,13 @@ const ProyectoEvento = () => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
     const horaFormateada = dayjs(fechaHora).format('HH:mm');
     const eventosEnMismaFecha = eventos.filter(evento => dayjs(evento.fechaevento).format('YYYY-MM-DD') === fechaFormateada);
-    const conflictos = eventosEnMismaFecha.filter(evento => {
+    return eventosEnMismaFecha.filter(evento => {
       const horaEventoString = (evento.horaevento || '').split('+')[0].trim();
       const horaEvento = dayjs(horaEventoString, 'HH:mm:ss');
       if (!horaEvento.isValid()) return false;
       const horaSeleccionada = dayjs(horaFormateada, 'HH:mm');
-      const diferencia = Math.abs(horaEvento.diff(horaSeleccionada, 'minutes'));
-      return diferencia < 120;
+      return Math.abs(horaEvento.diff(horaSeleccionada, 'minutes')) < 120;
     });
-    return conflictos;
   };
 
   const handleClockTimeChange = (newDate) => {
@@ -830,22 +896,15 @@ const ProyectoEvento = () => {
     }
   };
 
-  // ✅ UNA SOLA declaración de cargarRecursos — con logs para debug
   const cargarRecursos = useCallback(async () => {
     const token = await getTokenAsync();
     if (!token) return;
     try {
-      const response = await axios.get(`${API_BASE_URL}/recursos`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      console.log('📦 Recursos response:', JSON.stringify(response.data));
-
+      const response = await axios.get(`${API_BASE_URL}/recursos`, { headers: { Authorization: `Bearer ${token}` } });
       let recursosRaw = response.data;
       if (!Array.isArray(recursosRaw)) {
         recursosRaw = response.data.data || response.data.recursos || [];
       }
-
       const validResources = recursosRaw
         .map(recurso => ({
           ...recurso,
@@ -854,15 +913,12 @@ const ProyectoEvento = () => {
           recurso_tipo: recurso.recurso_tipo || 'otro'
         }))
         .filter(r => r.idrecurso != null && r.nombre_recurso?.trim() !== '');
-
-      console.log('✅ Recursos válidos:', validResources.length);
       setRecursosDisponibles(validResources);
     } catch (error) {
       console.error("❌ Error recursos:", error.response?.status, error.response?.data);
     }
   }, []);
 
-  // Se ejecuta cada vez que la pantalla obtiene el foco (incluyendo al volver de CrearRecurso)
   useFocusEffect(cargarRecursos);
 
   useEffect(() => {
@@ -918,22 +974,6 @@ const ProyectoEvento = () => {
     if (field === 'nombreResponsable') setNombreResponsable(value);
     if (errors[field]) setErrors(prevErrors => ({ ...prevErrors, [field]: null }));
   };
-  const onChangeTimeEventoPrincipal = (event, selectedDate) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      const newHour = selectedDate.getHours();
-      const newMinute = selectedDate.getMinutes();
-      const updateDate = new Date(fechaHoraSeleccionada);
-      updateDate.setHours(newHour, newMinute, 0, 0);
-      const conflictos = verificarConflictoHorario(updateDate);
-      if (conflictos.length > 0) {
-        setConflictoDetectado(conflictos[0]);
-        setShowConflictModal(true);
-      } else {
-        setFechaHoraSeleccionada(updateDate);
-      }
-    }
-  };
   const handleCheckboxChange = (setter, key) => setter(prev => ({ ...prev, [key]: !prev[key] }));
   const handleOtroTextChange = (setter, text) => setter(prev => ({ ...prev, otroTexto: text }));
   const handleResultadoChange = (key, value) => setResultadosEsperados(prev => ({ ...prev, [key]: value }));
@@ -949,13 +989,9 @@ const ProyectoEvento = () => {
   const handleRecursoChange = (idrecurso) => {
     if (idrecurso == null) return;
     const idString = String(idrecurso);
-    setRecursosSeleccionados(prev => {
-      if (prev.includes(idString)) {
-        return prev.filter(r => r !== idString);
-      } else {
-        return [...prev, idString];
-      }
-    });
+    setRecursosSeleccionados(prev =>
+      prev.includes(idString) ? prev.filter(r => r !== idString) : [...prev, idString]
+    );
   };
   const handleTipoEventoChange = (id) => {
     setTiposSeleccionados(prev => {
@@ -981,13 +1017,10 @@ const ProyectoEvento = () => {
             scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
             setTimeout(() => setIsScrollingToObjetivos(false), 1000);
           },
-          (error) => {
-            console.warn("Error al medir layout:", error);
-            setIsScrollingToObjetivos(false);
-          }
+          (error) => { console.warn("Error:", error); setIsScrollingToObjetivos(false); }
         );
       }
-    }, 0); 
+    }, 0);
   };
   const scrollToResultados = () => {
     setSeccionResultadosVisible(true);
@@ -1000,10 +1033,7 @@ const ProyectoEvento = () => {
             scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
             setTimeout(() => setIsScrollingToResultados(false), 1000);
           },
-          (error) => {
-            console.warn("Error al medir layout para Resultados:", error);
-            setIsScrollingToResultados(false);
-          }
+          (error) => { console.warn("Error:", error); setIsScrollingToResultados(false); }
         );
       }
     }, 0);
@@ -1011,18 +1041,15 @@ const ProyectoEvento = () => {
   const scrollToComite = () => {
     setSeccionComiteVisible(true);
     setTimeout(() => {
-      if (comiteSectionRef.current && scrollViewRef.current) { 
-        setisScrollingToComite(true); 
+      if (comiteSectionRef.current && scrollViewRef.current) {
+        setisScrollingToComite(true);
         comiteSectionRef.current.measureLayout(
           scrollViewRef.current.getInnerViewNode(),
           (x, y) => {
             scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
             setTimeout(() => setisScrollingToComite(false), 1000);
           },
-          (error) => {
-            console.warn("Error al medir layout para Comité:", error);
-            setisScrollingToComite(false);
-          }
+          (error) => { console.warn("Error:", error); setisScrollingToComite(false); }
         );
       }
     }, 0);
@@ -1030,18 +1057,15 @@ const ProyectoEvento = () => {
   const scrollToRecursos = () => {
     setSeccionRecursosVisible(true);
     setTimeout(() => {
-      if (recursosSectionRef.current && scrollViewRef.current) { 
-        setIsScrollingToRecursos(true); 
+      if (recursosSectionRef.current && scrollViewRef.current) {
+        setIsScrollingToRecursos(true);
         recursosSectionRef.current.measureLayout(
           scrollViewRef.current.getInnerViewNode(),
           (x, y) => {
             scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
             setTimeout(() => setIsScrollingToRecursos(false), 1000);
           },
-          (error) => {
-            console.warn("Error al medir layout para Recursos:", error);
-            setIsScrollingToRecursos(false);
-          }
+          (error) => { console.warn("Error:", error); setIsScrollingToRecursos(false); }
         );
       }
     }, 0);
@@ -1057,43 +1081,23 @@ const ProyectoEvento = () => {
             scrollViewRef.current?.scrollTo({ y: y - 60, animated: true });
             setTimeout(() => setIsScrollingToPresupuesto(false), 1000);
           },
-          (error) => {
-            console.warn("Error al medir layout para Presupuesto:", error);
-            setIsScrollingToPresupuesto(false);
-          }
+          (error) => { console.warn("Error:", error); setIsScrollingToPresupuesto(false); }
         );
       }
     }, 0);
   };
   const validateForm = () => {
     const newErrors = {};
-    if (!nombreevento.trim()) {
-      newErrors.nombreevento = 'El nombre del evento es obligatorio.';
-    }
-    if (Object.values(tiposSeleccionados).every(v => !v)) {
-      newErrors.tipos = 'Selecciona al menos un tipo de evento.';
-    }
-    if (tiposSeleccionados['5'] && !textoOtroTipo.trim()) {
-      newErrors.textoOtroTipo = 'Describe el otro tipo de evento.';
-    }
-    if (Object.values(objetivos).every(v => !v)) {
-      newErrors.objetivos = 'Selecciona al menos un objetivo.';
-    }
-    if (objetivos.otro && !objetivos.otroTexto.trim()) {
-      newErrors.objetivosOtroTexto = 'Describe el otro objetivo.';
-    }
-    if (!argumentacion.trim()) {
-      newErrors.argumentacion = 'La argumentación es obligatoria.';
-    }
-    if (!clasificacionSeleccionada) {
-      newErrors.clasificacionSeleccionada = 'La clasificación estratégica es obligatoria.';
-    }
-    if (clasificacionSeleccionada && 
-        CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && 
-        !subcategoriaSeleccionada) {
+    if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es obligatorio.';
+    if (Object.values(tiposSeleccionados).every(v => !v)) newErrors.tipos = 'Selecciona al menos un tipo de evento.';
+    if (tiposSeleccionados['5'] && !textoOtroTipo.trim()) newErrors.textoOtroTipo = 'Describe el otro tipo de evento.';
+    if (Object.values(objetivos).every(v => !v)) newErrors.objetivos = 'Selecciona al menos un objetivo.';
+    if (objetivos.otro && !objetivos.otroTexto.trim()) newErrors.objetivosOtroTexto = 'Describe el otro objetivo.';
+    if (!argumentacion.trim()) newErrors.argumentacion = 'La argumentación es obligatoria.';
+    if (!clasificacionSeleccionada) newErrors.clasificacionSeleccionada = 'La clasificación estratégica es obligatoria.';
+    if (clasificacionSeleccionada && CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias && !subcategoriaSeleccionada) {
       newErrors.subcategoriaSeleccionada = 'Selecciona una subcategoría.';
     }
-    console.log('Errores de validación:', newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -1105,7 +1109,6 @@ const ProyectoEvento = () => {
     setShowConfirmModal(true);
   };
   const handleSubmitConfirmed = async () => {
-    console.log("Iniciando envío del evento...");
     setShowConfirmModal(false);
     setIsLoading(true);
     if (!authToken) {
@@ -1129,24 +1132,14 @@ const ProyectoEvento = () => {
       const objetivoParaEnviar = [];
       Object.keys(objetivos)
         .filter(key => objetivos[key] === true && key !== 'otroTexto')
-        .forEach(key => {
-          if (objetivos[key]) {
-            objetivoParaEnviar.push(OBJETIVOS_EVENTO_MAP[key]);
-          }
-        });
+        .forEach(key => { if (objetivos[key]) objetivoParaEnviar.push(OBJETIVOS_EVENTO_MAP[key]); });
       if (objetivos.otro && objetivos.otroTexto.trim()) {
-        objetivoParaEnviar.push({
-          id: OBJETIVOS_EVENTO_MAP.otro,
-          texto_personalizado: objetivos.otroTexto.trim()
-        });
+        objetivoParaEnviar.push({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: objetivos.otroTexto.trim() });
       }
       if (objetivos.otro) {
         const pdiObjetivos = objetivosPDI
           .filter(o => o.trim() !== '')
-          .map(texto => ({
-            id: OBJETIVOS_EVENTO_MAP.otro,
-            texto_personalizado: texto.trim()
-          }));
+          .map(texto => ({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: texto.trim() }));
         objetivoParaEnviar.push(...pdiObjetivos);
       }
       if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo');
@@ -1155,76 +1148,26 @@ const ProyectoEvento = () => {
       Object.keys(segmentoObjetivo)
         .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
         .forEach(key => {
-          const label = {
-            estudiantes: 'Estudiantes',
-            docentes: 'Docentes',
-            publicoExterno: 'Público Externo',
-            influencers: 'Influencers'
-          }[key];
+          const label = { estudiantes: 'Estudiantes', docentes: 'Docentes', publicoExterno: 'Público Externo', influencers: 'Influencers' }[key];
           const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
-          if (segmentoData) {
-            segmentosParaEnviar.push({
-              id: parseInt(segmentoData.id, 10),
-              texto_personalizado: segmentosTextoPersonalizado[key] || null
-            });
-          }
+          if (segmentoData) segmentosParaEnviar.push({ id: parseInt(segmentoData.id, 10), texto_personalizado: segmentosTextoPersonalizado[key] || null });
         });
       const nuevosRecursos = [
-        ...recursosTecnologicos
-          .filter(r => r.nombre && r.nombre.trim() !== '')
-          .map(r => ({
-            nombre_recurso: r.nombre.trim(),
-            cantidad: parseInt(r.cantidad) || 1,
-            recurso_tipo: 'tecnologico'
-          })),
-        ...mobiliario
-          .filter(r => r.nombre && r.nombre.trim() !== '')
-          .map(r => ({
-            nombre_recurso: r.nombre.trim(),
-            cantidad: parseInt(r.cantidad) || 1,
-            recurso_tipo: 'mobiliario'
-          })),
-        ...vajilla
-          .filter(r => r.nombre && r.nombre.trim() !== '')
-          .map(r => ({
-            nombre_recurso: r.nombre.trim(),
-            cantidad: parseInt(r.cantidad) || 1,
-            recurso_tipo: 'vajilla'
-          }))
+        ...recursosTecnologicos.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad) || 1, recurso_tipo: 'tecnologico' })),
+        ...mobiliario.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad) || 1, recurso_tipo: 'mobiliario' })),
+        ...vajilla.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad) || 1, recurso_tipo: 'vajilla' }))
       ];
-      const recursosExistentes = recursosSeleccionados
-        .filter(id => id != null)
-        .map(id => parseInt(id, 10))
-        .filter(id => !isNaN(id));
+      const recursosExistentes = recursosSeleccionados.filter(id => id != null).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
       const presupuestoData = {
-        egresos: egresos
-          .filter(item => item.descripcion.trim() !== '')
-          .map(item => ({
-            descripcion: item.descripcion,
-            cantidad: parseFloat(item.cantidad) || 0,
-            precio_unitario: parseFloat(item.precio) || 0,
-            total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0)
-          })),
-        ingresos: ingresos
-          .filter(item => item.descripcion.trim() !== '')
-          .map(item => ({
-            descripcion: item.descripcion,
-            cantidad: parseFloat(item.cantidad) || 0,
-            precio_unitario: parseFloat(item.precio) || 0,
-            total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0)
-          })),
+        egresos: egresos.filter(item => item.descripcion.trim()).map(item => ({ descripcion: item.descripcion, cantidad: parseFloat(item.cantidad) || 0, precio_unitario: parseFloat(item.precio) || 0, total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0) })),
+        ingresos: ingresos.filter(item => item.descripcion.trim()).map(item => ({ descripcion: item.descripcion, cantidad: parseFloat(item.cantidad) || 0, precio_unitario: parseFloat(item.precio) || 0, total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0) })),
         total_egresos: totalEgresos,
         total_ingresos: totalIngresos,
         balance: balance
       };
       const todosLosObjetivos = [
         ...objetivoParaEnviar,
-        ...objetivosPDI
-          .filter(texto => texto.trim() !== '')
-          .map(texto => ({
-            id: OBJETIVOS_EVENTO_MAP.otro,
-            texto_personalizado: texto.trim()
-          }))
+        ...objetivosPDI.filter(texto => texto.trim()).map(texto => ({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: texto.trim() }))
       ];
       const eventoPayload = {
         nombreevento: nombreevento.trim(),
@@ -1243,24 +1186,14 @@ const ProyectoEvento = () => {
         idsubcategoria: subcategoriaSeleccionada ? parseInt(subcategoriaSeleccionada, 10) : null,
         comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
       };
-      console.log('Payload a enviar:', JSON.stringify(eventoPayload, null, 2));
-      console.log('🔢 ID Clasificación:', clasificacionSeleccionada);
-console.log('🔢 ID Subcategoría (frontend):', subcategoriaSeleccionada);
-console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcategoriaSeleccionada));
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
-      console.log('Respuesta del servidor:', response.data);
-      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [
-        { text: 'OK', onPress: () => router.replace('/') }
-      ]);
+      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.replace('/') }]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
       if (error.response) {
-        errorMessage = error.response.data.message 
-          || error.response.data.error 
-          || JSON.stringify(error.response.data)
-          || `Error del servidor: ${error.response.status}`;
+        errorMessage = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data) || `Error del servidor: ${error.response.status}`;
       } else if (error.request) {
         errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión.";
       } else {
@@ -1271,86 +1204,24 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
       setIsLoading(false);
     }
   };
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingContainer}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Crear Evento</Text>
         <NotificationBell notificationCount={unreadCount} onPress={() => setShowNotificationsModal(true)} />
       </View>
+
+      {/* ── TimePicker nuevo ── */}
       <View style={styles.horaInicioBar}>
-  <Text style={styles.horaInicioLabel}>Hora de Inicio</Text>
-  <View style={styles.horaInicioControls}>
-    {/* Botón restar hora */}
-    <TouchableOpacity
-      onPress={() => {
-        const d = new Date(fechaHoraSeleccionada);
-        d.setMinutes(d.getMinutes() - 15);
-        handleClockTimeChange(d);
-      }}
-      style={styles.horaBtn}
-    >
-      <Ionicons name="remove" size={20} color="#e95a0c" />
-    </TouchableOpacity>
+        <Text style={styles.horaInicioLabel}>Hora de Inicio</Text>
+        <TimePicker
+          value={fechaHoraSeleccionada}
+          onChange={handleClockTimeChange}
+        />
+      </View>
 
-    {/* Display de hora — toca para abrir picker nativo en móvil */}
-    <TouchableOpacity
-      onPress={() => Platform.OS !== 'web' && setShowTimePicker(true)}
-      style={styles.horaBadge}
-      activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
-    >
-      <Ionicons name="time-outline" size={18} color="#e95a0c" />
-      <Text style={styles.horaBadgeText}>
-        {dayjs(fechaHoraSeleccionada).format('HH:mm')}
-      </Text>
-    </TouchableOpacity>
-
-    {/* Botón sumar hora */}
-    <TouchableOpacity
-      onPress={() => {
-        const d = new Date(fechaHoraSeleccionada);
-        d.setMinutes(d.getMinutes() + 15);
-        handleClockTimeChange(d);
-      }}
-      style={styles.horaBtn}
-    >
-      <Ionicons name="add" size={20} color="#e95a0c" />
-    </TouchableOpacity>
-
-    {/* Input nativo solo en web */}
-    {Platform.OS === 'web' && (
-      <input
-        type="time"
-        value={dayjs(fechaHoraSeleccionada).format('HH:mm')}
-        onChange={(e) => {
-          const [hh, mm] = e.target.value.split(':');
-          const d = new Date(fechaHoraSeleccionada);
-          d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
-          handleClockTimeChange(d);
-        }}
-        style={{
-          border: 'none',
-          background: 'transparent',
-          fontSize: 14,
-          color: '#666',
-          cursor: 'pointer',
-          outline: 'none',
-          marginLeft: 8,
-        }}
-      />
-    )}
-  </View>
-</View>
-
-{/* Picker nativo para iOS/Android */}
-{showTimePicker && Platform.OS !== 'web' && (
-  <DateTimePicker
-    value={fechaHoraSeleccionada}
-    mode="time"
-    display="spinner"
-    is24Hour={true}
-    onChange={onChangeTimeEventoPrincipal}
-  />
-)}
       <View style={styles.mainContainer}>
         {width > 768 && (
           <View style={styles.calendarColumn}>
@@ -1422,10 +1293,7 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
             <Text style={styles.label}>Lugar del Evento</Text>
             <TouchableOpacity
               style={[styles.inputGroup, errors.lugarevento && styles.inputError]}
-              onPress={() => {
-                setCampusSeleccionado(null);
-                setShowLugarModal(true);
-              }}
+              onPress={() => { setCampusSeleccionado(null); setShowLugarModal(true); }}
             >
               <Ionicons name="location-outline" size={20} style={styles.inputIcon} />
               <Text style={styles.input}>
@@ -1467,162 +1335,130 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
               <Text style={styles.gotoButtonText}>Ir a Objetivos</Text>
             </TouchableOpacity>
           </View>
+
           {seccionObjetivosVisible && (
-            <>
-              <View
-                style={[styles.formSection, isScrollingToObjetivos && styles.formSectionHighlighted]}
-                ref={objetivosSectionRef}
-                onLayout={(event) => {
-                  const { y } = event.nativeEvent.layout;
-                  setObjetivosSectionY(y);
-                }}
-              >
-                <Text style={styles.sectionTitle}>II. OBJETIVOS</Text>
-                <Text style={styles.label}>Objetivos de Evento (puede seleccionar más de un objetivo):</Text>
-                <View style={styles.checkboxContainer}>
-                  <View style={styles.checkboxColumn}>
-                    {[
-                      { key: 'modeloPedagogico', label: 'Modelo Pedagógico' },
-                      { key: 'posicionamiento', label: 'Posicionamiento' },
-                      { key: 'internacionalizacion', label: 'Internacionalización' }
-                    ].map((item) => (
-                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
-                        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
-                        <Text style={styles.checkboxLabel}>{item.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <View style={styles.checkboxColumn}>
-                    {[
-                      { key: 'rsu', label: 'RSU' },
-                      { key: 'fidelizacion', label: 'Fidelización' },
-                      { key: 'otro', label: 'Otro' }
-                    ].map((item) => (
-                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
-                        <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
-                        <Text style={styles.checkboxLabel}>{item.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                {errors.objetivos && <Text style={styles.errorText}>{errors.objetivos}</Text>}
-                {objetivos.otro && (
-                  <View style={styles.otroInputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={objetivos.otroTexto}
-                      onChangeText={(text) => handleOtroTextChange(setObjetivos, text)}
-                      placeholder="¿Cuál?"
-                    />
-                    {objetivos.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {objetivos.otroTexto}</Text>}
-                  </View>
-                )}
-                <Text style={styles.label}>Objetivo(s) del PDI Asociado(s):</Text>
-                <View style={styles.objetivosPDIGrid}>
-                  {objetivosPDI.map((objetivo, index) => (
-                    <View key={index} style={[styles.objetivoPDIRow, styles.objetivoPDIColumn]}>
-                      <Text style={styles.objetivoPDINumber}>{index + 1}.</Text>
-                      <TextInput
-                        style={styles.objetivoPDIInput}
-                        value={objetivo}
-                        onChangeText={(text) => handleObjetivoPDIChange(index, text)}
-                        placeholder={`Objetivo ${index + 1}`}
-                        multiline
-                      />
-                    </View>
+            <View
+              style={[styles.formSection, isScrollingToObjetivos && styles.formSectionHighlighted]}
+              ref={objetivosSectionRef}
+              onLayout={(event) => { const { y } = event.nativeEvent.layout; setObjetivosSectionY(y); }}
+            >
+              <Text style={styles.sectionTitle}>II. OBJETIVOS</Text>
+              <Text style={styles.label}>Objetivos de Evento (puede seleccionar más de un objetivo):</Text>
+              <View style={styles.checkboxContainer}>
+                <View style={styles.checkboxColumn}>
+                  {[
+                    { key: 'modeloPedagogico', label: 'Modelo Pedagógico' },
+                    { key: 'posicionamiento', label: 'Posicionamiento' },
+                    { key: 'internacionalizacion', label: 'Internacionalización' }
+                  ].map((item) => (
+                    <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
+                      <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
+                      <Text style={styles.checkboxLabel}>{item.label}</Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
-                <Text style={styles.label}>Definición del Segmento Objetivo (puede seleccionar más de un público):</Text>
-                <View style={styles.checkboxContainer}>
-                  <View style={styles.checkboxColumn}>
-                    {[
-                      { key: 'estudiantes', label: 'Estudiantes' },
-                      { key: 'docentes', label: 'Docentes' }
-                    ].map((item) => (
-                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, item.key)}>
-                        <Ionicons name={segmentoObjetivo[item.key] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[item.key] ? "#e95a0c" : "#888"} />
-                        <Text style={styles.checkboxLabel}>{item.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <View style={styles.checkboxColumn}>
-                    {[
-                      { key: 'publicoExterno', label: 'Público Externo' },
-                      { key: 'influencers', label: 'Influencers' },
-                      { key: 'otro', label: 'Otro' }
-                    ].map((item) => (
-                      <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, item.key)}>
-                        <Ionicons name={segmentoObjetivo[item.key] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[item.key] ? "#e95a0c" : "#888"} />
-                        <Text style={styles.checkboxLabel}>{item.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                <View style={styles.checkboxColumn}>
+                  {[
+                    { key: 'rsu', label: 'RSU' },
+                    { key: 'fidelizacion', label: 'Fidelización' },
+                    { key: 'otro', label: 'Otro' }
+                  ].map((item) => (
+                    <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setObjetivos, item.key)}>
+                      <Ionicons name={objetivos[item.key] ? "checkbox" : "square-outline"} size={24} color={objetivos[item.key] ? "#e95a0c" : "#888"} />
+                      <Text style={styles.checkboxLabel}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                {segmentoObjetivo.otro && (
-                  <View style={styles.otroInputContainer}>
-                    <TextInput
-                      style={styles.input}
-                      value={segmentoObjetivo.otroTexto}
-                      onChangeText={(text) => handleOtroTextChange(setSegmentoObjetivo, text)}
-                      placeholder="¿Cuál?"
-                    />
-                    {segmentoObjetivo.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>}
-                  </View>
-                )}
-                <Text style={styles.label}>Argumentación:</Text>
-                <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
-                  <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    multiline
-                    numberOfLines={4}
-                    placeholder="Breve descripción sustentada de la congruencia del evento con los objetivos especificados"
-                    value={argumentacion}
-                    onChangeText={setArgumentacion}
-                  />
-                </View>
-                {errors.argumentacion && <Text style={styles.errorText}>{errors.argumentacion}</Text>}
-                <TouchableOpacity style={styles.gotoButton} onPress={scrollToResultados}>
-                  <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-                  <Text style={styles.gotoButtonText}>Ir a Resultados Esperados y Comite</Text>
-                </TouchableOpacity>
               </View>
-            </>
+              {errors.objetivos && <Text style={styles.errorText}>{errors.objetivos}</Text>}
+              {objetivos.otro && (
+                <View style={styles.otroInputContainer}>
+                  <TextInput style={styles.input} value={objetivos.otroTexto} onChangeText={(text) => handleOtroTextChange(setObjetivos, text)} placeholder="¿Cuál?" />
+                  {objetivos.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {objetivos.otroTexto}</Text>}
+                </View>
+              )}
+              <Text style={styles.label}>Objetivo(s) del PDI Asociado(s):</Text>
+              <View style={styles.objetivosPDIGrid}>
+                {objetivosPDI.map((objetivo, index) => (
+                  <View key={index} style={[styles.objetivoPDIRow, styles.objetivoPDIColumn]}>
+                    <Text style={styles.objetivoPDINumber}>{index + 1}.</Text>
+                    <TextInput
+                      style={styles.objetivoPDIInput}
+                      value={objetivo}
+                      onChangeText={(text) => handleObjetivoPDIChange(index, text)}
+                      placeholder={`Objetivo ${index + 1}`}
+                      multiline
+                    />
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.label}>Definición del Segmento Objetivo (puede seleccionar más de un público):</Text>
+              <View style={styles.checkboxContainer}>
+                <View style={styles.checkboxColumn}>
+                  {[
+                    { key: 'estudiantes', label: 'Estudiantes' },
+                    { key: 'docentes', label: 'Docentes' }
+                  ].map((item) => (
+                    <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, item.key)}>
+                      <Ionicons name={segmentoObjetivo[item.key] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[item.key] ? "#e95a0c" : "#888"} />
+                      <Text style={styles.checkboxLabel}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.checkboxColumn}>
+                  {[
+                    { key: 'publicoExterno', label: 'Público Externo' },
+                    { key: 'influencers', label: 'Influencers' },
+                    { key: 'otro', label: 'Otro' }
+                  ].map((item) => (
+                    <TouchableOpacity key={item.key} style={styles.checkboxRow} onPress={() => handleCheckboxChange(setSegmentoObjetivo, item.key)}>
+                      <Ionicons name={segmentoObjetivo[item.key] ? "checkbox" : "square-outline"} size={24} color={segmentoObjetivo[item.key] ? "#e95a0c" : "#888"} />
+                      <Text style={styles.checkboxLabel}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              {segmentoObjetivo.otro && (
+                <View style={styles.otroInputContainer}>
+                  <TextInput style={styles.input} value={segmentoObjetivo.otroTexto} onChangeText={(text) => handleOtroTextChange(setSegmentoObjetivo, text)} placeholder="¿Cuál?" />
+                  {segmentoObjetivo.otroTexto.trim() && <Text style={styles.selectedText}>Selección: {segmentoObjetivo.otroTexto}</Text>}
+                </View>
+              )}
+              <Text style={styles.label}>Argumentación:</Text>
+              <View style={[styles.inputGroup, { alignItems: 'flex-start' }, errors.argumentacion && styles.inputError]}>
+                <Ionicons name="text-outline" size={20} style={[styles.inputIcon, { paddingTop: 14 }]} />
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  multiline
+                  numberOfLines={4}
+                  placeholder="Breve descripción sustentada de la congruencia del evento con los objetivos especificados"
+                  value={argumentacion}
+                  onChangeText={setArgumentacion}
+                />
+              </View>
+              {errors.argumentacion && <Text style={styles.errorText}>{errors.argumentacion}</Text>}
+              <TouchableOpacity style={styles.gotoButton} onPress={scrollToResultados}>
+                <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+                <Text style={styles.gotoButtonText}>Ir a Resultados Esperados y Comite</Text>
+              </TouchableOpacity>
+            </View>
           )}
+
           {seccionResultadosVisible && (
             <>
-              <View 
-                style={[styles.formSection, isScrollingToResultados && styles.formSectionHighlighted]}
-                ref={resultadosSectionRef}
-              >
+              <View style={[styles.formSection, isScrollingToResultados && styles.formSectionHighlighted]} ref={resultadosSectionRef}>
                 <Text style={styles.sectionTitle}>III. RESULTADOS ESPERADOS</Text>
                 <View style={styles.resultadoRow}>
                   <Text style={styles.resultadoLabel}>Participación Efectiva</Text>
-                  <TextInput
-                    style={styles.resultadoInput}
-                    placeholder="Ej: 150"
-                    value={resultadosEsperados.participacion}
-                    onChangeText={(text) => handleResultadoChange('participacion', text)}
-                    keyboardType="numeric"
-                  />
+                  <TextInput style={styles.resultadoInput} placeholder="Ej: 150" value={resultadosEsperados.participacion} onChangeText={(text) => handleResultadoChange('participacion', text)} keyboardType="numeric" />
                 </View>
                 <View style={styles.resultadoRow}>
                   <Text style={styles.resultadoLabel}>Índice de Satisfacción</Text>
-                  <TextInput
-                    style={styles.resultadoInput}
-                    placeholder="Ej: 90% de satisfacción"
-                    value={resultadosEsperados.satisfaccion}
-                    onChangeText={(text) => handleResultadoChange('satisfaccion', text)}
-                  />
+                  <TextInput style={styles.resultadoInput} placeholder="Ej: 90% de satisfacción" value={resultadosEsperados.satisfaccion} onChangeText={(text) => handleResultadoChange('satisfaccion', text)} />
                 </View>
                 <View style={styles.resultadoRow}>
                   <Text style={styles.resultadoLabel}>Otro</Text>
-                  <TextInput
-                    style={styles.resultadoInput}
-                    placeholder="Otro resultado medible"
-                    value={resultadosEsperados.otro}
-                    onChangeText={(text) => handleResultadoChange('otro', text)}
-                  />
+                  <TextInput style={styles.resultadoInput} placeholder="Otro resultado medible" value={resultadosEsperados.otro} onChangeText={(text) => handleResultadoChange('otro', text)} />
                 </View>
               </View>
               <View style={styles.formSection}>
@@ -1651,11 +1487,7 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
                           }
                         }}
                       >
-                        <Ionicons
-                          name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"}
-                          size={24}
-                          color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"}
-                        />
+                        <Ionicons name={comiteSeleccionado.includes(usuario.id) ? "checkbox" : "square-outline"} size={24} color={comiteSeleccionado.includes(usuario.id) ? "#e95a0c" : "#888"} />
                         <View style={styles.comiteUserText}>
                           <Text style={styles.checkboxLabel}>{usuario.nombreCompleto}</Text>
                           <Text style={[styles.comiteUserRole, { fontSize: 12, color: '#666', fontStyle: 'italic' }]}>
@@ -1677,99 +1509,60 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
               </View>
             </>
           )}
+
           {seccionRecursosVisible && (
-            <>
-              <View
-                style={[styles.formSection, isScrollingToRecursos && styles.formSectionHighlighted]}
-                ref={recursosSectionRef}
-              >
-                <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
-                <View style={styles.subsection}>
-                  <Text style={styles.subsectionTitle}>Recursos Disponibles</Text>
-                  <Text style={styles.subsectionDescription}>
-                    Selecciona los recursos existentes que necesitarás para tu evento:
-                  </Text>
-                  {recursosDisponibles.length > 0 ? (
-                    <View style={styles.recursosDisponiblesGrid}>
-                      {recursosDisponibles.map((recurso) => {
-                        const isSelected = recursosSeleccionados.includes(String(recurso.idrecurso));
-                        return (
-                          <TouchableOpacity
-                            key={String(recurso.idrecurso)}
-                            style={[
-                              styles.recursoDisponibleCard,
-                              isSelected && styles.recursoDisponibleCardSelected
-                            ]}
-                            onPress={() => handleRecursoChange(recurso.idrecurso)}
-                          >
-                            <View style={styles.recursoCheckboxContainer}>
-                              <Ionicons
-                                name={isSelected ? "checkbox" : "square-outline"}
-                                size={24}
-                                color={isSelected ? "#e95a0c" : "#888"}
-                              />
-                            </View>
-                            <View style={styles.recursoInfo}>
-                              <Text style={styles.recursoNombre}>{recurso.nombre_recurso}</Text>
-                              <Text style={styles.recursoTipo}>
-                                {recurso.recurso_tipo === 'tecnologico' ? 'Tecnológico' : 
-                                 recurso.recurso_tipo === 'mobiliario' ? 'Mobiliario' : 'Vajilla'}
-                              </Text>
-                              <Text style={styles.recursoCantidad}>
-                                Disponibles: {recurso.cantidad || 'N/A'}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  ) : (
-                    <Text style={styles.noRecursosText}>
-                      📦 No hay recursos disponibles en este momento. Puedes agregar recursos nuevos manualmente más abajo.
-                    </Text>
-                  )}
-                </View>
-                <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
-                  <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-                  <Text style={styles.gotoButtonText}>Ir a Presupuesto</Text>
-                </TouchableOpacity>
+            <View style={[styles.formSection, isScrollingToRecursos && styles.formSectionHighlighted]} ref={recursosSectionRef}>
+              <Text style={styles.sectionTitle}>V. RECURSOS NECESARIOS</Text>
+              <View style={styles.subsection}>
+                <Text style={styles.subsectionTitle}>Recursos Disponibles</Text>
+                <Text style={styles.subsectionDescription}>Selecciona los recursos existentes que necesitarás para tu evento:</Text>
+                {recursosDisponibles.length > 0 ? (
+                  <View style={styles.recursosDisponiblesGrid}>
+                    {recursosDisponibles.map((recurso) => {
+                      const isSelected = recursosSeleccionados.includes(String(recurso.idrecurso));
+                      return (
+                        <TouchableOpacity
+                          key={String(recurso.idrecurso)}
+                          style={[styles.recursoDisponibleCard, isSelected && styles.recursoDisponibleCardSelected]}
+                          onPress={() => handleRecursoChange(recurso.idrecurso)}
+                        >
+                          <View style={styles.recursoCheckboxContainer}>
+                            <Ionicons name={isSelected ? "checkbox" : "square-outline"} size={24} color={isSelected ? "#e95a0c" : "#888"} />
+                          </View>
+                          <View style={styles.recursoInfo}>
+                            <Text style={styles.recursoNombre}>{recurso.nombre_recurso}</Text>
+                            <Text style={styles.recursoTipo}>
+                              {recurso.recurso_tipo === 'tecnologico' ? 'Tecnológico' : recurso.recurso_tipo === 'mobiliario' ? 'Mobiliario' : 'Vajilla'}
+                            </Text>
+                            <Text style={styles.recursoCantidad}>Disponibles: {recurso.cantidad || 'N/A'}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Text style={styles.noRecursosText}>📦 No hay recursos disponibles en este momento.</Text>
+                )}
               </View>
-            </>
+              <TouchableOpacity style={styles.gotoButton} onPress={scrollToPresupuesto}>
+                <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+                <Text style={styles.gotoButtonText}>Ir a Presupuesto</Text>
+              </TouchableOpacity>
+            </View>
           )}
+
           {seccionPresupuestoVisible && (
-            <>
-              <View 
-                style={[styles.formSection, isScrollingToPresupuesto && styles.formSectionHighlighted]}
-                ref={presupuestoSectionRef}
-              >
-                <Text style={styles.sectionTitle}>VI. PRESUPUESTO</Text>
-                <TablaPresupuesto
-                  titulo="EGRESOS"
-                  items={egresos}
-                  setItems={setEgresos}
-                  totalGeneral={totalEgresos}
-                  handlePresupuestoChange={handlePresupuestoChange}
-                  eliminarFilaPresupuesto={eliminarFilaPresupuesto}
-                  agregarFilaPresupuesto={agregarFilaPresupuesto}
-                />
-                <TablaPresupuesto
-                  titulo="INGRESOS"
-                  items={ingresos}
-                  setItems={setIngresos}
-                  totalGeneral={totalIngresos}
-                  handlePresupuestoChange={handlePresupuestoChange}
-                  eliminarFilaPresupuesto={eliminarFilaPresupuesto}
-                  agregarFilaPresupuesto={agregarFilaPresupuesto}
-                />
-                <View style={styles.balanceContainer}>
-                  <Text style={styles.balanceText}>BALANCE ECONÓMICO</Text>
-                  <Text style={[styles.balanceAmount, { color: balance >= 0 ? '#27ae60' : '#c0392b' }]}>
-                    {formatCurrency(balance)}
-                  </Text>
-                </View>
+            <View style={[styles.formSection, isScrollingToPresupuesto && styles.formSectionHighlighted]} ref={presupuestoSectionRef}>
+              <Text style={styles.sectionTitle}>VI. PRESUPUESTO</Text>
+              <TablaPresupuesto titulo="EGRESOS" items={egresos} setItems={setEgresos} totalGeneral={totalEgresos} handlePresupuestoChange={handlePresupuestoChange} eliminarFilaPresupuesto={eliminarFilaPresupuesto} agregarFilaPresupuesto={agregarFilaPresupuesto} />
+              <TablaPresupuesto titulo="INGRESOS" items={ingresos} setItems={setIngresos} totalGeneral={totalIngresos} handlePresupuestoChange={handlePresupuestoChange} eliminarFilaPresupuesto={eliminarFilaPresupuesto} agregarFilaPresupuesto={agregarFilaPresupuesto} />
+              <View style={styles.balanceContainer}>
+                <Text style={styles.balanceText}>BALANCE ECONÓMICO</Text>
+                <Text style={[styles.balanceAmount, { color: balance >= 0 ? '#27ae60' : '#c0392b' }]}>{formatCurrency(balance)}</Text>
               </View>
-            </>
+            </View>
           )}
+
           {/* Modales */}
           <Modal visible={showClasificacionModal} transparent animationType="fade" onRequestClose={() => setShowClasificacionModal(false)}>
             <View style={styles.modalOverlay}>
@@ -1777,15 +1570,7 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
                 <Text style={styles.modalTitle}>Selecciona Clasificación</Text>
                 <ScrollView>
                   {Object.entries(CLASIFICACION_ESTRATEGICA).map(([id, data]) => (
-                    <TouchableOpacity
-                      key={id}
-                      style={styles.modalOption}
-                      onPress={() => {
-                        setClasificacionSeleccionada(id);
-                        setSubcategoriaSeleccionada('');
-                        setShowClasificacionModal(false);
-                      }}
-                    >
+                    <TouchableOpacity key={id} style={styles.modalOption} onPress={() => { setClasificacionSeleccionada(id); setSubcategoriaSeleccionada(''); setShowClasificacionModal(false); }}>
                       <Text style={styles.modalOptionText}>{data.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -1796,20 +1581,14 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
               </View>
             </View>
           </Modal>
+
           <Modal visible={showSubcategoriaModal} transparent animationType="fade" onRequestClose={() => setShowSubcategoriaModal(false)}>
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Selecciona Subcategoría</Text>
                 <ScrollView>
                   {CLASIFICACION_ESTRATEGICA[clasificacionSeleccionada]?.subcategorias.map((sub) => (
-                    <TouchableOpacity
-                      key={sub.id}
-                      style={styles.modalOption}
-                      onPress={() => {
-                        setSubcategoriaSeleccionada(sub.id);
-                        setShowSubcategoriaModal(false);
-                      }}
-                    >
+                    <TouchableOpacity key={sub.id} style={styles.modalOption} onPress={() => { setSubcategoriaSeleccionada(sub.id); setShowSubcategoriaModal(false); }}>
                       <Text style={styles.modalOptionText}>{sub.label}</Text>
                     </TouchableOpacity>
                   ))}
@@ -1820,12 +1599,8 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
               </View>
             </View>
           </Modal>
-          <Modal
-            visible={showLugarModal}
-            transparent
-            animationType="fade"
-            onRequestClose={() => setShowLugarModal(false)}
-          >
+
+          <Modal visible={showLugarModal} transparent animationType="fade" onRequestClose={() => setShowLugarModal(false)}>
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>
@@ -1834,42 +1609,24 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
                 <ScrollView>
                   {campusSeleccionado ? (
                     LUGARES_CON_AREAS[campusSeleccionado].areas.map((area) => (
-                      <TouchableOpacity
-                        key={area.id}
-                        style={styles.modalOption}
-                        onPress={() => {
-                          setLugarevento(area.nombre);
-                          setShowLugarModal(false);
-                          setCampusSeleccionado(null);
-                        }}
-                      >
+                      <TouchableOpacity key={area.id} style={styles.modalOption} onPress={() => { setLugarevento(area.nombre); setShowLugarModal(false); setCampusSeleccionado(null); }}>
                         <Text style={styles.modalOptionText}>{area.nombre}</Text>
                       </TouchableOpacity>
                     ))
                   ) : (
                     Object.entries(LUGARES_CON_AREAS).map(([key, data]) => (
-                      <TouchableOpacity
-                        key={key}
-                        style={styles.modalOption}
-                        onPress={() => setCampusSeleccionado(key)}
-                      >
+                      <TouchableOpacity key={key} style={styles.modalOption} onPress={() => setCampusSeleccionado(key)}>
                         <Text style={styles.modalOptionText}>{data.label}</Text>
                       </TouchableOpacity>
                     ))
                   )}
                 </ScrollView>
                 {campusSeleccionado && (
-                  <TouchableOpacity
-                    style={[styles.modalButtonSecondary, { marginTop: 10 }]}
-                    onPress={() => setCampusSeleccionado(null)}
-                  >
+                  <TouchableOpacity style={[styles.modalButtonSecondary, { marginTop: 10 }]} onPress={() => setCampusSeleccionado(null)}>
                     <Text style={styles.modalButtonSecondaryText}>← Volver a campus</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity
-                  style={styles.modalButtonSecondary}
-                  onPress={() => setShowLugarModal(false)}
-                >
+                <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowLugarModal(false)}>
                   <Text style={styles.modalButtonSecondaryText}>Cancelar</Text>
                 </TouchableOpacity>
               </View>
@@ -1877,41 +1634,139 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
           </Modal>
         </ScrollView>
       </View>
+
       <View style={styles.fixedBottomContainer}>
-        <TouchableOpacity 
-          onPress={confirmSubmit} 
-          disabled={isLoading} 
-          style={[styles.floatingActionButton, isLoading && styles.buttonDisabled]}>
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Crear</Text>
-          )}
+        <TouchableOpacity onPress={confirmSubmit} disabled={isLoading} style={[styles.floatingActionButton, isLoading && styles.buttonDisabled]}>
+          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Crear</Text>}
         </TouchableOpacity>
       </View>
-      <ConfirmModal
-        showConfirmModal={showConfirmModal}
-        setShowConfirmModal={setShowConfirmModal}
-        handleSubmitConfirmed={handleSubmitConfirmed}
-        isLoading={isLoading}
-        formData={{ nombreevento, lugarevento, nombreResponsable, fechaHoraSeleccionada }}
-      />
-      <NotificationsModal
-        visible={showNotificationsModal}
-        onClose={() => setShowNotificationsModal(false)}
-        notifications={notifications}
-        markAsRead={markNotificationAsRead}
-      />
-      <ConflictModal
-        showConflictModal={showConflictModal}
-        setShowConflictModal={setShowConflictModal}
-        conflictoDetectado={conflictoDetectado}
-        setConflictoDetectado={setConflictoDetectado}
-      />
+
+      <ConfirmModal showConfirmModal={showConfirmModal} setShowConfirmModal={setShowConfirmModal} handleSubmitConfirmed={handleSubmitConfirmed} isLoading={isLoading} formData={{ nombreevento, lugarevento, nombreResponsable, fechaHoraSeleccionada }} />
+      <NotificationsModal visible={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} notifications={notifications} markAsRead={markNotificationAsRead} />
+      <ConflictModal showConflictModal={showConflictModal} setShowConflictModal={setShowConflictModal} conflictoDetectado={conflictoDetectado} setConflictoDetectado={setConflictoDetectado} />
     </KeyboardAvoidingView>
   );
 };
+
 const styles = StyleSheet.create({
+  // ── TimePicker styles ──────────────────────────────────────────
+  horaInicioBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  horaInicioLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+  },
+  timePickerTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff5f0',
+    borderWidth: 1,
+    borderColor: '#e95a0c',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    gap: 6,
+  },
+  timePickerTriggerText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#e95a0c',
+    letterSpacing: 1,
+    marginHorizontal: 4,
+  },
+  timePickerPanel: {
+    position: 'absolute',
+    top: 44,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    padding: 16,
+    zIndex: 999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 10,
+    minWidth: 260,
+  },
+  drumRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  drum: {
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    overflow: 'hidden',
+    width: 72,
+  },
+  drumBtn: {
+    width: '100%',
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  drumVal: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#333',
+    paddingVertical: 10,
+  },
+  drumColon: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#333',
+    marginHorizontal: 4,
+  },
+  quickTimeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f8f9fa',
+  },
+  quickTimeBtnActive: {
+    backgroundColor: '#fff5f0',
+    borderColor: '#e95a0c',
+  },
+  quickTimeBtnText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  quickTimeBtnTextActive: {
+    color: '#e95a0c',
+    fontWeight: '700',
+  },
+  timePickerApply: {
+    backgroundColor: '#e95a0c',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  timePickerApplyText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  // ── resto de estilos ──────────────────────────────────────────
   gotoButton: {
     backgroundColor: '#e95a0c',
     flexDirection: 'row',
@@ -1930,53 +1785,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  horaInicioBar: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: 20,
-  paddingVertical: 10,
-  backgroundColor: '#ffffff',
-  borderBottomWidth: 1,
-  borderBottomColor: '#f0f0f0',
-},
-horaInicioLabel: {
-  fontSize: 14,
-  fontWeight: '600',
-  color: '#555',
-},
-horaInicioControls: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 8,
-},
-horaBtn: {
-  width: 34,
-  height: 34,
-  borderRadius: 17,
-  backgroundColor: '#fff5f0',
-  borderWidth: 1,
-  borderColor: '#e95a0c',
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-horaBadge: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#fff5f0',
-  borderRadius: 20,
-  paddingHorizontal: 14,
-  paddingVertical: 7,
-  borderWidth: 1,
-  borderColor: '#e95a0c',
-  gap: 6,
-},
-horaBadgeText: {
-  fontSize: 16,
-  fontWeight: '700',
-  color: '#e95a0c',
-  letterSpacing: 1,
-},
   confirmModalContent: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -2013,23 +1821,10 @@ horaBadgeText: {
     shadowRadius: 3.84,
     elevation: 5,
   },
-  scrollContentContainer: {
-    paddingBottom: 60,
-  },
-  calendarSection: {
-    marginBottom: 20,
-  },
-  notificationMessage: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 5,
-    lineHeight: 18,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-  },
+  scrollContentContainer: { paddingBottom: 60 },
+  calendarSection: { marginBottom: 20 },
+  notificationMessage: { fontSize: 13, color: '#666', marginBottom: 5, lineHeight: 18 },
+  checkboxContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
   formSectionHighlighted: {
     backgroundColor: '#fff5f0',
     borderColor: '#e95a0c',
@@ -2040,16 +1835,8 @@ horaBadgeText: {
     shadowRadius: 4,
     elevation: 4,
   },
-  checkboxColumn: {
-    flex: 1,
-    marginRight: 10,
-  },
-  recursosDisponiblesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 15,
-  },
+  checkboxColumn: { flex: 1, marginRight: 10 },
+  recursosDisponiblesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 },
   recursoDisponibleCard: {
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
@@ -2066,52 +1853,15 @@ horaBadgeText: {
     shadowRadius: 2,
     elevation: 2,
   },
-  recursoDisponibleCardSelected: {
-    backgroundColor: '#fff5f0',
-    borderColor: '#e95a0c',
-    borderWidth: 2,
-  },
-  recursoCheckboxContainer: {
-    marginRight: 10,
-  },
-  recursoInfo: {
-    flex: 1,
-  },
-  recursoNombre: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  recursoTipo: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-    marginBottom: 2,
-  },
-  recursoCantidad: {
-    fontSize: 12,
-    color: '#27ae60',
-    fontWeight: '500',
-  },
-  noRecursosText: {
-    fontStyle: 'italic',
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 10,
-    fontSize: 14,
-    paddingVertical: 15,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  checkboxLabel: {
-    marginLeft: 8,
-    fontSize: 15,
-    color: '#333',
-  },
+  recursoDisponibleCardSelected: { backgroundColor: '#fff5f0', borderColor: '#e95a0c', borderWidth: 2 },
+  recursoCheckboxContainer: { marginRight: 10 },
+  recursoInfo: { flex: 1 },
+  recursoNombre: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 4 },
+  recursoTipo: { fontSize: 12, color: '#666', fontStyle: 'italic', marginBottom: 2 },
+  recursoCantidad: { fontSize: 12, color: '#27ae60', fontWeight: '500' },
+  noRecursosText: { fontStyle: 'italic', color: '#999', textAlign: 'center', marginTop: 10, fontSize: 14, paddingVertical: 15 },
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  checkboxLabel: { marginLeft: 8, fontSize: 15, color: '#333' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2128,961 +1878,200 @@ horaBadgeText: {
     shadowRadius: 2,
     elevation: 3,
   },
-  timePickerButton: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  backgroundColor: '#F8F9FA',
-  borderWidth: 1,
-  borderColor: '#E0E0E0',
-  borderRadius: 8,
-  paddingVertical: Platform.OS === 'ios' ? 14 : 12,
-  marginBottom: 15,
-  paddingLeft: 0,
-},
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  notificationBell: {
-    position: 'relative',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-  },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  notificationBell: { position: 'relative', padding: 8, borderRadius: 20, backgroundColor: '#f8f9fa' },
   notificationBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#ff4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
+    position: 'absolute', top: 0, right: 0,
+    backgroundColor: '#ff4444', borderRadius: 10,
+    minWidth: 20, height: 20,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#ffffff',
   },
-  notificationBadgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  calendarTitleContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  calendarTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#e95a0c',
-    textAlign: 'left'
-  },
-  notificationsModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  notificationBadgeText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+  calendarTitleContainer: { paddingVertical: 12, paddingHorizontal: 20, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  calendarTitle: { fontSize: 16, fontWeight: 'bold', color: '#e95a0c', textAlign: 'left' },
+  notificationsModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   notificationsModalContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 10,
+    backgroundColor: 'white', borderRadius: 16, padding: 20,
+    width: '90%', maxWidth: 500, maxHeight: '80%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 10,
   },
-  comiteList: {
-    marginTop: 10,
-  },
-  comiteUserText: {
-    marginLeft: 10,
-  },
-  comiteUserRole: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '600',
-    marginBottom: 2,
-    fontStyle: 'italic',
-  },
-  comitePlaceholder: {
-    fontStyle: 'italic',
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  notificationsModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  notificationsModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  notificationsList: {
-    flex: 1,
-  },
-  noNotificationsText: {
-    textAlign: 'center',
-    color: '#666',
-    marginTop: 50,
-    fontSize: 16,
-    fontStyle: 'italic',
-  },
+  comiteList: { marginTop: 10 },
+  comiteUserText: { marginLeft: 10 },
+  comiteUserRole: { fontSize: 14, color: '#333', fontWeight: '600', marginBottom: 2, fontStyle: 'italic' },
+  comitePlaceholder: { fontStyle: 'italic', color: '#999', textAlign: 'center', marginTop: 10 },
+  notificationsModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  notificationsModalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+  notificationsList: { flex: 1 },
+  noNotificationsText: { textAlign: 'center', color: '#666', marginTop: 50, fontSize: 16, fontStyle: 'italic' },
   notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    borderRadius: 8,
-    marginBottom: 5,
-    backgroundColor: '#ffffff',
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingVertical: 15, paddingHorizontal: 10,
+    borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
+    borderRadius: 8, marginBottom: 5, backgroundColor: '#ffffff',
   },
   notificationItemUnread: {
-    backgroundColor: '#f8f9ff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#e95a0c',
-    shadowColor: '#e95a0c',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#f8f9ff', borderLeftWidth: 4, borderLeftColor: '#e95a0c',
+    shadowColor: '#e95a0c', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
   },
-  objetivoPDIRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  objetivoPDINumber: {
-    fontSize: 16,
-    color: '#333',
-    marginRight: 10,
-    marginTop: 12,
-    fontWeight: '500'
-  },
+  objetivoPDIRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  objetivoPDINumber: { fontSize: 16, color: '#333', marginRight: 10, marginTop: 12, fontWeight: '500' },
   objetivoPDIInput: {
-    flex: 1,
-    backgroundColor: '#F4F7F9',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#333',
-    textAlignVertical: 'top',
-    minHeight: 50,
-    maxHeight: 100, 
+    flex: 1, backgroundColor: '#F4F7F9',
+    borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8,
+    paddingVertical: 12, paddingHorizontal: 16,
+    fontSize: 16, color: '#333', textAlignVertical: 'top',
+    minHeight: 50, maxHeight: 100,
   },
-  notificationIconContainer: {
-    position: 'relative',
-    marginRight: 15,
-    paddingTop: 2,
-  },
-  notificationIcon: {
-    marginRight: 0,
-  },
-  unreadDot: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ff4444',
-  },
-  notificationContentContainer: {
-    flex: 1,
-  },
-  notificationText: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 5,
-    lineHeight: 20,
-  },
-  notificationTextUnread: {
-    fontWeight: '600',
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 8,
-  },
-  confirmModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  objetivosPDIGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  objetivoPDIColumn: {
-    width: '48%',
-    marginBottom: 10,
-  },
-  confirmModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2d3748',
-    marginLeft: 12,
-  },
-  confirmModalMessage: {
-    fontSize: 16,
-    color: '#4a5568',
-    marginBottom: 20,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  confirmModalDetails: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  confirmModalDetailTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2d3748',
-    marginBottom: 12,
-  },
-  confirmModalDetail: {
-    fontSize: 14,
-    color: '#4a5568',
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  detailLabel: {
-    fontWeight: '600',
-    color: '#2d3748',
-  },
-  confirmModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  confirmModalButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmModalButtonCancel: {
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  confirmModalButtonConfirm: {
-    backgroundColor: '#e95a0c',
-  },
-  confirmModalButtonTextCancel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4a5568',
-  },
-  confirmModalButtonTextConfirm: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  keyboardAvoidingContainer: {
-    flex: 1,
-    backgroundColor: '#F4F7F9'
-  },
+  notificationIconContainer: { position: 'relative', marginRight: 15, paddingTop: 2 },
+  notificationIcon: { marginRight: 0 },
+  unreadDot: { position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: '#ff4444' },
+  notificationContentContainer: { flex: 1 },
+  notificationText: { fontSize: 14, color: '#333', marginBottom: 5, lineHeight: 20 },
+  notificationTextUnread: { fontWeight: '600' },
+  notificationTime: { fontSize: 12, color: '#666', marginBottom: 8 },
+  confirmModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  objetivosPDIGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  objetivoPDIColumn: { width: '48%', marginBottom: 10 },
+  confirmModalTitle: { fontSize: 20, fontWeight: 'bold', color: '#2d3748', marginLeft: 12 },
+  confirmModalMessage: { fontSize: 16, color: '#4a5568', marginBottom: 20, lineHeight: 22, textAlign: 'center' },
+  confirmModalDetails: { backgroundColor: '#f8f9fa', borderRadius: 12, padding: 16, marginBottom: 24 },
+  confirmModalDetailTitle: { fontSize: 16, fontWeight: '600', color: '#2d3748', marginBottom: 12 },
+  confirmModalDetail: { fontSize: 14, color: '#4a5568', marginBottom: 8, lineHeight: 20 },
+  detailLabel: { fontWeight: '600', color: '#2d3748' },
+  confirmModalButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  confirmModalButton: { flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  confirmModalButtonCancel: { backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e0e0e0' },
+  confirmModalButtonConfirm: { backgroundColor: '#e95a0c' },
+  confirmModalButtonTextCancel: { fontSize: 16, fontWeight: '600', color: '#4a5568' },
+  confirmModalButtonTextConfirm: { fontSize: 16, fontWeight: '600', color: '#ffffff' },
+  keyboardAvoidingContainer: { flex: 1, backgroundColor: '#F4F7F9' },
   formSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5,
     paddingHorizontal: isMobile ? 15 : 20,
     paddingTop: isMobile ? 15 : 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#e95a0c',
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 8,
-    textAlign: 'left',
-    backgroundColor: '#f8f9fa',
-    marginHorizontal: -20,
-    marginTop: -12,
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    fontSize: 18, fontWeight: '700', color: '#e95a0c',
+    marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee',
+    paddingBottom: 8, textAlign: 'left', backgroundColor: '#f8f9fa',
+    marginHorizontal: -20, marginTop: -12, paddingTop: 12, paddingHorizontal: 20,
+    borderTopLeftRadius: 12, borderTopRightRadius: 12,
   },
-  label: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 8,
-    fontWeight: '500'
-  },
+  label: { fontSize: 14, color: '#555', marginBottom: 8, fontWeight: '500' },
   inputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    marginBottom: 18
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E0E0E0',
+    borderRadius: 8, marginBottom: 18,
   },
-  inputError: {
-    borderColor: 'red'
-  },
-  errorText: {
-    color: 'red',
-    marginLeft: 10,
-    marginBottom: 10,
-    fontSize: 12
-  },
-  inputIcon: {
-    paddingHorizontal: 12,
-    color: '#888'
-  },
-  input: {
-    flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
-    paddingRight: 15,
-    fontSize: 16,
-    color: '#333'
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top'
-  },
-  datePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: '#fff',
-    marginBottom: 15
-  },
-  datePickerText: {
-    fontSize: 16,
-    color: '#333'
-  },
-  otroInputContainer: {
-    marginLeft: 36,
-    marginTop: 5,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    backgroundColor: '#F8F9FA'
-  },
-  resultadoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15
-  },
-  resultadoLabel: {
-    fontSize: 16,
-    color: '#333',
-    flex: 1
-  },
-  resultadoInput: {
-    flex: 2,
-    backgroundColor: '#F4F7F9',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#333'
-  },
-  comiteDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    textAlign: 'justify'
-  },
-  tablaContainer: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 25,
-    padding: 5
-  },
-  tablaTitulo: {
-    textAlign: 'center',
-    fontWeight: 'bold',
-    padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7
-  },
-  tablaHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#e0e0e0',
-    paddingHorizontal: 5,
-    paddingVertical: 8
-  },
-  headerText: {
-    fontWeight: 'bold',
-    fontSize: 12
-  },
-  tablaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingVertical: 2
-  },
-  rowText: {
-    paddingHorizontal: 5,
-    fontSize: 12
-  },
-  rowInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    padding: 4,
-    margin: 2,
-    fontSize: 12,
-    backgroundColor: '#fff'
-  },
-  deleteButtonSmall: {
-    padding: 4,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  addButtonSmall: {
-    padding: 8
-  },
-  addButtonTextSmall: {
-    color: '#007BFF',
-    textAlign: 'center'
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderBottomLeftRadius: 7,
-    borderBottomRightRadius: 7
-  },
-  totalText: {
-    fontWeight: 'bold',
-    marginRight: 20
-  },
-  totalAmount: {
-    fontWeight: 'bold'
-  },
-  balanceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#e0e0e0',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10
-  },
-  balanceText: {
-    fontWeight: 'bold',
-    fontSize: 16
-  },
-  balanceAmount: {
-    fontWeight: 'bold',
-    fontSize: 16
-  },
-  submitButton: {
-    backgroundColor: '#e95a0c',
-    paddingVertical: 16,
-    paddingHorizontal: 25,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    elevation: 8,
-    marginTop: 20
-  },
+  inputError: { borderColor: 'red' },
+  errorText: { color: 'red', marginLeft: 10, marginBottom: 10, fontSize: 12 },
+  inputIcon: { paddingHorizontal: 12, color: '#888' },
+  input: { flex: 1, paddingVertical: Platform.OS === 'ios' ? 14 : 10, paddingRight: 15, fontSize: 16, color: '#333' },
+  textArea: { height: 100, textAlignVertical: 'top' },
+  datePickerButton: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, backgroundColor: '#fff', marginBottom: 15 },
+  datePickerText: { fontSize: 16, color: '#333' },
+  otroInputContainer: { marginLeft: 36, marginTop: 5, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, backgroundColor: '#F8F9FA' },
+  resultadoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  resultadoLabel: { fontSize: 16, color: '#333', flex: 1 },
+  resultadoInput: { flex: 2, backgroundColor: '#F4F7F9', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 16, fontSize: 16, color: '#333' },
+  comiteDescription: { fontSize: 14, color: '#666', lineHeight: 20, textAlign: 'justify' },
+  tablaContainer: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 25, padding: 5 },
+  tablaTitulo: { textAlign: 'center', fontWeight: 'bold', padding: 8, backgroundColor: '#f0f0f0', borderTopLeftRadius: 7, borderTopRightRadius: 7 },
+  tablaHeader: { flexDirection: 'row', backgroundColor: '#e0e0e0', paddingHorizontal: 5, paddingVertical: 8 },
+  headerText: { fontWeight: 'bold', fontSize: 12 },
+  tablaRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#eee', paddingVertical: 2 },
+  rowText: { paddingHorizontal: 5, fontSize: 12 },
+  rowInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 4, padding: 4, margin: 2, fontSize: 12, backgroundColor: '#fff' },
+  deleteButtonSmall: { padding: 4, alignItems: 'center', justifyContent: 'center' },
+  addButtonSmall: { padding: 8 },
+  addButtonTextSmall: { color: '#007BFF', textAlign: 'center' },
+  totalRow: { flexDirection: 'row', justifyContent: 'flex-end', padding: 8, backgroundColor: '#f0f0f0', borderBottomLeftRadius: 7, borderBottomRightRadius: 7 },
+  totalText: { fontWeight: 'bold', marginRight: 20 },
+  totalAmount: { fontWeight: 'bold' },
+  balanceContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#e0e0e0', padding: 12, borderRadius: 8, marginTop: 10 },
+  balanceText: { fontWeight: 'bold', fontSize: 16 },
+  balanceAmount: { fontWeight: 'bold', fontSize: 16 },
   floatingActionButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    backgroundColor: '#e95a0c',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    position: 'absolute', right: 20, bottom: 20,
+    backgroundColor: '#e95a0c', width: 60, height: 60, borderRadius: 30,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8,
   },
-  fixedBottomContainer: {
-    position: 'relative',
-    height: 80,
-  },
-  buttonDisabled: {
-    backgroundColor: '#f9bda3'
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold'
-  },
+  fixedBottomContainer: { position: 'relative', height: 80 },
+  buttonDisabled: { backgroundColor: '#f9bda3' },
+  submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   subsection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5
+    backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, marginBottom: 20,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5,
   },
-  subsectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  subsectionDescription: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 15,
-    lineHeight: 18,
-  },
-  resourceInputGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    marginBottom: 10,
-    paddingRight: 10,
-  },
-  resourceInput: {
-    flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
-    paddingRight: 15,
-    fontSize: 16,
-    color: '#333'
-  },
-  removeButton: {
-    padding: 5
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10
-  },
-  addButtonText: {
-    color: '#007bff',
-    fontSize: 16,
-    marginLeft: 5
-  },
+  subsectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  subsectionDescription: { fontSize: 13, color: '#666', marginBottom: 15, lineHeight: 18 },
   googleCalendarContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden'
+    backgroundColor: '#ffffff', borderRadius: 12, marginBottom: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, overflow: 'hidden',
   },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  navButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
-  },
-  monthYearText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    letterSpacing: 1
-  },
-  weekDaysHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f0f0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  weekDayCell: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center'
-  },
-  weekDayText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#666'
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    backgroundColor: '#ffffff'
-  },
-  dayCell: {
-    width: '14.28%',
-    minHeight: 80,
-    borderRightWidth: 0.5,
-    borderBottomWidth: 0.5,
-    borderColor: '#e8e8e8',
-    paddingTop: 8,
-    paddingHorizontal: 4
-  },
-  dayCellInactive: {
-    backgroundColor: '#f8f9fa'
-  },
-  dayCellSelected: {
-    backgroundColor: '#fff5f0',
-    borderColor: '#e95a0c',
-    borderWidth: 2,
-    borderRadius: 6,
-    margin: -1
-  },
-  dayCellToday: {
-    backgroundColor: '#e8f4fd'
-  },
-  dayCellContent: {
-    flex: 1,
-    alignItems: 'center'
-  },
-  dayNumber: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: 4
-  },
-  dayNumberInactive: {
-    color: '#999'
-  },
-  dayNumberSelected: {
-    color: '#e95a0c',
-    fontWeight: 'bold',
-    fontSize: 18
-  },
-  dayNumberToday: {
-    backgroundColor: '#2196f3',
-    color: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    overflow: 'hidden'
-  },
-  eventIndicators: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2
-  },
-  eventDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 2
-  },
-  eventCount: {
-    fontSize: 10,
-    color: '#666',
-    fontWeight: '500'
-  },
-  eventPreview: {
-    marginTop: 4,
-    width: '100%'
-  },
-  eventPreviewText: {
-    fontSize: 8,
-    color: '#333',
-    marginBottom: 1,
-    textAlign: 'center'
-  },
-  eventPreviewMore: {
-    fontSize: 8,
-    color: '#e95a0c',
-    fontWeight: 'bold',
-    textAlign: 'center'
-  },
-  eventosDelDiaContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: 'hidden'
-  },
-  eventosDelDiaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0'
-  },
-  eventosDelDiaTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 8,
-    flex: 1
-  },
-  eventCountBadge: {
-    backgroundColor: '#e95a0c',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4
-  },
-  eventCountText: {
-    fontSize: 12,
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
-  eventsList: {
-    maxHeight: 200,
-    paddingHorizontal: 16,
-  },
-  eventoCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  eventoCardConflict: {
-    borderColor: '#ff6b6b',
-    backgroundColor: '#fff5f5',
-  },
-  eventoCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  eventoTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  eventoTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#e95a0c',
-    marginLeft: 4,
-  },
-  eventoTimeConflict: {
-    color: '#ff6b6b',
-  },
-  conflictBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ff6b6b',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  conflictBadgeText: {
-    fontSize: 10,
-    color: '#ffffff',
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-  eventoNombre: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  eventoDetails: {
-    marginLeft: 4,
-  },
-  eventoDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  eventoDetailText: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 4,
-  },
-  eventosDelDiaFooter: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    backgroundColor: '#f8f9fa',
-  },
-  eventosDelDiaNote: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginLeft: 8,
-  },
-  modalOption: {
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalOptionText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  modalMessage: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  conflictEventCard: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  conflictEventTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  conflictEventDetails: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  conflictEventResponsible: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  modalWarning: {
-    fontSize: 12,
-    color: '#ff6b6b',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  modalButtonSecondary: {
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 8,
-    alignItems: 'center',
-  },
-  modalButtonSecondaryText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '600',
-  },
-  modalButtonPrimary: {
-    backgroundColor: '#e95a0c',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flex: 1,
-    alignItems: 'center',
-  },
-  modalButtonPrimaryText: {
-    fontSize: 14,
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  selectedText: {
-    fontSize: 14,
-    color: '#e95a0c',
-    marginTop: 5,
-    marginLeft: 10,
-  },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  navButton: { padding: 8, borderRadius: 20, backgroundColor: '#ffffff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  monthYearText: { fontSize: 18, fontWeight: 'bold', color: '#333', letterSpacing: 1 },
+  weekDaysHeader: { flexDirection: 'row', backgroundColor: '#f0f0f0', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  weekDayCell: { flex: 1, paddingVertical: 12, alignItems: 'center' },
+  weekDayText: { fontSize: 13, fontWeight: '600', color: '#666' },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#ffffff' },
+  dayCell: { width: '14.28%', minHeight: 80, borderRightWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#e8e8e8', paddingTop: 8, paddingHorizontal: 4 },
+  dayCellInactive: { backgroundColor: '#f8f9fa' },
+  dayCellSelected: { backgroundColor: '#fff5f0', borderColor: '#e95a0c', borderWidth: 2, borderRadius: 6, margin: -1 },
+  dayCellToday: { backgroundColor: '#e8f4fd' },
+  dayCellContent: { flex: 1, alignItems: 'center' },
+  dayNumber: { fontSize: 16, fontWeight: '500', color: '#333', marginBottom: 4 },
+  dayNumberInactive: { color: '#999' },
+  dayNumberSelected: { color: '#e95a0c', fontWeight: 'bold', fontSize: 18 },
+  dayNumberToday: { backgroundColor: '#2196f3', color: 'white', borderRadius: 12, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' },
+  eventIndicators: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  eventDot: { width: 6, height: 6, borderRadius: 3, marginRight: 2 },
+  eventCount: { fontSize: 10, color: '#666', fontWeight: '500' },
+  eventPreview: { marginTop: 4, width: '100%' },
+  eventPreviewText: { fontSize: 8, color: '#333', marginBottom: 1, textAlign: 'center' },
+  eventPreviewMore: { fontSize: 8, color: '#e95a0c', fontWeight: 'bold', textAlign: 'center' },
+  eventosDelDiaContainer: { backgroundColor: '#ffffff', borderRadius: 12, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, overflow: 'hidden' },
+  eventosDelDiaHeader: { flexDirection: 'row', alignItems: 'center', padding: 16, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+  eventosDelDiaTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginLeft: 8, flex: 1 },
+  eventCountBadge: { backgroundColor: '#e95a0c', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  eventCountText: { fontSize: 12, color: '#ffffff', fontWeight: 'bold' },
+  eventsList: { maxHeight: 200, paddingHorizontal: 16 },
+  eventoCard: { backgroundColor: '#ffffff', borderRadius: 8, padding: 12, marginVertical: 8, borderWidth: 1, borderColor: '#e0e0e0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
+  eventoCardConflict: { borderColor: '#ff6b6b', backgroundColor: '#fff5f5' },
+  eventoCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  eventoTimeContainer: { flexDirection: 'row', alignItems: 'center' },
+  eventoTime: { fontSize: 14, fontWeight: '600', color: '#e95a0c', marginLeft: 4 },
+  eventoTimeConflict: { color: '#ff6b6b' },
+  conflictBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ff6b6b', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 },
+  conflictBadgeText: { fontSize: 10, color: '#ffffff', marginLeft: 4, fontWeight: '600' },
+  eventoNombre: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 8 },
+  eventoDetails: { marginLeft: 4 },
+  eventoDetailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  eventoDetailText: { fontSize: 12, color: '#666', marginLeft: 4 },
+  eventosDelDiaFooter: { padding: 16, borderTopWidth: 1, borderTopColor: '#e0e0e0', backgroundColor: '#f8f9fa' },
+  eventosDelDiaNote: { fontSize: 12, color: '#666', textAlign: 'center', fontStyle: 'italic' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#ffffff', borderRadius: 12, padding: 20, width: '90%', maxWidth: 400, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginLeft: 8 },
+  modalOption: { paddingVertical: 14, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  modalOptionText: { fontSize: 15, color: '#333' },
+  modalMessage: { fontSize: 14, color: '#666', marginBottom: 12, lineHeight: 20 },
+  conflictEventCard: { backgroundColor: '#f8f9fa', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e0e0e0' },
+  conflictEventTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
+  conflictEventDetails: { fontSize: 14, color: '#666', marginBottom: 4 },
+  conflictEventResponsible: { fontSize: 14, color: '#666', fontStyle: 'italic' },
+  modalWarning: { fontSize: 12, color: '#ff6b6b', marginBottom: 16, textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
+  modalButtonSecondary: { backgroundColor: '#f0f0f0', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, flex: 1, marginRight: 8, alignItems: 'center' },
+  modalButtonSecondaryText: { fontSize: 14, color: '#333', fontWeight: '600' },
+  modalButtonPrimary: { backgroundColor: '#e95a0c', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8, flex: 1, alignItems: 'center' },
+  modalButtonPrimaryText: { fontSize: 14, color: '#ffffff', fontWeight: '600' },
+  selectedText: { fontSize: 14, color: '#e95a0c', marginTop: 5, marginLeft: 10 },
 });
+
 export default ProyectoEvento;
