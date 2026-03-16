@@ -34,14 +34,18 @@ LocaleConfig.locales['es'] = {
 LocaleConfig.defaultLocale = 'es';
 
 // ─── Componente de actividades ────────────────────────────────────────────────
-const SeccionActividades = ({ titulo, actividades, setActividades, handleActividadDateChange, errors }) => {
+const SeccionActividades = ({ titulo, actividades, setActividades, handleActividadDateChange, errors, fechaevento }) => {
+   const fechaBase = fechaevento instanceof Date && !isNaN(fechaevento) 
+      ? fechaevento 
+      : new Date();
+      
   const agregarActividad = () => {
     setActividades(prev => [...prev, {
       key: `act-${titulo.replace(/\s/g, '')}-${Date.now()}`,
       nombreActividad: '',
       responsable: '',
-      fechaInicio: new Date(),
-      fechaFin: new Date(),
+      fechaInicio: new Date(fechaBase),
+      fechaFin: new Date(fechaBase),
       showDatePickerInicio: false,
       showDatePickerFin: false,
     }]);
@@ -522,6 +526,7 @@ const programacionEvento = () => {
           setActividades={setActividadesPrevias}
           handleActividadDateChange={handleActividadDateChange}
           errors={errors}
+          fechaevento={fechaHoraSeleccionada}
         />
         <SeccionActividades
           titulo="Programación de Actividades Durante el Evento"
@@ -529,6 +534,7 @@ const programacionEvento = () => {
           setActividades={setActividadesDurante}
           handleActividadDateChange={handleActividadDateChange}
           errors={errors}
+          fechaevento={fechaHoraSeleccionada}
         />
         <SeccionActividades
           titulo="Programación de Actividades Después del Evento"
@@ -536,6 +542,7 @@ const programacionEvento = () => {
           setActividades={setActividadesPost}
           handleActividadDateChange={handleActividadDateChange}
           errors={errors}
+          fechaevento={fechaHoraSeleccionada}
         />
 
         {/* Servicios */}

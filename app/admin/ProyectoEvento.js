@@ -1277,6 +1277,27 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
         <Text style={styles.headerTitle}>Crear Evento</Text>
         <NotificationBell notificationCount={unreadCount} onPress={() => setShowNotificationsModal(true)} />
       </View>
+      <Text style={styles.label}>Hora de Inicio</Text>
+<TouchableOpacity
+  onPress={() => setShowTimePicker(true)}
+  style={styles.datePickerButton}
+>
+  <Ionicons name="time-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
+  <Text style={styles.datePickerText}>
+    {dayjs(fechaHoraSeleccionada).format('HH:mm')}
+  </Text>
+</TouchableOpacity>
+
+{/* DateTimePicker para hora - solo se muestra cuando showTimePicker es true */}
+{showTimePicker && (
+  <DateTimePicker
+    value={fechaHoraSeleccionada}
+    mode="time"
+    display="spinner"
+    is24Hour={true}
+    onChange={onChangeTimeEventoPrincipal}
+  />
+)}
       <View style={styles.mainContainer}>
         {width > 768 && (
           <View style={styles.calendarColumn}>
@@ -2007,6 +2028,17 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 3,
   },
+  timePickerButton: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#F8F9FA',
+  borderWidth: 1,
+  borderColor: '#E0E0E0',
+  borderRadius: 8,
+  paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+  marginBottom: 15,
+  paddingLeft: 0,
+},
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
