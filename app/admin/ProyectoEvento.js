@@ -1277,19 +1277,72 @@ console.log('🔢 ID Subcategoría (mapeado a BD):', getSubcategoriaId(subcatego
         <Text style={styles.headerTitle}>Crear Evento</Text>
         <NotificationBell notificationCount={unreadCount} onPress={() => setShowNotificationsModal(true)} />
       </View>
-      <Text style={styles.label}>Hora de Inicio</Text>
-<TouchableOpacity
-  onPress={() => setShowTimePicker(true)}
-  style={styles.datePickerButton}
->
-  <Ionicons name="time-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
-  <Text style={styles.datePickerText}>
-    {dayjs(fechaHoraSeleccionada).format('HH:mm')}
-  </Text>
-</TouchableOpacity>
+      <View style={styles.horaInicioBar}>
+  <Text style={styles.horaInicioLabel}>Hora de Inicio</Text>
+  <View style={styles.horaInicioControls}>
+    {/* Botón restar hora */}
+    <TouchableOpacity
+      onPress={() => {
+        const d = new Date(fechaHoraSeleccionada);
+        d.setMinutes(d.getMinutes() - 15);
+        handleClockTimeChange(d);
+      }}
+      style={styles.horaBtn}
+    >
+      <Ionicons name="remove" size={20} color="#e95a0c" />
+    </TouchableOpacity>
 
-{/* DateTimePicker para hora - solo se muestra cuando showTimePicker es true */}
-{showTimePicker && (
+    {/* Display de hora — toca para abrir picker nativo en móvil */}
+    <TouchableOpacity
+      onPress={() => Platform.OS !== 'web' && setShowTimePicker(true)}
+      style={styles.horaBadge}
+      activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
+    >
+      <Ionicons name="time-outline" size={18} color="#e95a0c" />
+      <Text style={styles.horaBadgeText}>
+        {dayjs(fechaHoraSeleccionada).format('HH:mm')}
+      </Text>
+    </TouchableOpacity>
+
+    {/* Botón sumar hora */}
+    <TouchableOpacity
+      onPress={() => {
+        const d = new Date(fechaHoraSeleccionada);
+        d.setMinutes(d.getMinutes() + 15);
+        handleClockTimeChange(d);
+      }}
+      style={styles.horaBtn}
+    >
+      <Ionicons name="add" size={20} color="#e95a0c" />
+    </TouchableOpacity>
+
+    {/* Input nativo solo en web */}
+    {Platform.OS === 'web' && (
+      <input
+        type="time"
+        value={dayjs(fechaHoraSeleccionada).format('HH:mm')}
+        onChange={(e) => {
+          const [hh, mm] = e.target.value.split(':');
+          const d = new Date(fechaHoraSeleccionada);
+          d.setHours(parseInt(hh, 10), parseInt(mm, 10), 0, 0);
+          handleClockTimeChange(d);
+        }}
+        style={{
+          border: 'none',
+          background: 'transparent',
+          fontSize: 14,
+          color: '#666',
+          cursor: 'pointer',
+          outline: 'none',
+          marginLeft: 8,
+        }}
+      />
+    )}
+  </View>
+</View>
+
+{/* Picker nativo para iOS/Android */}
+{showTimePicker && Platform.OS !== 'web' && (
   <DateTimePicker
     value={fechaHoraSeleccionada}
     mode="time"
@@ -1877,6 +1930,53 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  horaInicioBar: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 20,
+  paddingVertical: 10,
+  backgroundColor: '#ffffff',
+  borderBottomWidth: 1,
+  borderBottomColor: '#f0f0f0',
+},
+horaInicioLabel: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#555',
+},
+horaInicioControls: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+},
+horaBtn: {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  backgroundColor: '#fff5f0',
+  borderWidth: 1,
+  borderColor: '#e95a0c',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+horaBadge: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#fff5f0',
+  borderRadius: 20,
+  paddingHorizontal: 14,
+  paddingVertical: 7,
+  borderWidth: 1,
+  borderColor: '#e95a0c',
+  gap: 6,
+},
+horaBadgeText: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: '#e95a0c',
+  letterSpacing: 1,
+},
   confirmModalContent: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
