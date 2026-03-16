@@ -1257,7 +1257,7 @@ const ProyectoEvento = () => {
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
-      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.replace('/') }]);
+      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.replace('./HomeAcademico.js') }]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
       if (error.response) {
