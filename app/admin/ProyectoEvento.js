@@ -945,12 +945,14 @@ const ProyectoEvento = () => {
     const fechaFormateada = dayjs(fechaHora).format('YYYY-MM-DD');
     const horaFormateada = dayjs(fechaHora).format('HH:mm');
     const eventosEnMismaFecha = eventos.filter(evento => dayjs(evento.fechaevento).format('YYYY-MM-DD') === fechaFormateada);
+
     return eventosEnMismaFecha.filter(evento => {
       const horaEventoString = (evento.horaevento || '').split('+')[0].trim();
       const horaEvento = dayjs(horaEventoString, 'HH:mm:ss');
       if (!horaEvento.isValid()) return false;
+
       const horaSeleccionada = dayjs(horaFormateada, 'HH:mm');
-      return Math.abs(horaEvento.diff(horaSeleccionada, 'minutes')) < 120;
+      return Math.abs(horaEvento.diff(horaSeleccionada, 'minutes')) < 240;
     });
   };
 
@@ -1185,6 +1187,22 @@ const ProyectoEvento = () => {
       return;
     }
     try {
+      const conflictos= verificarConflictoHorario(fechaHoraSeleccionada);
+      if (conflictos.length > 0) {
+      setIsLoading(false);
+      Alert.alert(
+        '⚠️ Conflicto de Horario',
+        `Ya existe un evento programado a las ${dayjs(fechaHoraSeleccionada).format('HH:mm')} del ${dayjs(fechaHoraSeleccionada).format('DD/MM/YYYY')}.
+        
+        Evento existente: ${conflictos[0].nombreevento}
+        Lugar: ${conflictos[0].lugarevento}
+        Responsable: ${conflictos[0].responsable_evento}
+        
+        Por favor, selecciona otra hora o fecha.`,
+        [{ text: 'Entendido' }]
+      );
+      return; 
+    }
       if (!nombreevento.trim()) throw new Error('El nombre del evento es obligatorio');
       const tiposParaEnviar = Object.keys(tiposSeleccionados)
         .filter(id => tiposSeleccionados[id])
