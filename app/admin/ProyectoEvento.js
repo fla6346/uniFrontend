@@ -162,23 +162,22 @@ const TimePicker = ({ value, onChange }) => {
     onChange(d);
   };
 
- 
-// iOS / Android: usar picker nativo mejorado
-if (Platform.OS !== 'web') {
-  return (
-    <View style={styles.mobileTimePickerContainer}>
-      <TouchableOpacity
-        onPress={() => setShowNativePicker(true)}
-        style={styles.timePickerTrigger}
-      >
-        <Ionicons name="time-outline" size={20} color="#e95a0c" />
-        <Text style={styles.timePickerTriggerText}>{pad(h)}:{pad(m)}</Text>
-        <Ionicons name="chevron-down" size={16} color="#888" />
-      </TouchableOpacity>
-      
-      {showNativePicker && (
+  // iOS / Android: usar picker nativo con Modal
+  if (Platform.OS !== 'web') {
+    return (
+      <>
+        <TouchableOpacity
+          onPress={() => setShowNativePicker(true)}
+          style={styles.timePickerTrigger}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="time-outline" size={20} color="#e95a0c" />
+          <Text style={styles.timePickerTriggerText}>{pad(h)}:{pad(m)}</Text>
+          <Ionicons name="chevron-down" size={16} color="#888" />
+        </TouchableOpacity>
+        
         <Modal
-          visible={true}
+          visible={showNativePicker}
           transparent={true}
           animationType="slide"
           onRequestClose={() => setShowNativePicker(false)}
@@ -186,7 +185,7 @@ if (Platform.OS !== 'web') {
           <View style={styles.modalOverlay}>
             <View style={styles.pickerModalContent}>
               <View style={styles.pickerHeader}>
-                <Text style={styles.pickerTitle}>Seleccionar Hora</Text>
+                <Text style={styles.pickerTitle}>Seleccionar Hora de Inicio</Text>
                 <TouchableOpacity onPress={() => setShowNativePicker(false)}>
                   <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
@@ -213,16 +212,105 @@ if (Platform.OS !== 'web') {
                   style={styles.doneButton}
                   onPress={() => setShowNativePicker(false)}
                 >
-                  <Text style={styles.doneButtonText}>Listo</Text>
+                  <Text style={styles.doneButtonText}>Listo - {pad(h)}:{pad(m)}</Text>
                 </TouchableOpacity>
               )}
             </View>
           </View>
         </Modal>
-      )}
-    </View>
+      </>
+    );
+  }
+
+  // Web: tambor visual con Modal para evitar problemas de z-index
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setOpen(!open)}
+        style={styles.timePickerTrigger}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="time-outline" size={20} color="#e95a0c" />
+        <Text style={styles.timePickerTriggerText}>{pad(h)}:{pad(m)}</Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#888" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={open}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlayTransparent} 
+          activeOpacity={1} 
+          onPress={() => setOpen(false)} 
+        />
+        <View style={styles.timePickerModalContent}>
+          {/* Tambores */}
+          <View style={styles.drumRow}>
+            {/* Horas */}
+            <View style={styles.drum}>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply((h + 1) % 24, m)}>
+                <Ionicons name="chevron-up" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+              <Text style={styles.drumVal}>{pad(h)}</Text>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply((h + 23) % 24, m)}>
+                <Ionicons name="chevron-down" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.drumColon}>:</Text>
+            {/* Minutos */}
+            <View style={styles.drum}>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply(h, (m + 5) % 60)}>
+                <Ionicons name="chevron-up" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+              <Text style={styles.drumVal}>{pad(m)}</Text>
+              <TouchableOpacity style={styles.drumBtn} onPress={() => apply(h, m - 5 < 0 ? 55 : m - 5)}>
+                <Ionicons name="chevron-down" size={22} color="#e95a0c" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Accesos rápidos */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 14 }}
+            contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}
+          >
+            {QUICK_TIMES.map((qt) => (
+              <TouchableOpacity
+                key={qt}
+                style={[
+                  styles.quickTimeBtn,
+                  h === qt && m === 0 && styles.quickTimeBtnActive
+                ]}
+                onPress={() => { apply(qt, 0); setOpen(false); }}
+              >
+                <Text style={[
+                  styles.quickTimeBtnText,
+                  h === qt && m === 0 && styles.quickTimeBtnTextActive
+                ]}>
+                  {pad(qt)}:00
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Botón confirmar */}
+          <TouchableOpacity
+            style={styles.timePickerApply}
+            onPress={() => setOpen(false)}
+          >
+            <Text style={styles.timePickerApplyText}>
+              Confirmar {pad(h)}:{pad(m)}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    </>
   );
-}
 };
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
@@ -1598,7 +1686,6 @@ const ProyectoEvento = () => {
 };
 
 const styles = StyleSheet.create({
-  // ── TimePicker styles ──────────────────────────────────────────
   horaInicioBar: {
   flexDirection: 'row',
   alignItems: 'center',
@@ -1608,8 +1695,8 @@ const styles = StyleSheet.create({
   backgroundColor: '#ffffff',
   borderBottomWidth: 1,
   borderBottomColor: '#f0f0f0',
-  zIndex:1000,
-  elevation:10
+  zIndex: 100,
+  elevation: 10,
 },
   horaInicioLabel: {
     fontSize: 14,
@@ -2236,6 +2323,33 @@ doneButtonText: {
   color: '#fff',
   fontSize: 16,
   fontWeight: 'bold',
+},
+modalOverlayTransparent: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0,0,0,0.3)',
+  zIndex: 9998,
+},
+timePickerModalContent: {
+  position: 'absolute',
+  top: '40%',
+  left: '50%',
+  transform: [{ translateX: -140 }, { translateY: -150 }],
+  backgroundColor: '#fff',
+  borderRadius: 12,
+  borderWidth: 2,
+  borderColor: '#e95a0c',
+  padding: 16,
+  zIndex: 9999,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.3,
+  shadowRadius: 20,
+  elevation: 20,
+  minWidth: 280,
 },
 });
 
