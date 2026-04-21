@@ -25,7 +25,7 @@ import { useRouter, Stack } from 'expo-router';
  //const API_BASE_URL =  'https://unifrontend.onrender.com';
  
  
- const API_BASE_URL = 'https://evento.cidtec-uc.com'; // Cambia esto a tu URL de backend
+ const API_BASE_URL = 'https://unifrontend-production.up.railway.app'; // Cambia esto a tu URL de backend
  let determinedApiBaseUrl= API_BASE_URL;
 
 
