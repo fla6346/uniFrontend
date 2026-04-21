@@ -22,7 +22,7 @@ import { useRouter, Stack } from 'expo-router';
       determinedApiBaseUrl = 'http://localhost:3001/api';
   }
   */
- const API_BASE_URL =  'https://unibackend-1-izpi.onrender.com/api'; // Cambia esto a tu URL de backend
+ const API_BASE_URL =  'https://evento.cidtec-uc.com'; // Cambia esto a tu URL de backend
  let determinedApiBaseUrl= API_BASE_URL;
 ;
 
@@ -49,7 +49,7 @@ const LoginScreen = () => {
     const response = await axios.post(apiUrl, {
       email: trimmedEmail,
       password: trimmedPassword,
-    }, { timeout: 10000 });
+    }, { timeout: 120000 });
 
     console.log("✅ Respuesta del servidor:", response.data);
 
@@ -312,15 +312,10 @@ const styles = StyleSheet.create({
     elevation: 8,
     alignItems: 'center',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-    marginBottom: 30,
-    color: '#333',
-  },
+
   input: {
     width: '100%',
-    height: 50,
+    height: 55,
     backgroundColor: '#f9f9f9',
     borderWidth: 1,
     borderColor: '#e0e0e0',
@@ -330,15 +325,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  button: {
-    backgroundColor: '#FF5733', // Un color naranja como ejemplo
-    width: '100%',
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
+  
   buttonDisabled: {
     backgroundColor: '#FFA07A', // Un naranja más claro para deshabilitado
   },
@@ -378,17 +365,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.6)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
-  },
-  input: {
-    width: '100%',
-    height: 55,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 18,
-    borderWidth: 0,
   },
   button: {
     backgroundColor: '#e95a0c',

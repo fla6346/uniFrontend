@@ -5,7 +5,7 @@ import {
   FlatList, KeyboardAvoidingView, Platform,
   ActivityIndicator, StyleSheet, SafeAreaView
 } from 'react-native';
-import { BotService } from '../services/botService';
+import { BotService } from '../../services/botService';
 
 export default function ChatScreen({ route }) {
   const sender = route?.params?.email || 'invitado';

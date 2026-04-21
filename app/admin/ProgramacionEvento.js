@@ -13,7 +13,7 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import dayjs from 'dayjs';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
@@ -33,7 +33,43 @@ LocaleConfig.locales['es'] = {
 };
 LocaleConfig.defaultLocale = 'es';
 
-// ─── Componente de actividades ────────────────────────────────────────────────
+const parseDateSafe = (date) => {
+  if (!date) return new Date().toISOString().split('T')[0];
+  if (date instanceof Date) {
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ Fecha Date inválida:', date);
+      return new Date().toISOString().split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
+  }
+  const parsed = new Date(date);
+  if (isNaN(parsed.getTime())) {
+    console.warn('⚠️ Fecha string inválida:', date);
+    return new Date().toISOString().split('T')[0];
+  }
+  return parsed.toISOString().split('T')[0];
+};
+
+const formatActivityForSubmit = (actividad) => ({
+  nombreActividad: actividad.nombreActividad?.trim() || '',
+  responsable: actividad.responsable?.trim() || '',
+  fechaInicio: parseDateSafe(actividad.fechaInicio),
+  fechaFin: parseDateSafe(actividad.fechaFin),
+});
+
+const formatAmbienteForSubmit = (ambiente) => ({
+  nombre: ambiente.nombre?.trim() || '',
+  requisito: ambiente.requisito?.trim() || '',
+  observaciones: ambiente.observaciones?.trim() || '',
+});
+
+const formatServicioForSubmit = (servicio) => ({
+  nombreServicio: servicio.nombreServicio?.trim() || '',
+  caracteristica: servicio.caracteristica?.trim() || '',
+  fechaInicio: parseDateSafe(servicio.fechaInicio),
+  observaciones: servicio.observaciones?.trim() || '',
+});
+
 const SeccionActividades = ({ titulo, actividades, setActividades, handleActividadDateChange, errors, fechaevento }) => {
    const fechaBase = fechaevento instanceof Date && !isNaN(fechaevento) 
       ? fechaevento 
@@ -158,7 +194,6 @@ const SeccionActividades = ({ titulo, actividades, setActividades, handleActivid
   );
 };
 
-// ─── Componente principal ─────────────────────────────────────────────────────
 const programacionEvento = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -196,7 +231,6 @@ const programacionEvento = () => {
   const { idevento } = params;
   const isEditing = !!idevento;
 
-  // ── Formatters ──────────────────────────────────────────────────────────────
   const formatToISODate = (date) => {
     if (!(date instanceof Date) || isNaN(date.valueOf())) return new Date().toISOString().split('T')[0];
     return date.toISOString().split('T')[0];
@@ -206,34 +240,6 @@ const programacionEvento = () => {
     return date.toTimeString().split(' ')[0].substring(0, 5);
   };
 
-  // ── Limpia campos de UI antes de enviar al backend ──────────────────────────
-  const formatActivityForSubmit = (actividad) => ({
-    nombreActividad: actividad.nombreActividad,
-    responsable: actividad.responsable,
-    fechaInicio: actividad.fechaInicio instanceof Date
-      ? actividad.fechaInicio.toISOString().split('T')[0]
-      : actividad.fechaInicio,
-    fechaFin: actividad.fechaFin instanceof Date
-      ? actividad.fechaFin.toISOString().split('T')[0]
-      : actividad.fechaFin,
-  });
-
-  const formatAmbienteForSubmit = (ambiente) => ({
-    nombre: ambiente.nombre,
-    requisito: ambiente.requisito,
-    observaciones: ambiente.observaciones,
-  });
-
-  const formatServicioForSubmit = (servicio) => ({
-    nombreServicio: servicio.nombreServicio,
-    caracteristica: servicio.caracteristica,
-    fechaInicio: servicio.fechaInicio instanceof Date
-      ? servicio.fechaInicio.toISOString().split('T')[0]
-      : servicio.fechaInicio,
-    observaciones: servicio.observaciones,
-  });
-
-  // ── Fechas de actividades ───────────────────────────────────────────────────
   const handleActividadDateChange = (index, field, event, selectedDate, setActividades) => {
     const pickerFlag = field === 'fechaInicio' ? 'showDatePickerInicio' : 'showDatePickerFin';
     setActividades(prev => {
@@ -255,7 +261,6 @@ const programacionEvento = () => {
     }
   };
 
-  // ── Validación ──────────────────────────────────────────────────────────────
   const validateForm = () => {
     const newErrors = {};
     if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es requerido.';
@@ -275,7 +280,6 @@ const programacionEvento = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ── Ambientes ───────────────────────────────────────────────────────────────
   const agregarAmbiente = () => setAmbientes(prev => [...prev, { key: `ambiente_${Date.now()}`, nombre: '', requisito: '', observaciones: '' }]);
   const eliminarAmbiente = (index) => setAmbientes(ambientes.filter((_, i) => i !== index));
   const actualizarAmbiente = (index, campo, valor) => {
@@ -284,7 +288,6 @@ const programacionEvento = () => {
     setAmbientes(nuevos);
   };
 
-  // ── Servicios ───────────────────────────────────────────────────────────────
   const agregarServicio = () => setServiciosContratados(prev => [...prev, { key: `servicio_${Date.now()}`, nombreServicio: '', caracteristica: '', fechaInicio: new Date(), observaciones: '', showDatePickerInicio: false }]);
   const eliminarServicio = (index) => setServiciosContratados(serviciosContratados.filter((_, i) => i !== index));
   const actualizarServicio = (index, campo, valor) => {
@@ -299,7 +302,6 @@ const programacionEvento = () => {
     }
   };
 
-  // ── Layouts ─────────────────────────────────────────────────────────────────
   const cargarLayouts = async (token) => {
     const authTokenToUse = token || authToken;
     if (!authTokenToUse) return;
@@ -321,7 +323,6 @@ const programacionEvento = () => {
     }
   };
 
-  // ── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     const initializeAndFetch = async () => {
       const token = await getTokenAsync();
@@ -421,7 +422,7 @@ const programacionEvento = () => {
     initializeAndFetch();
   }, [idevento]);
 
-  if (isEditing && isLoadingEventos) {
+  if (isEditing && idevento && layoutsDisponibles.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#e95a0c" />
@@ -430,7 +431,6 @@ const programacionEvento = () => {
     );
   }
 
-  // ── Guardar ─────────────────────────────────────────────────────────────────
   const handleCrearEvento = async () => {
     if (!validateForm()) {
       Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo.");
@@ -442,6 +442,10 @@ const programacionEvento = () => {
     }
 
     setIsLoading(true);
+     try {
+    if (!fechaHoraSeleccionada || isNaN(fechaHoraSeleccionada.getTime())) {
+      throw new Error('Fecha del evento inválida');
+    }
 
     const fasePayload = {
       nrofase: 2,
@@ -457,7 +461,6 @@ const programacionEvento = () => {
       actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
       actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
       actividadesPost: actividadesPost.map(formatActivityForSubmit),
-      // ↓ FIX: limpia campos de UI (key, showDatePickerInicio, etc.)
       serviciosContratados: serviciosContratados.map(formatServicioForSubmit),
       ambientes: ambientes.map(formatAmbienteForSubmit),
       idlayout: layoutSeleccionado ? layoutSeleccionado.idlayout : null,
@@ -466,30 +469,86 @@ const programacionEvento = () => {
     };
 
     console.log('📦 Payload enviado:', JSON.stringify(payload, null, 2));
+     console.log('🔧 Modo:', isEditing ? 'EDICIÓN' : 'CREACIÓN');
+    console.log('🔑 ID Evento:', idevento);
 
-    try {
-      if (isEditing) {
-        await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
-          headers: { 'Authorization': `Bearer ${authToken}` },
-        });
-        Alert.alert('Éxito', 'Evento actualizado correctamente.');
-      } else {
-        await axios.post(`${API_BASE_URL}/eventos`, payload, {
-          headers: { 'Authorization': `Bearer ${authToken}` },
-        });
-        Alert.alert('Éxito', 'Evento creado correctamente.');
-      }
-      router.back();
-    } catch (error) {
-      console.error("Error al guardar evento:", error.response?.data || error.message);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Ocurrió un error al conectar con el servidor.';
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setIsLoading(false);
+  const validarFechasActividades = (actividades, nombre) => {
+      actividades.forEach((act, idx) => {
+        if (!act.fechaInicio || isNaN(new Date(act.fechaInicio).getTime())) {
+          console.warn(`⚠️ Fecha inválida en ${nombre}[${idx}]:`, act);
+        }
+        if (!act.fechaFin || isNaN(new Date(act.fechaFin).getTime())) {
+          console.warn(`⚠️ Fecha fin inválida en ${nombre}[${idx}]:`, act);
+        }
+      });
+    };
+
+    validarFechasActividades(payload.actividadesPrevias, 'actividadesPrevias');
+    validarFechasActividades(payload.actividadesDurante, 'actividadesDurante');
+    validarFechasActividades(payload.actividadesPost, 'actividadesPost');
+
+    let response;
+    if (isEditing) {
+      console.log(`✏️ Actualizando evento ${idevento}...`);
+      response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
+        headers: { 
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+      });
+    } else {
+      console.log('➕ Creando nuevo evento...');
+      response = await axios.post(`${API_BASE_URL}/eventos`, payload, {
+        headers: { 
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+      });
     }
-  };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+    console.log('✅ Respuesta del servidor:', response.data);
+    
+    Alert.alert(
+      'Éxito', 
+      isEditing ? 'Evento actualizado correctamente.' : 'Evento creado correctamente.',
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
+    
+  } catch (error) {
+    console.error('❌ Error detallado al guardar evento:');
+    console.error('├─ Status:', error.response?.status);
+    console.error('├─ Data:', error.response?.data);
+    console.error('├─ Message:', error.message);
+    console.error('└─ Config:', error.config);
+
+    let errorMessage = 'Ocurrió un error al guardar el evento.';
+    
+    if (error.response) {
+      const serverError = error.response.data;
+      
+      if (serverError.message) {
+        errorMessage = serverError.message;
+      } else if (serverError.error) {
+        errorMessage = serverError.error;
+      } else if (typeof serverError === 'string') {
+        errorMessage = serverError;
+      }
+      
+      if (errorMessage.includes('Transaction cannot be rolled back')) {
+        errorMessage = 'Error de base de datos. Por favor, contacta al administrador del sistema.\n\nDetalles: La transacción ya fue completada.';
+        console.error('🚨 ERROR DE TRANSACCIÓN DETECTADO - Posible bug en el backend');
+      }
+      
+    } else if (error.request) {
+      errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión.';
+    }
+
+    Alert.alert('Error al guardar', errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -502,7 +561,6 @@ const programacionEvento = () => {
       >
         <Stack.Screen options={{ title: isEditing ? 'Programar Evento' : 'Crear Nuevo Evento' }} />
 
-        {/* Información Principal */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Información Principal</Text>
           <View style={styles.infoRow}>
@@ -519,7 +577,6 @@ const programacionEvento = () => {
           </View>
         </View>
 
-        {/* Actividades */}
         <SeccionActividades
           titulo="Programación de Actividades Previas"
           actividades={actividadesPrevias}
@@ -545,7 +602,6 @@ const programacionEvento = () => {
           fechaevento={fechaHoraSeleccionada}
         />
 
-        {/* Servicios */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Servicios</Text>
           {serviciosContratados.map((servicio, index) => (
@@ -592,6 +648,10 @@ const programacionEvento = () => {
                   value={servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio) 
                     ? servicio.fechaInicio 
                     : new Date()} 
+                     mode="date"
+                    display="default"
+                    onChange={(event, date) => handleServicioDateChange(index, 'fechaInicio', event, date)}
+  
                 />
               )}
               <Text style={styles.label}>Observaciones</Text>
@@ -613,7 +673,6 @@ const programacionEvento = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Ambientes */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Ambiente</Text>
           {ambientes.map((ambiente, index) => (
@@ -665,7 +724,6 @@ const programacionEvento = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Layouts */}
         <View style={styles.formSection}>
           <Text style={styles.sectionTitle}>Layouts Disponibles</Text>
           {cargandoLayouts ? (
@@ -684,30 +742,50 @@ const programacionEvento = () => {
               </TouchableOpacity>
             </View>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <>
+           <Text style={{ color: '#aaa', fontSize: 12, marginBottom: 6, textAlign: 'center', fontStyle: 'italic' }}>
+              Desliza para ver más →
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={true}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingRight: 20 }}
+            >
               <View style={styles.layoutsGrid}>
                 {layoutsDisponibles.map((layout) => {
-                  const imageUrl = layout.imagenUrl || `${API_BASE_URL.replace('/api', '')}/uploads/${layout.url_imagen}`;
+                  const imageUrl = layout.imagenUrl || `${API_BASE_URL}/uploads/${layout.url_imagen}`;
                   const isSelected = layoutSeleccionado?.idlayout === layout.idlayout;
                   return (
-                    <View key={layout.idlayout} style={[styles.layoutItem, isSelected && styles.layoutItemSelected]}>
-                      <TouchableOpacity onPress={() => setLayoutSeleccionado(layout)}>
-                        <Image
-                          source={{ uri: imageUrl }}
-                          style={styles.layoutImage}
-                          resizeMode="cover"
-                        />
-                      </TouchableOpacity>
+                    <TouchableOpacity
+                      key={layout.idlayout}
+                      style={[styles.layoutItem, isSelected && styles.layoutItemSelected]}
+                      onPress={() => setLayoutSeleccionado(isSelected ? null : layout)}
+                      activeOpacity={0.85}
+                    >
+                      <Image
+                        source={{ uri: imageUrl }}
+                        style={styles.layoutImage}
+                        resizeMode="cover"
+                      />
                       <Text style={styles.layoutName} numberOfLines={2}>{layout.nombre}</Text>
-                    </View>
+                      {isSelected && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                          <Ionicons name="checkmark-circle" size={18} color="#e95a0c" />
+                          <Text style={{ color: '#e95a0c', fontSize: 12, marginLeft: 4, fontWeight: '600' }}>
+                            Seleccionado
+                          </Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
                   );
                 })}
               </View>
             </ScrollView>
-          )}
-        </View>
+            </>
+                      )}
+                    </View>
 
-        {/* Botón guardar */}
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleCrearEvento}
@@ -723,7 +801,6 @@ const programacionEvento = () => {
   );
 };
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   keyboardAvoidingContainer: { flex: 1, backgroundColor: '#F4F7F9' },
   scrollView: { flex: 1 },
@@ -756,11 +833,46 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   infoLabel: { fontSize: 14, color: '#64748b', fontWeight: '500', flex: 1, flexWrap: 'wrap' },
   infoValue: { fontSize: 15, color: '#1e293b', fontWeight: '600', textAlign: 'right', flex: 1.2, flexWrap: 'wrap' },
-  layoutsGrid: { flexDirection: 'row', paddingVertical: 10 },
-  layoutItem: { width: 150, marginRight: 15, alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 3 },
-  layoutItemSelected: { borderColor: '#e95a0c', borderWidth: 2, borderRadius: 10, backgroundColor: '#fffaf5' },
-  layoutImage: { width: 130, height: 130, borderRadius: 8, backgroundColor: '#f0f0f0', borderWidth: 1, borderColor: '#eee' },
-  layoutName: { marginTop: 8, fontSize: 13, color: '#333', textAlign: 'center', fontWeight: '500', width: '100%' },
+  layoutsGrid: { 
+  flexDirection: 'row', 
+  paddingVertical: 10,
+  paddingHorizontal: 5,
+},
+layoutItem: { 
+  width: 260,
+  marginRight: 15, 
+  alignItems: 'center', 
+  backgroundColor: '#fff', 
+  borderRadius: 12, 
+  padding: 12, 
+  shadowColor: "#000", 
+  shadowOffset: { width: 0, height: 2 }, 
+  shadowOpacity: 0.12, 
+  shadowRadius: 4, 
+  elevation: 4,
+},
+layoutItemSelected: { 
+  borderColor: '#e95a0c', 
+  borderWidth: 3, 
+  borderRadius: 12, 
+  backgroundColor: '#fffaf5',
+},
+layoutImage: { 
+  width: 236,
+  height: 180, 
+  borderRadius: 8, 
+  backgroundColor: '#f0f0f0', 
+  borderWidth: 1, 
+  borderColor: '#eee',
+},
+layoutName: { 
+  marginTop: 10, 
+  fontSize: 14, 
+  color: '#333', 
+  textAlign: 'center', 
+  fontWeight: '600', 
+  width: '100%',
+},
 });
 
 export default programacionEvento;

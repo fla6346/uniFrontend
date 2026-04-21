@@ -27,7 +27,7 @@ let determinedApiBaseUrl;
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api'; // ✅ Web usa localhost
 }*/
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 
 const COLORS = {
   primary: '#E95A0C',

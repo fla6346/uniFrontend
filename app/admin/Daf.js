@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {

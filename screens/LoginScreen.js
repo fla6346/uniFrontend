@@ -22,7 +22,7 @@ const LoginScreen = ({ navigation }) => {
       const trimmedUsername = username.trim();
       const trimmedPassword = password.trim();
       console.log("send",{trimmedUsername,trimmedPassword});
-    const response = await axios.post('http://192.168.0.167:5000/api/auth/login', { 
+    const response = await axios.post('http://192.168.0.167:5000/auth/login', { 
       userName: trimmedUsername,
       contrasenia: trimmedPassword }, {
       timeout: 5000,
@@ -32,7 +32,7 @@ const LoginScreen = ({ navigation }) => {
       await AsyncStorage.setItem('userToken', token);
       
     
-      const usersResponse = await axios.get('http://192.168.0.167:5000/api/events', {
+      const usersResponse = await axios.get('http://192.168.0.167:5000/events', {
         headers: {
           Authorization: `Bearer ${token}`,
         },

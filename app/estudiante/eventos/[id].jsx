@@ -41,7 +41,7 @@ let determinedApiBaseUrl;
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }*/
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'studentAuthToken';
 
 const getTokenAsync = async () => {

@@ -38,17 +38,17 @@ const RegisterScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Crear Cuenta</Text>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    <View style={S.container}>
+      <Text style={S.title}>Crear Cuenta</Text>
+      {error ? <Text style={S.errorText}>{error}</Text> : null}
       <TextInput
-        style={styles.input}
+        style={S.input}
         placeholder="Nombre Completo"
         value={name}
         onChangeText={setName}
       />
       <TextInput
-        style={styles.input}
+        style={S.input}
         placeholder="Correo Electrónico"
         value={email}
         onChangeText={setEmail}
@@ -56,14 +56,14 @@ const RegisterScreen = () => {
         autoCapitalize="none"
       />
       <TextInput
-        style={styles.input}
+        style={S.input}
         placeholder="Contraseña"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
       <TextInput
-        style={styles.input}
+        style={S.input}
         placeholder="Confirmar Contraseña"
         value={confirmPassword}
         onChangeText={setConfirmPassword}

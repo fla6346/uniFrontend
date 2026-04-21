@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
 
@@ -1275,7 +1275,7 @@ const ProyectoEvento = () => {
       const response = await axios.post(`${API_BASE_URL}/eventos`, eventoPayload, {
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
       });
-      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.replace('./HomeAcademico.js') }]);
+      Alert.alert('Éxito', 'El evento ha sido creado correctamente.', [{ text: 'OK', onPress: () => router.replace('/HomeAcademico.js') }]);
     } catch (error) {
       let errorMessage = "Ocurrió un error desconocido.";
       if (error.response) {

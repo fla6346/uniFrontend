@@ -32,7 +32,7 @@ const ProfileScreen = () => {
   if (!user) {
     // Esto no debería pasar si la pantalla está protegida, pero por si acaso
     return (
-      <View style={styles.centered}>
+      <View style={S.centered}>
         <Text>No has iniciado sesión.</Text>
         <Button title="Ir a Login" onPress={() => navigation.navigate('Login')} />
       </View>
@@ -40,23 +40,23 @@ const ProfileScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Mi Perfil</Text>
-      <View style={styles.infoContainer}>
-        <Text style={styles.label}>Nombre:</Text>
-        <Text style={styles.value}>{user.name}</Text>
+    <View style={S.container}>
+      <Text style={S.title}>Mi Perfil</Text>
+      <View style={S.infoContainer}>
+        <Text style={S.label}>Nombre:</Text>
+        <Text style={S.value}>{user.name}</Text>
       </View>
-      <View style={styles.infoContainer}>
-        <Text style={styles.label}>Correo Electrónico:</Text>
-        <Text style={styles.value}>{user.email}</Text>
+      <View style={S.infoContainer}>
+        <Text style={S.label}>Correo Electrónico:</Text>
+        <Text style={S.value}>{user.email}</Text>
       </View>
-      <View style={styles.infoContainer}>
-        <Text style={styles.label}>Rol:</Text>
-        <Text style={styles.value}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Text>
+      <View style={S.infoContainer}>
+        <Text style={S.label}>Rol:</Text>
+        <Text style={S.value}>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Text>
       </View>
 
       {/* <Button title="Editar Perfil" onPress={() => navigation.navigate('EditProfile')} /> */}
-      <View style={styles.logoutButtonContainer}>
+      <View style={S.logoutButtonContainer}>
         <Button title="Cerrar Sesión" onPress={handleLogout} color="red" />
       </View>
     </View>

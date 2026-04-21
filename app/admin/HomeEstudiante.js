@@ -17,7 +17,7 @@ const COLORS = {
   border: '#E5E7EB', divider: '#F3F4F6', white: '#FFFFFF',
 };
 
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY    = 'studentAuthToken';
 const USER_DATA_KEY = 'studentUserData';
 

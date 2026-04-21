@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = 'https://evento.cidtec-uc.com'; // ✅ Sin espacios
+const API_BASE_URL = 'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'adminAuthToken';
 
 const COLORS = {
@@ -33,7 +33,61 @@ const COLORS = {
   border: '#E5E7EB',
   success: '#10B981',
   warning: '#F59E0B',
+  danger: '#DC2626',
   white: '#FFFFFF',
+};
+
+// ── Helpers de fecha ────────────────────────────────────────────────────────
+const isEventExpired = (eventDate) => {
+  if (!eventDate) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let eventDateObj;
+  if (typeof eventDate === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}/.test(eventDate)) {
+      eventDateObj = new Date(eventDate);
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(eventDate)) {
+      const [day, month, year] = eventDate.split('/').map(Number);
+      eventDateObj = new Date(year, month - 1, day);
+    } else {
+      eventDateObj = new Date(eventDate);
+    }
+  } else {
+    eventDateObj = new Date(eventDate);
+  }
+  
+  if (isNaN(eventDateObj.getTime())) return false;
+  eventDateObj.setHours(0, 0, 0, 0);
+  
+  const diffDays = Math.ceil((eventDateObj - today) / (1000 * 60 * 60 * 24));
+  return diffDays < 0; // Ya pasó la fecha
+};
+
+const getDaysSinceExpired = (eventDate) => {
+  if (!eventDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let eventDateObj;
+  if (typeof eventDate === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}/.test(eventDate)) {
+      eventDateObj = new Date(eventDate);
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(eventDate)) {
+      const [day, month, year] = eventDate.split('/').map(Number);
+      eventDateObj = new Date(year, month - 1, day);
+    } else {
+      eventDateObj = new Date(eventDate);
+    }
+  } else {
+    eventDateObj = new Date(eventDate);
+  }
+  
+  if (isNaN(eventDateObj.getTime())) return null;
+  eventDateObj.setHours(0, 0, 0, 0);
+  
+  const diffDays = Math.ceil((today - eventDateObj) / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : null;
 };
 
 const getTokenAsync = async () => {
@@ -48,26 +102,16 @@ const formatDate = (dateString) => {
   if (!dateString) return 'Sin fecha';
   try {
     let date;
-
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      // Formato: YYYY-MM-DD
       const [year, month, day] = dateString.split('-').map(Number);
       date = new Date(year, month - 1, day);
-
     } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
-      // Formato: DD/MM/YYYY o D/M/YYYY  ← este es tu caso (22/3/2026)
       const [day, month, year] = dateString.split('/').map(Number);
       date = new Date(year, month - 1, day);
-
     } else {
       date = new Date(dateString);
     }
-
-    if (isNaN(date.getTime())) {
-      console.warn('Fecha inválida recibida:', dateString);
-      return 'Sin fecha';
-    }
-
+    if (isNaN(date.getTime())) return 'Sin fecha';
     return date.toLocaleDateString('es-ES', {
       year: 'numeric', month: 'short', day: 'numeric',
     });
@@ -77,7 +121,11 @@ const formatDate = (dateString) => {
   }
 };
 
-const RejectedEventCard = ({ event, onPress }) => {
+// ── Card de Evento Vencido ──────────────────────────────────────────────────
+const ExpiredEventCard = ({ event, onPress }) => {
+  const eventDate = event.fechaevento || event.date || event.fecha;
+  const daysSinceExpired = getDaysSinceExpired(eventDate);
+  
   return (
     <TouchableOpacity 
       style={styles.eventCard} 
@@ -85,11 +133,24 @@ const RejectedEventCard = ({ event, onPress }) => {
       activeOpacity={0.85}
     >
       <View style={styles.eventHeader}>
-        <View style={[styles.statusBadge, { backgroundColor: COLORS.accent + '18' }]}>
-          <Ionicons name="close-circle" size={14} color={COLORS.accent} />
-          <Text style={[styles.statusText, { color: COLORS.accent }]}>Rechazado</Text>
+        <View style={[styles.statusBadge, { backgroundColor: COLORS.danger + '18' }]}>
+          <Ionicons name="close-circle" size={14} color={COLORS.danger} />
+          <Text style={[styles.statusText, { color: COLORS.danger }]}>
+            Vencido {daysSinceExpired ? `hace ${daysSinceExpired} día${daysSinceExpired !== 1 ? 's' : ''}` : ''}
+          </Text>
         </View>
-        <Text style={styles.eventDate}>{formatDate(event.fechaevento)}</Text>
+        <Text style={[styles.eventDate, { color: COLORS.danger, fontWeight: '600' }]}>
+          {formatDate(eventDate)}
+        </Text>
+      </View>
+
+      <View style={styles.expiredAlert}>
+        <Ionicons name="alert-circle" size={16} color={COLORS.danger} />
+        <Text style={[styles.expiredAlertText, { color: COLORS.danger }]}>
+          {daysSinceExpired 
+            ? `Fecha de ejecución vencida hace ${daysSinceExpired} día${daysSinceExpired !== 1 ? 's' : ''}`
+            : 'Fecha de ejecución vencida'}
+        </Text>
       </View>
 
       <Text style={styles.eventTitle} numberOfLines={2}>
@@ -115,13 +176,6 @@ const RejectedEventCard = ({ event, onPress }) => {
         )}
       </View>
 
-      {event.razon_rechazo && (
-        <View style={styles.rejectionReason}>
-          <Text style={styles.rejectionLabel}>Motivo:</Text>
-          <Text style={styles.rejectionText}>{event.razon_rechazo}</Text>
-        </View>
-      )}
-
       <View style={styles.eventFooter}>
         <View style={styles.academicoInfo}>
           <Ionicons name="person-circle-outline" size={16} color={COLORS.textSecondary} />
@@ -135,7 +189,8 @@ const RejectedEventCard = ({ event, onPress }) => {
   );
 };
 
-const EventosRechazados = () => {
+// ── Componente Principal ────────────────────────────────────────────────────
+const EventosVencidos = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   
@@ -144,7 +199,7 @@ const EventosRechazados = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchRejectedEvents = useCallback(async () => {
+  const fetchExpiredEvents = useCallback(async () => {
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -153,8 +208,10 @@ const EventosRechazados = () => {
         return;
       }
 
-      console.log('🔍 Solicitando eventos rechazados...');
-      const response = await axios.get(`${API_BASE_URL}/eventos/rechazados`, {
+      console.log('🔍 Solicitando eventos pendientes para filtrar vencidos...');
+      
+      // Obtener TODOS los eventos pendientes
+      const response = await axios.get(`${API_BASE_URL}/eventos/pendientes`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -162,16 +219,38 @@ const EventosRechazados = () => {
         timeout: 10000,
       });
       
-      console.log('✅ Eventos rechazados recibidos:', response.data.length);
-      if (response.data.length > 0) {
-        console.log('📅 Primer evento:', response.data[0]);
+      const allPending = Array.isArray(response.data) ? response.data : [];
+      console.log(`📋 Total eventos pendientes: ${allPending.length}`);
+      
+      // 🔥 Filtrar solo los que YA ESTÁN VENCIDOS (fecha ya pasó)
+      const expiredEvents = allPending.filter(event => {
+        const fecha = event.fechaevento || event.fecha || event.date;
+        return isEventExpired(fecha);
+      });
+      
+      // Ordenar por más antiguos primero (los más vencidos)
+      const sorted = expiredEvents.sort((a, b) => {
+        const dateA = new Date(a.fechaevento || a.date || 0);
+        const dateB = new Date(b.fechaevento || b.date || 0);
+        return dateA - dateB;
+      });
+      
+      console.log(`⚠️ Eventos vencidos encontrados: ${sorted.length}`);
+      if (sorted.length > 0) {
+        console.log('📅 Primer evento vencido:', {
+          id: sorted[0].idevento || sorted[0].id,
+          nombre: sorted[0].nombreevento,
+          fecha: sorted[0].fechaevento,
+          diasVencido: getDaysSinceExpired(sorted[0].fechaevento)
+        });
       }
       
-      setEvents(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('❌ Error fetching rejected events:', error);
+      setEvents(sorted);
       
-      let message = 'No se pudieron cargar los eventos rechazados.';
+    } catch (error) {
+      console.error('❌ Error fetching expired events:', error);
+      
+      let message = 'No se pudieron cargar los eventos vencidos.';
       
       if (error.response?.status === 401) {
         message = 'Sesión expirada. Inicia sesión nuevamente.';
@@ -185,7 +264,7 @@ const EventosRechazados = () => {
       }
       
       Alert.alert('Error', message, [
-        { text: 'Reintentar', onPress: fetchRejectedEvents },
+        { text: 'Reintentar', onPress: fetchExpiredEvents },
         { text: 'Cancelar', style: 'cancel' },
       ]);
     } finally {
@@ -195,13 +274,13 @@ const EventosRechazados = () => {
   }, [router]);
 
   useEffect(() => {
-    fetchRejectedEvents();
-  }, [fetchRejectedEvents]);
+    fetchExpiredEvents();
+  }, [fetchExpiredEvents]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchRejectedEvents();
-  }, [fetchRejectedEvents]);
+    fetchExpiredEvents();
+  }, [fetchExpiredEvents]);
 
   const filteredEvents = useMemo(() => {
     if (!searchQuery.trim()) return events;
@@ -217,10 +296,10 @@ const EventosRechazados = () => {
 
   const handleEventPress = (event) => {
     router.push({ 
-      pathname: '/admin/EventoDetalle', 
+      pathname: '/admin/EventDetailScreenVencido', 
       params: { 
         id: event.idevento || event.id,
-        from: 'rechazados'
+        from: 'vencidos'
       } 
     });
   };
@@ -234,7 +313,7 @@ const EventosRechazados = () => {
       <View style={styles.centered}>
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Cargando eventos rechazados...</Text>
+        <Text style={styles.loadingText}>Cargando eventos vencidos...</Text>
       </View>
     );
   }
@@ -247,16 +326,16 @@ const EventosRechazados = () => {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Ionicons name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Eventos Rechazados</Text>
+          <Text style={styles.headerTitle}>Eventos Vencidos</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="close-circle-outline" size={80} color={COLORS.textTertiary} />
           </View>
-          <Text style={styles.emptyTitle}>Sin eventos rechazados</Text>
+          <Text style={styles.emptyTitle}>Sin eventos vencidos</Text>
           <Text style={styles.emptyText}>
-            No hay eventos con estado "rechazado" en este momento.
+            No hay eventos pendientes con fecha de ejecución vencida
           </Text>
           <TouchableOpacity style={styles.emptyButton} onPress={onRefresh}>
             <Ionicons name="refresh-outline" size={18} color={COLORS.white} />
@@ -275,7 +354,7 @@ const EventosRechazados = () => {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Eventos Rechazados</Text>
+        <Text style={styles.headerTitle}>Eventos Vencidos</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} disabled={refreshing}>
           <Ionicons name="refresh-outline" size={22} color={COLORS.white} />
         </TouchableOpacity>
@@ -304,10 +383,10 @@ const EventosRechazados = () => {
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsScroll}>
-        <View style={[styles.statCard, { backgroundColor: COLORS.accent }]}>
+        <View style={[styles.statCard, { backgroundColor: COLORS.danger }]}>
           <Ionicons name="close-circle-outline" size={20} color={COLORS.white} />
           <Text style={styles.statNumber}>{events.length}</Text>
-          <Text style={styles.statLabel}>Total</Text>
+          <Text style={styles.statLabel}>Vencidos</Text>
         </View>
         <View style={[styles.statCard, { backgroundColor: COLORS.warning }]}>
           <Ionicons name="school-outline" size={20} color={COLORS.white} />
@@ -328,7 +407,7 @@ const EventosRechazados = () => {
       <FlatList
         data={filteredEvents}
         keyExtractor={(item) => `event-${item.idevento || item.id}`}
-        renderItem={({ item }) => <RejectedEventCard event={item} onPress={handleEventPress} />}
+        renderItem={({ item }) => <ExpiredEventCard event={item} onPress={handleEventPress} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -370,23 +449,22 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary, padding: 0 },
   resultsCount: { fontSize: 12, color: COLORS.textTertiary, marginTop: 8, textAlign: 'right' },
   statsScroll: { paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  statCard: { width: 120, paddingVertical: 12,paddingHorizontal: 10, borderRadius: 12, alignItems: 'center',justifyContent: 'center', gap: 4 },
+  statCard: { width: 120, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4 },
   statNumber: { fontSize: 22, fontWeight: '800', color: COLORS.white },
   statLabel: { fontSize: 11, color: COLORS.white, opacity: 0.9, textAlign: 'center', includeFontPadding: false },
   listContent: { padding: 16, gap: 12 },
-  eventCard: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  eventCard: { backgroundColor: COLORS.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border, borderLeftWidth: 4, borderLeftColor: COLORS.danger, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   eventHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, gap: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  eventDate: { fontSize: 12, color: COLORS.textTertiary },
+  eventDate: { fontSize: 12 },
   eventTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 6, lineHeight: 22 },
   eventDescription: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 12, lineHeight: 18 },
   eventMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 12 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 12, color: COLORS.textSecondary },
-  rejectionReason: { backgroundColor: COLORS.accent + '08', borderRadius: 8, padding: 10, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: COLORS.accent },
-  rejectionLabel: { fontSize: 11, fontWeight: '600', color: COLORS.accent, marginBottom: 2 },
-  rejectionText: { fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
+  expiredAlert: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFEBEE', padding: 10, borderRadius: 8, marginBottom: 12, borderLeftWidth: 3, borderLeftColor: COLORS.danger, gap: 6 },
+  expiredAlertText: { fontSize: 12, fontWeight: '600', flex: 1 },
   eventFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1, borderTopColor: COLORS.border },
   academicoInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   academicoName: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
@@ -403,6 +481,6 @@ const styles = StyleSheet.create({
   clearSearchText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
 });
 
-EventosRechazados.options = { headerShown: false };
+EventosVencidos.options = { headerShown: false };
 
-export default EventosRechazados;
+export default EventosVencidos;

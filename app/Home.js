@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter, Link } from 'expo-router'; // Importar de expo-router
+import { useRouter, Link } from 'expo-router';
 import axios from 'axios';
 
 import {
-  StyleSheet, 
+  StyleSheet,
   View,
   Text,
   Image,
@@ -12,81 +12,96 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
-  FlatList
+  FlatList,
+  Animated,
 } from 'react-native';
-const windowWidth=Dimensions.get('window').width;
-const CAROUSEL_ITEM_WIDTH = windowWidth * 0.75; 
-const ITEM_MARGIN = 10; // Margen entre items
-const SNAP_TO_INTERVAL = CAROUSEL_ITEM_WIDTH + (ITEM_MARGIN * 2);
+
+const API_BASE_URL = 'https://evento.cidtec-uc.com';
+
+const windowWidth = Dimensions.get('window').width;
+const CAROUSEL_ITEM_WIDTH = windowWidth * 0.80;
+const ITEM_MARGIN = 8;
+const SNAP_TO_INTERVAL = CAROUSEL_ITEM_WIDTH + ITEM_MARGIN * 2;
 const CAROUSEL_SPACING = (windowWidth - CAROUSEL_ITEM_WIDTH) / 2;
-const placeholderImages = {
-  banner: require('../assets/images/ind.jpg'), 
-  category1: require('../assets/images/der.jpg'),
-  category2: require('../assets/images/econ.jpg'),
-  category3: require('../assets/images/der.jpg'),
-  category4: require('../assets/images/sal.jpg'),
-  category5: require('../assets/images/tec.jpg'),
+
+const COLORS = {
+  primary: '#C8390A',
+  dark: '#1A1A2E',
+  accent: '#F5A623',
+  white: '#FFFFFF',
+  lightGray: '#F4F6F9',
+  medGray: '#E8ECF0',
+  textDark: '#1C1C2E',
+  textMid: '#4A4A6A',
 };
 
- const mockCategories = [
-          { id: 1, name: 'Ciencias Juridicas y Sociales',image:require('../assets/images/der.jpg')},
-          { id: 2, name: 'Ciencias Economicas y Empresariales', image: require('../assets/images/econ.jpg') },
-          { id: 3, name: 'Diseno y Tecnologia Crossmedia', image: require('../assets/images/arqui.jpg') },
-          { id: 4, name: 'Ciencias de la Salud', image: require('../assets/images/sal.jpg')},
-          { id: 5, name: 'Ingenieria', image: require('../assets/images/tec.jpg')},
-        ];
-        
-        const mockFeatured = [
-          { id: 1, title: 'Destacado 1', description: 'Descripción breve del elemento destacado 1', image: placeholderImages.featured1 },
-          { id: 2, title: 'Destacado 2', description: 'Descripción breve del elemento destacado 2', image: placeholderImages.featured2 },
-          { id: 3, title: 'Destacado 3', description: 'Descripción breve del elemento destacado 3', image: placeholderImages.featured3 },
-        ];
+const mockCategories = [
+  { id: 1, name: 'Ciencias Jurídicas y Sociales',       image: require('../assets/images/der.jpg'),   icon: '⚖️' },
+  { id: 2, name: 'Ciencias Económicas y Empresariales', image: require('../assets/images/econ.jpg'),  icon: '📊' },
+  { id: 3, name: 'Diseño y Tecnología Crossmedia',      image: require('../assets/images/arqui.jpg'), icon: '🎨' },
+  { id: 4, name: 'Ciencias de la Salud',                image: require('../assets/images/sal.jpg'),   icon: '🏥' },
+  { id: 5, name: 'Ingeniería',                          image: require('../assets/images/tec.jpg'),   icon: '⚙️' },
+];
 
-const Home = () => {
+const getEventTitle       = (ev) => ev.titulo       ?? ev.title       ?? ev.nombre ?? ev.name ?? 'Sin título';
+const getEventDescription = (ev) => ev.descripcion  ?? ev.description ?? ev.detalle ?? '';
+const getEventFacultadId  = (ev) => ev.facultadId   ?? ev.facultad_id ?? ev.faculty_id ?? ev.id_facultad ?? null;
+const getEventImage       = (ev) => {
+  const path = ev.imagen ?? ev.image ?? ev.foto ?? null;
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+  return `${API_BASE_URL}/${path.replace(/^\//, '')}`;
+};
+
+export default function Home() {
   const router = useRouter();
-
-  const [categories, setCategories] = useState([]);
-  const [featuredItems, setFeaturedItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
-  const [activeFeaturedIndex, setActiveFeaturedIndex] = useState(0); // Nuevo estado para eventos destacados
-  const flatListRef = useRef(null);
-  const featuredFlatListRef = useRef(null); // Ref para el FlatList de eventos destacados
+  const [allEvents, setAllEvents]             = useState([]);
+  const [loading, setLoading]                 = useState(true);
+  const [error, setError]                     = useState(null);
+  const [selectedFacultad, setSelectedFacultad] = useState(mockCategories[0]);
+  const [activeCatIndex, setActiveCatIndex]   = useState(0);
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const eventsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setCategories(mockCategories);
-        setFeaturedItems(mockFeatured);
+    axios.get(`${API_BASE_URL}/eventos`)
+      .then((res) => {
+        const data = res.data;
+        console.log('=== /eventos ===', JSON.stringify(data, null, 2));
+        const list = Array.isArray(data) ? data : data.data ?? data.eventos ?? data.events ?? [];
+        setAllEvents(list);
         setLoading(false);
-      } catch (e) {
-        console.error("Error data", e);
-        setError("no se pudo cargar");
+        Animated.parallel([
+          Animated.timing(fadeAnim,  { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+        ]).start();
+      })
+      .catch((e) => {
+        console.error(e);
+        setError('No se pudieron cargar los eventos');
         setLoading(false);
-      }
-    };
-    fetchData();
+      });
   }, []);
 
-  const onScrollCategory = (event) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / SNAP_TO_INTERVAL);
-    setActiveCategoryIndex(Math.min(index, categories.length - 1));
+  const animateEvents = () => {
+    eventsAnim.setValue(0);
+    Animated.timing(eventsAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
   };
 
-  const onScrollFeatured = (event) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / (CAROUSEL_ITEM_WIDTH + 20)); // Usamos el mismo ancho de ítem
-    setActiveFeaturedIndex(index);
+  const handleSelectFacultad = (facultad, index) => {
+    setSelectedFacultad(facultad);
+    setActiveCatIndex(index);
+    animateEvents();
   };
+
+  const eventos = allEvents.filter((ev) => getEventFacultadId(ev) === selectedFacultad.id);
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#e95a0c" />
-        <Text style={styles.loadingText}>Cargando contenido...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Cargando eventos...</Text>
       </View>
     );
   }
@@ -94,6 +109,7 @@ const Home = () => {
   if (error) {
     return (
       <View style={styles.errorContainer}>
+        <Text style={{ fontSize: 36 }}>⚠️</Text>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => { setLoading(true); setError(null); }}>
           <Text style={styles.retryButtonText}>Reintentar</Text>
@@ -104,325 +120,215 @@ const Home = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
       <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* ── BANNER ── */}
         <View style={styles.bannerContainer}>
-          <Image
-            source={require('../assets/images/ind.jpg')}
-            style={styles.bannerImage}
-            resizeMode="cover"
-          />
-          <View style={styles.bannerOverlay}>
-            <Text style={styles.bannerTitle}>Conviértete en un profesional con propósito, aprende haciendo</Text>
+          <Image source={require('../assets/images/ind.jpg')} style={styles.bannerImage} resizeMode="cover" />
+          <View style={styles.bannerGradient}>
+            <View style={styles.bannerBadge}>
+              <Text style={styles.bannerBadgeText}>UNIVERSIDAD</Text>
+            </View>
+            <Text style={styles.bannerTitle}>Conviértete en un{'\n'}profesional con propósito</Text>
+            <Text style={styles.bannerSubtitle}>Aprende haciendo</Text>
           </View>
         </View>
 
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Facultades</Text>
-          <FlatList
-            ref={flatListRef}
-            data={categories}
-            renderItem={({ item }) => (
-              <Link key={item.id} href={`/CategoryDetail/${item.id}`} asChild>
-                <TouchableOpacity style={[
-                  styles.categoryCarouselItem,
-                  { width: CAROUSEL_ITEM_WIDTH, marginHorizontal: ITEM_MARGIN }
-                ]}>
-                  <Image
-                    source={item.image}
-                    style={styles.categoryCarouselImage}
-                    resizeMode="cover"
-                  />
-                  <Text style={styles.categoryCarouselName}>{item.name}</Text>
-                </TouchableOpacity>
-              </Link>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            pagingEnabled
-            snapToInterval={CAROUSEL_ITEM_WIDTH + 20}
-            decelerationRate="fast"
-            contentContainerStyle={
-            { paddingHorizontal: windowWidth-CAROUSEL_ITEM_WIDTH / 2 ,
-              paddingBottom: 10 }
-            } // Centrar el primer y último item
-            onScroll={onScrollCategory}
-            scrollEventThrottle={16}
-          />
-          <View style={styles.paginationContainer}>
-            {categories.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.paginationDot,
-                  activeCategoryIndex === index && styles.paginationDotActive,
-                ]}
-              />
-            ))}
-          </View>
-        </View>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
-        {/* Elementos Destacados - Modificado a carrusel */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Eventos Destacados</Text>
-          <FlatList
-            ref={featuredFlatListRef}
-            data={featuredItems}
-            renderItem={({ item }) => (
-              <Link key={item.id} href={`/ItemDetail/${item.id}`} asChild>
-                <TouchableOpacity style={[
-                  styles.featuredCarouselItem,
-                  { width: CAROUSEL_ITEM_WIDTH, marginHorizontal: ITEM_MARGIN }
-                ]}>
-                  <Image
-                    source={item.image}
-                    style={styles.featuredCarouselImage}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.featuredCarouselContent}>
-                    <Text style={styles.featuredCarouselTitle}>{item.title}</Text>
-                    <Text style={styles.featuredCarouselDescription}>{item.description}</Text>
-                  </View>
-                </TouchableOpacity>
-              </Link>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            pagingEnabled
-            snapToInterval={CAROUSEL_ITEM_WIDTH + 20}
-            decelerationRate="fast"
-            contentContainerStyle={styles.carouselContentContainer} // Reutilizamos el estilo del contenedor
-            onScroll={onScrollFeatured}
-            scrollEventThrottle={16}
-          />
-          {/* Paginación para Eventos Destacados */}
-          <View style={styles.paginationContainer}>
-            {featuredItems.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.paginationDot,
-                  activeFeaturedIndex === index && styles.paginationDotActive,
-                ]}
-              />
-            ))}
+          {/* ── CARRUSEL DE FACULTADES ── */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionTitle}>Facultades</Text>
+            </View>
+
+            <FlatList
+              data={mockCategories}
+              keyExtractor={(item) => item.id.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={SNAP_TO_INTERVAL}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingHorizontal: CAROUSEL_SPACING, paddingBottom: 4 }}
+              scrollEventThrottle={16}
+              renderItem={({ item, index }) => {
+                const isActive = item.id === selectedFacultad.id;
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => handleSelectFacultad(item, index)}
+                    style={{
+                      ...styles.categoryCard,
+                      width: CAROUSEL_ITEM_WIDTH,
+                      marginHorizontal: ITEM_MARGIN,
+                      borderWidth: isActive ? 3 : 0,
+                      borderColor: isActive ? COLORS.primary : 'transparent',
+                    }}
+                  >
+                    <Image source={item.image} style={styles.categoryImage} resizeMode="cover" />
+                    <View style={styles.categoryOverlay} />
+                    <View style={styles.categoryContent}>
+                      <Text style={styles.categoryIcon}>{item.icon}</Text>
+                      <Text style={styles.categoryName}>{item.name}</Text>
+                      <View style={[styles.categoryChip, isActive && styles.categoryChipActive]}>
+                        <Text style={styles.categoryChipText}>
+                          {isActive ? '✓ Seleccionada' : 'Ver eventos →'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
+            {/* Indicadores */}
+            <View style={styles.pagination}>
+              {mockCategories.map((_, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => handleSelectFacultad(mockCategories[i], i)}
+                  style={{
+                    ...styles.dot,
+                    ...(activeCatIndex === i ? styles.dotActive : {}),
+                  }}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+
+          {/* ── EVENTOS DE LA FACULTAD SELECCIONADA ── */}
+          <Animated.View style={{ opacity: eventsAnim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }), transform: [{ translateY: eventsAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}>
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionAccent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sectionTitle}>Eventos</Text>
+                  <Text style={styles.sectionSubtitle} numberOfLines={1}>{selectedFacultad.name}</Text>
+                </View>
+                <View style={styles.eventsBadge}>
+                  <Text style={styles.eventsBadgeText}>{eventos.length}</Text>
+                </View>
+              </View>
+
+              {eventos.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Text style={styles.emptyIcon}>📭</Text>
+                  <Text style={styles.emptyTitle}>Sin eventos</Text>
+                  <Text style={styles.emptySubtitle}>Esta facultad no tiene eventos activos por ahora</Text>
+                </View>
+              ) : (
+                <View style={styles.eventsListContainer}>
+                  {eventos.map((ev, idx) => {
+                    const imgUrl = getEventImage(ev);
+                    return (
+                      <Link key={ev.id ?? idx} href={`/ItemDetail/${ev.id}`} asChild>
+                        <TouchableOpacity activeOpacity={0.85} style={styles.eventRow}>
+                          {imgUrl ? (
+                            <Image source={{ uri: imgUrl }} style={styles.eventRowImage} resizeMode="cover" />
+                          ) : (
+                            <View style={styles.eventRowImagePlaceholder}>
+                              <Text style={{ fontSize: 22 }}>{selectedFacultad.icon}</Text>
+                            </View>
+                          )}
+                          <View style={styles.eventRowContent}>
+                            <Text style={styles.eventRowTitle} numberOfLines={2}>
+                              {getEventTitle(ev)}
+                            </Text>
+                            <Text style={styles.eventRowDesc} numberOfLines={2}>
+                              {getEventDescription(ev)}
+                            </Text>
+                          </View>
+                          <Text style={styles.eventRowArrow}>›</Text>
+                        </TouchableOpacity>
+                      </Link>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+          </Animated.View>
+
+        </Animated.View>
+        <View style={{ height: 100 }} />
       </ScrollView>
-      {/* Botones flotantes (si los necesitas) */}
-       <TouchableOpacity style={styles.chatbotButton} onPress={() => router.push('/chatbot')}>
-        <Text style={styles.chatbotButtonText}>Chat</Text>
+
+      {/* FABs */}
+      <TouchableOpacity style={styles.fabChat} onPress={() => router.push('/chatbot')} activeOpacity={0.85}>
+        <Text style={styles.fabIcon}>💬</Text>
+        <Text style={styles.fabLabel}>Chat</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.LoginButton} onPress={() => router.push('/login')}>
-        <Text style={styles.chatbotButtonText}>Login</Text>
-      </TouchableOpacity> 
+      <TouchableOpacity style={styles.fabLogin} onPress={() => router.push('/login')} activeOpacity={0.85}>
+        <Text style={styles.fabIcon}>👤</Text>
+        <Text style={styles.fabLabel}>Login</Text>
+      </TouchableOpacity>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#333',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#d32f2f',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#0066CC',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bannerContainer: {
-    width: '100%',
-    height: 200,
-    position: 'relative',
-  },
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  bannerOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 15,
-    justifyContent: 'center',
-    alignContent: 'center',
-    height: '100%'
+  container:        { flex: 1, backgroundColor: COLORS.lightGray },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.lightGray },
+  loadingText:      { marginTop: 10, fontSize: 14, color: COLORS.textMid, fontWeight: '500' },
+  errorContainer:   { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, gap: 12 },
+  errorText:        { fontSize: 15, color: COLORS.textMid, textAlign: 'center' },
+  retryButton:      { backgroundColor: COLORS.primary, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 30, marginTop: 8 },
+  retryButtonText:  { color: COLORS.white, fontSize: 15, fontWeight: '700' },
 
-  },
-  bannerTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 30
-  },
-  bannerSubtitle: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  sectionContainer: {
-    paddingVertical: 15,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-    marginLeft: 15,
-  },
+  // Banner
+  bannerContainer: { width: '100%', height: 240 },
+  bannerImage:     { width: '100%', height: '100%', position: 'absolute' },
+  bannerGradient:  { flex: 1, backgroundColor: 'rgba(10,10,30,0.62)', padding: 24, justifyContent: 'flex-end' },
+  bannerBadge:     { backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, alignSelf: 'flex-start', marginBottom: 10 },
+  bannerBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  bannerTitle:     { color: COLORS.white, fontSize: 24, fontWeight: '800', lineHeight: 32, marginBottom: 6 },
+  bannerSubtitle:  { color: COLORS.accent, fontSize: 15, fontWeight: '600' },
 
-  // Estilos para el Carrusel de Facultades
-  carouselContentContainer: {
-    paddingHorizontal: CAROUSEL_SPACING,
-    paddingBottom: 10,
-  },
-  categoryCarouselItem: {
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    paddingBottom: 20,
-  },
-  categoryCarouselImage: {
-    width: '80%', // Ajustado para ocupar todo el ancho de la tarjeta
-    height: 120, // Altura fija para las imágenes del carrusel
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-  },
-  categoryCarouselName: {
-    marginTop: 10,
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    paddingHorizontal: 10,
-    color: '#333',
-  },
-  paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ccc',
-    marginHorizontal: 4,
-  },
-  paginationDotActive: {
-    backgroundColor: '#e95a0c',
-  },
+  // Section
+  sectionContainer: { paddingTop: 22, paddingBottom: 8 },
+  sectionHeader:    { flexDirection: 'row', alignItems: 'center', marginBottom: 14, marginLeft: 16, marginRight: 16, gap: 10 },
+  sectionAccent:    { width: 4, height: 22, backgroundColor: COLORS.primary, borderRadius: 2 },
+  sectionTitle:     { fontSize: 18, fontWeight: '800', color: COLORS.textDark },
+  sectionSubtitle:  { fontSize: 12, color: COLORS.textMid, marginTop: 1 },
+  eventsBadge:      { backgroundColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  eventsBadgeText:  { color: COLORS.white, fontSize: 12, fontWeight: '800' },
 
-  // NUEVOS ESTILOS para el Carrusel de Eventos Destacados
-  featuredCarouselItem: {
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    paddingBottom: 10,
-  },
-  featuredCarouselImage: {
-    width: '100%',
-    height: 120, // Altura de la imagen de la tarjeta
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-  },
-  featuredCarouselContent: {
-    padding: 10,
-  },
-  featuredCarouselTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
-  },
-  featuredCarouselDescription: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 18,
-  },
+  // Facultad card
+  categoryCard:    { borderRadius: 16, overflow: 'hidden', height: 175, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 5 },
+  categoryImage:   { width: '100%', height: '100%', position: 'absolute' },
+  categoryOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,15,40,0.52)' },
+  categoryContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 14 },
+  categoryIcon:    { fontSize: 22, marginBottom: 4 },
+  categoryName:    { color: COLORS.white, fontSize: 15, fontWeight: '700', lineHeight: 20, marginBottom: 8 },
+  categoryChip:    { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+  categoryChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  categoryChipText: { color: COLORS.white, fontSize: 11, fontWeight: '700' },
 
-  // Estilos de botones flotantes (si los usas)
-  chatbotButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    backgroundColor: '#e95a0c',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-  },
-  chatbotButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  LoginButton: {
-    position: 'absolute',
-    left: 20,
-    bottom: 20,
-    backgroundColor: '#333',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-  },
+  // Pagination dots
+  pagination: { flexDirection: 'row', justifyContent: 'center', marginTop: 12, gap: 6 },
+  dot:        { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.medGray },
+  dotActive:  { width: 20, backgroundColor: COLORS.primary, borderRadius: 3 },
+
+  // Events list
+  eventsListContainer: { marginHorizontal: 16, borderRadius: 16, backgroundColor: COLORS.white, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3 },
+  eventRow:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.medGray, gap: 12 },
+  eventRowImage:       { width: 56, height: 56, borderRadius: 10 },
+  eventRowImagePlaceholder: { width: 56, height: 56, borderRadius: 10, backgroundColor: COLORS.medGray, justifyContent: 'center', alignItems: 'center' },
+  eventRowContent:     { flex: 1 },
+  eventRowTitle:       { fontSize: 13, fontWeight: '700', color: COLORS.textDark, marginBottom: 3 },
+  eventRowDesc:        { fontSize: 11, color: COLORS.textMid, lineHeight: 16 },
+  eventRowArrow:       { fontSize: 24, color: COLORS.primary, fontWeight: '300' },
+
+  // Empty
+  emptyBox:      { marginHorizontal: 16, padding: 30, borderRadius: 16, backgroundColor: COLORS.white, alignItems: 'center', gap: 8 },
+  emptyIcon:     { fontSize: 36 },
+  emptyTitle:    { fontSize: 15, fontWeight: '700', color: COLORS.textDark },
+  emptySubtitle: { fontSize: 12, color: COLORS.textMid, textAlign: 'center', lineHeight: 18 },
+
+  // FABs
+  fabChat:  { position: 'absolute', right: 20, bottom: 28, backgroundColor: COLORS.primary, width: 62, height: 62, borderRadius: 31, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 },
+  fabLogin: { position: 'absolute', left: 20, bottom: 28, backgroundColor: COLORS.dark, width: 62, height: 62, borderRadius: 31, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  fabIcon:  { fontSize: 20 },
+  fabLabel: { color: COLORS.white, fontSize: 9, fontWeight: '700', marginTop: 1, letterSpacing: 0.5 },
 });
-
-export default Home;

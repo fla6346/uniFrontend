@@ -47,8 +47,8 @@ const EstudianteEvents = () => {
 
   const renderEventItem = ({ item }) => (
     // <EventCard event={item} onPress={() => navigation.navigate('EventDetail', { eventId: item.id })} />
-    <View style={styles.eventItem}>
-      <Text style={styles.eventTitle}>{item.title}</Text>
+    <View style={S.eventItem}>
+      <Text style={S.eventTitle}>{item.title}</Text>
       <Text>{item.date} - {item.location}</Text>
       <Button title="Ver Detalles" onPress={() => navigation.navigate('EventDetail', { eventId: item.id, eventTitle: item.title })} />
     </View>
@@ -59,21 +59,21 @@ const EstudianteEvents = () => {
   // }
 
   if (loading && !refreshing) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color="#007bff" /></View>;
+    return <View style={S.centered}><ActivityIndicator size="large" color="#007bff" /></View>;
   }
 
   if (error) {
-    return <View style={styles.centered}><Text style={styles.errorText}>{error}</Text><Button title="Reintentar" onPress={loadRegisteredEvents} /></View>;
+    return <View style={S.centered}><Text style={S.errorText}>{error}</Text><Button title="Reintentar" onPress={loadRegisteredEvents} /></View>;
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Mis Eventos Registrados</Text>
+    <View style={S.container}>
+      <Text style={S.title}>Mis Eventos Registrados</Text>
       <FlatList
         data={registeredEvents}
         renderItem={renderEventItem}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.emptyText}>No estás registrado en ningún evento.</Text>}
+        ListEmptyComponent={<Text style={S.emptyText}>No estás registrado en ningún evento.</Text>}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

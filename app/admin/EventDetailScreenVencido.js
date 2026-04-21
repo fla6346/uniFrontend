@@ -76,14 +76,53 @@ const formatTime = (timeString) => {
   } catch { return timeString; }
 };
 
-const EventDetailScreen = () => {
-  const { eventId } = useLocalSearchParams();
+const EventDetailScreenVencido = () => {
+  const params = useLocalSearchParams();
   const router = useRouter();
+  
+  // ✅ DEBUG: Ver qué parámetros llegan
+  console.log('🔍 Parámetros recibidos:', params);
+  console.log('🔍 Tipo de params:', typeof params);
+  console.log('🔍 Keys de params:', Object.keys(params));
+  
+  // ✅ Extraer ID de múltiples formas posibles
+  const getEventId = () => {
+    // Forma 1: params.id directo
+    if (params.id) {
+      const id = Array.isArray(params.id) ? params.id[0] : params.id;
+      console.log('✅ ID encontrado en params.id:', id);
+      return id;
+    }
+    // Forma 2: params.eventId
+    if (params.eventId) {
+      const id = Array.isArray(params.eventId) ? params.eventId[0] : params.eventId;
+      console.log('✅ ID encontrado en params.eventId:', id);
+      return id;
+    }
+    // Forma 3: Buscar cualquier key que contenga 'id'
+    const idKey = Object.keys(params).find(key => 
+      key.toLowerCase().includes('id') && !key.toLowerCase().includes('eventid')
+    );
+    if (idKey) {
+      const id = Array.isArray(params[idKey]) ? params[idKey][0] : params[idKey];
+      console.log(`✅ ID encontrado en params.${idKey}:`, id);
+      return id;
+    }
+    
+    console.error('❌ No se encontró ningún ID en los parámetros');
+    console.error('❌ Params completos:', JSON.stringify(params, null, 2));
+    return null;
+  };
+  
+  const eventId = getEventId();
+  const from = params.from;
+  
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
   const [showApproveAlert, setShowApproveAlert] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [razonRechazo, setRazonRechazo] = useState('');
 
@@ -104,16 +143,29 @@ const EventDetailScreen = () => {
   }, []);
 
   const fetchEventDetails = useCallback(async () => {
+    if (!eventId) {
+      console.error('❌ fetchEventDetails llamado sin eventId');
+      setError('No se proporcionó un ID de evento.');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('📡 Iniciando carga del evento ID:', eventId);
+    
     let processedEventId = Array.isArray(eventId) ? eventId[0] : eventId;
     if (typeof processedEventId === 'string' && processedEventId.startsWith('event-')) {
       processedEventId = processedEventId.replace('event-', '');
     }
     const numericId = Number(processedEventId);
+    
+    console.log('🔢 ID procesado:', processedEventId, 'Numérico:', numericId);
+    
     if (isNaN(numericId) || !processedEventId) {
       setError('ID de evento inválido.');
       setLoading(false);
       return;
     }
+    
     setLoading(true);
     setError(null);
     try {
@@ -124,14 +176,24 @@ const EventDetailScreen = () => {
         router.replace('/LoginAdmin');
         return;
       }
+      
+      console.log('🔗 URL de la API:', `${API_BASE_URL}/eventos/${numericId}`);
+      
       const [eventResponse] = await Promise.all([
-        axios.get(`${API_BASE_URL}/eventos/${numericId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        axios.get(`${API_BASE_URL}/eventos/${numericId}`, { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000
+        }),
         fetchUserDetails(token)
       ]);
+      
+      console.log('✅ Respuesta de la API:', eventResponse.data);
+      
       const eventData = eventResponse.data;
       if (!eventData || typeof eventData !== 'object' || Object.keys(eventData).length === 0) {
         throw new Error('Datos de evento vacíos o inválidos del servidor.');
       }
+      
       const transformedEvent = {
         id: eventData.idevento || null,
         title: eventData.nombreevento || 'Sin título',
@@ -170,9 +232,13 @@ const EventDetailScreen = () => {
           role: eventData.creador.role
         } : null
       };
+      
       if (!transformedEvent.id) throw new Error('El evento no tiene un ID válido.');
+      
+      console.log('✅ Evento transformado:', transformedEvent);
       setEvent(transformedEvent);
     } catch (err) {
+      console.error('❌ Error en fetchEventDetails:', err);
       let errorMessage = `Error al cargar evento: ${err.message}`;
       if (err.response?.status === 401 || err.response?.status === 403) {
         Alert.alert('Acceso Denegado', 'No tienes permiso o tu sesión ha expirado.');
@@ -190,7 +256,10 @@ const EventDetailScreen = () => {
 
   const fetchUserDetails = async (token) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.get(`${API_BASE_URL}/auth/me`, { 
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000
+      });
       setUser(response.data);
       return response.data;
     } catch (err) {
@@ -200,15 +269,59 @@ const EventDetailScreen = () => {
   };
 
   useEffect(() => {
+    console.log('🔄 useEffect ejecutado. eventId:', eventId);
     if (eventId) {
       fetchEventDetails();
     } else {
+      console.error('❌ No hay eventId, mostrando error');
       setError('No se proporcionó un ID de evento.');
       setLoading(false);
     }
   }, [fetchEventDetails, eventId]);
 
-  // Abre el modal de rechazo
+  const handleReprogramar = async () => {
+    setShowEditModal(false);
+    
+    if (!event || !event.id) {
+      Alert.alert('Error', 'No hay datos válidos del evento para editar.');
+      return;
+    }
+
+    const eventDataForEdit = {
+      idevento: event.id,
+      nombreevento: event.title,
+      fechaevento: event.date,
+      horaevento: event.time,
+      lugarevento: event.location,
+      responsable_evento: event.organizer,
+      participantes_esperados: event.attendees,
+      argumentacion: event.argumentacion,
+      idclasificacion: event.Clasificacion?.idclasificacion,
+      idsubcategoria: event.Clasificacion?.idsubcategoria,
+      tiposEvento: JSON.stringify(event.tiposEvento || []),
+      objetivos: JSON.stringify(event.objetivos || []),
+      objetivosPDI: JSON.stringify(event.objetivosPDI || []),
+      segmentos: JSON.stringify(event.segmentos || []),
+      participacion_esperada: event.resultados?.participacion_esperada,
+      satisfaccion_esperada: event.resultados?.satisfaccion_esperada,
+      otros_resultados: event.resultados?.otros_resultados,
+      recursos: JSON.stringify(event.recursos || []),
+      comite: JSON.stringify(event.comite || []),
+      egresos: JSON.stringify(event.egresos || []),
+      ingresos: JSON.stringify(event.ingresos || []),
+      presupuesto: JSON.stringify(event.presupuesto || {}),
+    };
+
+    router.push({
+      pathname: '/admin/EditEventScreen',
+      params: {
+        eventId: event.id,
+        eventData: JSON.stringify(eventDataForEdit),
+        mode: 'reprogramar',
+      }
+    });
+  };
+
   const handleRejectEvent = () => {
     if (!event || !event.id) {
       Alert.alert('Error', 'No hay evento cargado para rechazar.');
@@ -217,26 +330,37 @@ const EventDetailScreen = () => {
     setShowRejectModal(true);
   };
 
-  // Ejecuta el rechazo con la razón
   const confirmReject = async () => {
     setShowRejectModal(false);
     try {
       const token = await getTokenAsync();
       if (!token) throw new Error('Token inválido');
 
-      const response = await axios.put(
+      await axios.put(
         `${API_BASE_URL}/eventos/${event.id}/reject`,
-        { razon_rechazo: razonRechazo || null },
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+        { razon_rechazo: razonRechazo || 'Evento vencido - Fecha de ejecución pasada' },
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`, 
+            'Content-Type': 'application/json' 
+          }
+        }
       );
 
-      console.log('✅ Respuesta:', response.data);
       setRazonRechazo('');
-      Alert.alert('Evento Rechazado', 'El evento ha sido rechazado correctamente');
+      Alert.alert('✓ Evento Rechazado', 'El evento ha sido rechazado correctamente');
       router.back();
     } catch (error) {
       console.error('❌ Error al rechazar:', error);
       Alert.alert('Error', `No se pudo rechazar: ${error.response?.data?.message || error.message}`);
+    }
+  };
+
+  const handleBack = () => {
+    if (from === 'vencidos') {
+      router.back();
+    } else {
+      router.replace('/admin/EventosPendientes');
     }
   };
 
@@ -245,6 +369,7 @@ const EventDetailScreen = () => {
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Cargando detalles del evento...</Text>
+        <Text style={styles.debugText}>ID: {eventId}</Text>
       </View>
     );
   }
@@ -254,10 +379,12 @@ const EventDetailScreen = () => {
       <View style={styles.centered}>
         <Ionicons name="alert-circle-outline" size={50} color={COLORS.accent} />
         <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.debugText}>Params: {JSON.stringify(params)}</Text>
+        <Text style={styles.debugText}>Event ID: {eventId}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchEventDetails}>
           <Text style={styles.retryButtonText}>Reintentar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>Volver</Text>
         </TouchableOpacity>
       </View>
@@ -269,7 +396,7 @@ const EventDetailScreen = () => {
       <View style={styles.centered}>
         <Ionicons name="information-circle-outline" size={50} color={COLORS.grayText} />
         <Text style={styles.errorText}>No se encontraron datos del evento.</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>Volver</Text>
         </TouchableOpacity>
       </View>
@@ -278,10 +405,8 @@ const EventDetailScreen = () => {
 
   return (
     <View style={styles.screenContainer}>
-
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalles del Evento</Text>
@@ -293,7 +418,6 @@ const EventDetailScreen = () => {
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         {event.imageUrl && <Image source={{ uri: event.imageUrl }} style={styles.eventImage} />}
 
-        {/* Título y fase */}
         <View style={styles.card}>
           <Text style={styles.eventTitle}>{event.title}</Text>
           {(() => {
@@ -307,7 +431,6 @@ const EventDetailScreen = () => {
           })()}
         </View>
 
-        {/* Estado */}
         <View style={styles.sectionCard}>
           <View style={styles.detailRow}>
             <Ionicons
@@ -322,7 +445,6 @@ const EventDetailScreen = () => {
           </View>
         </View>
 
-        {/* Datos Generales */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Datos Generales</Text>
           <View style={styles.detailRow}>
@@ -347,7 +469,6 @@ const EventDetailScreen = () => {
           </View>
         </View>
 
-        {/* Creador */}
         {event.creador && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Propuesto por</Text>
@@ -357,7 +478,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Clasificación */}
         {event.Clasificacion && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Clasificación Estratégica</Text>
@@ -367,7 +487,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Tipos de Evento */}
         {event.tiposEvento && event.tiposEvento.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Tipos de Evento</Text>
@@ -380,7 +499,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Objetivos */}
         {event.objetivos && event.objetivos.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Objetivos Principales</Text>
@@ -395,7 +513,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Objetivos PDI */}
         {event.objetivosPDI && event.objetivosPDI.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Objetivos del PDI Institucional</Text>
@@ -408,7 +525,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Segmentos */}
         {event.objetivos && event.objetivos.some(obj => obj.segmentos && obj.segmentos.length > 0) && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Segmentos Objetivo</Text>
@@ -433,7 +549,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Resultados */}
         {event.resultados && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Resultados Esperados</Text>
@@ -458,7 +573,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Recursos */}
         {event.recursos && event.recursos.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Recursos Solicitados</Text>
@@ -482,7 +596,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Comité */}
         {event.comite && event.comite.length > 0 && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Comité del Evento</Text>
@@ -498,7 +611,6 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Presupuesto */}
         {event.presupuesto && (
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Presupuesto del Evento</Text>
@@ -563,54 +675,37 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        {/* Botones aprobar / rechazar */}
         {event.status?.toLowerCase() !== 'aprobado' && (
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.approveButton} onPress={() => setShowApproveAlert(true)}>
-              <Ionicons name="checkmark-outline" size={20} color={COLORS.white} />
-              <Text style={styles.actionButtonText}>Aprobar</Text>
+            <TouchableOpacity 
+              style={styles.approveButton} 
+              onPress={() => setShowEditModal(true)}
+            >
+              <Ionicons name="calendar-outline" size={20} color={COLORS.white} />
+              <Text style={styles.actionButtonText}>Reprogramar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.rejectButton} onPress={handleRejectEvent}>
+            
+            <TouchableOpacity 
+              style={styles.rejectButton} 
+              onPress={handleRejectEvent}
+            >
               <Ionicons name="close-outline" size={20} color={COLORS.white} />
               <Text style={styles.actionButtonText}>Rechazar</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        <TouchableOpacity style={styles.editButton} onPress={() => router.push(`/admin/EditEvent?eventId=${event.id}`)}>
-          <Ionicons name="create-outline" size={20} color={COLORS.white} />
-          <Text style={styles.editButtonText}>Editar Evento</Text>
-        </TouchableOpacity>
-
       </ScrollView>
 
-      {/* ✅ CustomAlert de aprobación — fuera del ScrollView */}
       <CustomAlert
-        visible={showApproveAlert}
-        title="¿Aprobar evento?"
-        message="¿Estás seguro de que quieres aprobar este evento?"
+        visible={showEditModal}
+        title="¿Reprogramar evento?"
+        message="Serás redirigido a la edición del evento para modificar fecha, hora, ubicación u otros detalles. ¿Deseas continuar?"
         cancelText="Cancelar"
-        confirmText="Aprobar"
-        onCancel={() => setShowApproveAlert(false)}
-        onConfirm={async () => {
-          setShowApproveAlert(false);
-          try {
-            const token = await getTokenAsync();
-            if (!token) throw new Error('Token inválido');
-            await axios.put(
-              `${API_BASE_URL}/eventos/${event.id}/approve`,
-              {},
-              { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-            );
-            Alert.alert('Éxito', 'Evento aprobado correctamente');
-            router.back();
-          } catch (error) {
-            Alert.alert('Error', `No se pudo aprobar: ${error.response?.data?.message || error.message || 'Error desconocido'}`);
-          }
-        }}
+        confirmText="Editar Evento"
+        onCancel={() => setShowEditModal(false)}
+        onConfirm={handleReprogramar}
       />
 
-      {/* ✅ Modal de rechazo con razón — fuera del ScrollView */}
       <Modal
         visible={showRejectModal}
         transparent
@@ -622,30 +717,26 @@ const EventDetailScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-
             <View style={styles.modalIconContainer}>
-              <Ionicons name="close-circle" size={44} color={COLORS.logout} />
+              <Ionicons name="close-circle" size={48} color={COLORS.logout} />
             </View>
-
             <Text style={styles.modalTitle}>Rechazar Evento</Text>
             <Text style={styles.modalMessage}>
-              ¿Estás seguro de que quieres rechazar "{event?.title}"?
+              Ingresa la razón del rechazo (opcional):
             </Text>
-
-            <Text style={styles.modalLabel}>Razón del rechazo (opcional):</Text>
+            
             <TextInput
               style={styles.modalInput}
-              placeholder="Escribe la razón aquí..."
+              placeholder="Ej: Fecha de ejecución ya pasó..."
               placeholderTextColor={COLORS.grayText}
               value={razonRechazo}
               onChangeText={setRazonRechazo}
               multiline
-              numberOfLines={3}
               textAlignVertical="top"
             />
-
+            
             <View style={styles.modalButtons}>
-              <TouchableOpacity
+              <TouchableOpacity 
                 style={styles.modalCancelBtn}
                 onPress={() => {
                   setShowRejectModal(false);
@@ -654,27 +745,28 @@ const EventDetailScreen = () => {
               >
                 <Text style={styles.modalCancelText}>Cancelar</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity style={styles.modalRejectBtn} onPress={confirmReject}>
-                <Ionicons name="close-outline" size={18} color={COLORS.white} />
+              
+              <TouchableOpacity 
+                style={styles.modalRejectBtn}
+                onPress={confirmReject}
+              >
+                <Ionicons name="close-circle" size={16} color={COLORS.white} />
                 <Text style={styles.modalRejectText}>Rechazar</Text>
               </TouchableOpacity>
             </View>
-
           </View>
         </View>
       </Modal>
-
     </View>
   );
 };
 
-EventDetailScreen.options = { headerShown: false };
+EventDetailScreenVencido.options = { headerShown: false };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   contentContainer: { paddingBottom: 40, alignItems: 'center' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 20 },
   screenContainer: { flex: 1, backgroundColor: COLORS.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: COLORS.primary },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.white },
@@ -712,13 +804,14 @@ const styles = StyleSheet.create({
   creatorEmail: { fontSize: 14, color: COLORS.grayText, fontStyle: 'italic' },
   eventImage: { width: '100%', height: 250, resizeMode: 'cover', marginBottom: 20 },
   loadingText: { marginTop: 15, fontSize: 16, color: COLORS.grayText },
+  debugText: { marginTop: 10, fontSize: 12, color: COLORS.grayText, textAlign: 'center' },
   errorText: { marginTop: 15, fontSize: 16, color: COLORS.accent, textAlign: 'center', marginHorizontal: 20 },
   retryButton: { marginTop: 20, backgroundColor: COLORS.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   retryButtonText: { color: COLORS.white, fontSize: 16, fontWeight: 'bold' },
   backButton: { marginTop: 10, backgroundColor: COLORS.grayLight, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
   backButtonText: { color: COLORS.darkText, fontSize: 16 },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, marginBottom: 10, width: '90%' },
-  approveButton: { flexDirection: 'row', backgroundColor: COLORS.success, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flex: 0.48 },
+  approveButton: { flexDirection: 'row', backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flex: 0.48 },
   rejectButton: { flexDirection: 'row', backgroundColor: COLORS.logout, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flex: 0.48 },
   actionButtonText: { color: COLORS.white, fontSize: 14, fontWeight: 'bold', marginLeft: 8 },
   editButton: { flexDirection: 'row', backgroundColor: COLORS.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10, width: '90%' },
@@ -738,8 +831,6 @@ const styles = StyleSheet.create({
   balanceFinal: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.grayLight, padding: 15, borderRadius: 12, marginTop: 10 },
   balanceFinalLabel: { fontSize: 16, fontWeight: 'bold', color: COLORS.darkText },
   balanceFinalValue: { fontSize: 18, fontWeight: 'bold' },
-
-  // Modal de rechazo
   modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   modalBox: {
     backgroundColor: COLORS.surface, borderRadius: 16, padding: 24, width: '100%',
@@ -748,7 +839,6 @@ const styles = StyleSheet.create({
   modalIconContainer: { alignItems: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.darkText, marginBottom: 8, textAlign: 'center' },
   modalMessage: { fontSize: 14, color: COLORS.grayText, marginBottom: 20, lineHeight: 20, textAlign: 'center' },
-  modalLabel: { fontSize: 14, fontWeight: '600', color: COLORS.darkText, marginBottom: 8 },
   modalInput: {
     borderWidth: 1, borderColor: COLORS.grayLight, borderRadius: 10, padding: 12,
     fontSize: 14, color: COLORS.darkText, backgroundColor: COLORS.background,
@@ -761,4 +851,4 @@ const styles = StyleSheet.create({
   modalRejectText: { fontSize: 14, fontWeight: '600', color: COLORS.white },
 });
 
-export default EventDetailScreen;
+export default EventDetailScreenVencido;

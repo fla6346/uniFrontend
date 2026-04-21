@@ -15,8 +15,7 @@ import BackendTestScreen from './screens/LoginScreen';
 SplashScreenExpo.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
-const API_URL = 'https://proyectcp.onrender.com/api'; // URL de producción en Render
-//'http://localhost:3001/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -49,7 +48,7 @@ export default function App() {
       const response = await axios.get(`${API_URL}/data`);
       setData(response.data);
     } catch (err) {
-      setError('Error al cargar los datos. Asegúrate de que /api/data exista.');
+      setError('Error al cargar los datos. Asegúrate de que data exista.');
       console.error(err);
     } finally {
       setLoading(false);

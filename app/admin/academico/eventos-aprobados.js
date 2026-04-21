@@ -7,8 +7,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const API_BASE_URL = Platform.OS === 'android' || Platform.OS === 'ios' 
-  ? 'http://192.168.0.167:3001/api' 
-  : 'http://localhost:3001/api';
+  ? 'http://192.168.0.167:3001' 
+  : 'http://localhost:3001';
 
 // Usa el token de académico (NO el de admin)
 const TOKEN_KEY = 'authToken'; 

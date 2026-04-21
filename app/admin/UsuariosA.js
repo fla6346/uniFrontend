@@ -31,7 +31,7 @@ let determinedApiBaseUrl;
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }*/
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 
 const getTokenAsync = async () => {
   const TOKEN_KEY = 'adminAuthToken';
@@ -497,6 +497,15 @@ return (
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerLeft: () => (
+      <TouchableOpacity 
+        onPress={() => router.back()} 
+        style={{ marginLeft: 15, padding: 5 }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="arrow-back" size={24} color="#fff" />
+      </TouchableOpacity>
+    ),
         headerRight: () => (
           <TouchableOpacity onPress={handleAddUser} style={styles.headerButton}>
             <Ionicons name="add-circle" size={28} color="#fff" />

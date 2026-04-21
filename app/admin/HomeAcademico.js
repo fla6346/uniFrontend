@@ -27,7 +27,7 @@ let determinedApiBaseUrl;
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }*/
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
@@ -383,7 +383,39 @@ const fetchCommitteeEvents = useCallback(async () => {
         color: COLORS.success,
         trend: null, // o calcula una tendencia si quieres
         description: 'Total aprobados'
-      },
+        },
+        { 
+        title: 'Eventos Pendientes', 
+        value: data.estadoCounts?.pendiente?.toString() || '0', 
+        icon: 'checkmark-circle-outline', 
+        color: COLORS.success,
+        trend: null, // o calcula una tendencia si quieres
+        description: 'Total pendientes'
+        },
+        { 
+        title: 'Eventos Cancelados', 
+        value: data.estadoCounts?.cancelado?.toString() || '0', 
+        icon: 'checkmark-circle-outline', 
+        color: COLORS.success,
+        trend: null, // o calcula una tendencia si quieres
+        description: 'Total cancelados'
+        },
+        { 
+        title: 'Eventos Vencidos', 
+        value: data.estadoCounts?.vencido?.toString() || '0', 
+        icon: 'checkmark-circle-outline', 
+        color: COLORS.success,
+        trend: null, // o calcula una tendencia si quieres
+        description: 'Total vencidos'
+        },
+        { 
+        title: 'Eventos Rechazados', 
+        value: data.estadoCounts?.rechazado?.toString() || '0', 
+        icon: 'checkmark-circle-outline', 
+        color: COLORS.success,
+        trend: null, // o calcula una tendencia si quieres
+        description: 'Total rechazados'
+        },
         { 
           title: 'Eventos Totales', 
           value: data.totalEvents?.toString() || '0', 
@@ -391,14 +423,6 @@ const fetchCommitteeEvents = useCallback(async () => {
           color: COLORS.info,
           trend: -3.2,
           description: 'Último mes'
-        },
-        { 
-          title: 'Contenidos Pendientes', 
-          value: data.estadoCounts?.pendiente?.toString() || '0', 
-          icon: 'document-text-outline', 
-          color: COLORS.warning,
-          trend: 18.7,
-          description: 'Última semana'
         },
         { 
           title: 'Estabilidad Sistema', 
@@ -534,6 +558,16 @@ useEffect(() => {
   },
   {
     id: '2',
+    title: 'Reportes Avanzados',
+    iconName: 'document-text-outline',
+    route: '/admin/reportes',
+    color: COLORS.secondary,
+    description: 'Generación de reportes detallados',
+    badge: 'Nuevo',
+    badgeColor: COLORS.accent,
+  },
+  {
+    id: '3',
     title: 'Eventos Pendientes',
     iconName: 'timer-outline',
     route: '/admin/EventosPendientes',
@@ -542,7 +576,7 @@ useEffect(() => {
     badgeColor: COLORS.warning,
   },
   {
-    id: '3',
+    id: '4',
     title: 'Eventos Aprobados',
     iconName: 'checkmark-circle-outline',
     route: '/admin/EventosAprobados',
@@ -560,6 +594,37 @@ useEffect(() => {
     badge: 'Nuevo',
     badgeColor: COLORS.accent,
   },
+  {
+    id: '6',
+    title: 'Eventos Cancelados',
+    iconName: 'document-text-outline',
+    route: '/admin/EventosCancelados',
+    color: COLORS.secondary,
+    description: 'Gestión de eventos cancelados',
+    badge: 'Nuevo',
+    badgeColor: COLORS.accent,
+  },
+  {
+    id: '7',
+    title: 'Eventos Rechazados',
+    iconName: 'document-text-outline',
+    route: '/admin/EventosRechazados',
+    color: COLORS.secondary,
+    description: 'Gestión de eventos rechazados',
+    badge: 'Nuevo',
+    badgeColor: COLORS.accent,
+  },
+  {
+    id: '8',
+    title: 'Eventos Vencidos',
+    iconName: 'document-text-outline',
+    route: '/admin/EventosVencidos',
+    color: COLORS.secondary,
+    description: 'Gestión de eventos vencidos',
+    badge: 'Nuevo',
+    badgeColor: COLORS.accent,
+  },
+
 ], [pendingContentCount]);
 
 const handleActionPress = (action) => {
@@ -579,39 +644,57 @@ const handleActionPress = (action) => {
   Alert.alert('Funcionalidad en Desarrollo', 'Esta característica estará disponible próximamente.');
 };
 
-  const handleLogout = async () => {
+ const handleLogout = async () => {
+  const performLogout = async () => {
+    try {
+      await deleteTokenAsync();
+      
+      // Limpiar estado local
+      setDashboardStats([
+        { title: 'Usuarios Activos', value: '—', icon: 'people-outline', color: COLORS.primary },
+        { title: 'Eventos Totales', value: '—', icon: 'calendar-outline', color: COLORS.info },
+        { title: 'Contenidos Pendientes', value: '—', icon: 'document-text-outline', color: COLORS.warning },
+        { title: 'Estabilidad Sistema', value: '—', icon: 'pulse-outline', color: COLORS.success },
+      ]);
+      setHistoricalData([]);
+      setUserProfile({
+        nombre: '',
+        apellidopat: '',
+        apellidomat: '',
+        facultad: null,
+        loading: false,
+      });
+
+      // Redirigir al login
+      router.replace('/');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      router.replace('/'); // Forzar redirección incluso con error
+    }
+  };
+
+  if (Platform.OS === 'web') {
+    // ✅ Usar confirm nativo del navegador para web
+    if (window.confirm('¿Está seguro que desea cerrar la sesión actual?')) {
+      await performLogout();
+    }
+  } else {
+    // ✅ Usar Alert para móviles (iOS/Android)
     Alert.alert(
       'Confirmar Cierre de Sesión',
       '¿Está seguro que desea cerrar la sesión actual?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteTokenAsync();
-             setDashboardStats([
-            { title: 'Usuarios Activos', value: '—', icon: 'people-outline', color: COLORS.primary },
-            { title: 'Eventos Totales', value: '—', icon: 'calendar-outline', color: COLORS.info },
-            { title: 'Contenidos Pendientes', value: '—', icon: 'document-text-outline', color: COLORS.warning },
-            { title: 'Estabilidad Sistema', value: '—', icon: 'pulse-outline', color: COLORS.success },
-          ]);
-          setHistoricalData([]);
-          setUserProfile({
-            nombre: '',
-            apellidopat: '',
-            apellidomat: '',
-            facultad: null,
-            loading: false,
-          });
-
-          // 👉 Redirigir
-          router.replace('/');
-          },
+        { 
+          text: 'Cerrar Sesión', 
+          style: 'destructive', 
+          onPress: performLogout 
         },
-      ]
+      ],
+      { cancelable: true }
     );
-  };
+  }
+};
 
   return (
     <View style={styles.container}>

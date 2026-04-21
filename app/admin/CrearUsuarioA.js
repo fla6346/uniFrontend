@@ -22,7 +22,7 @@ import DropDownPicker from 'react-native-dropdown-picker';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const CARRERA_A_FACULTAD = {
   '1':'1',  
   '2':'2',  

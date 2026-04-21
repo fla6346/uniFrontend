@@ -20,7 +20,7 @@ if (Platform.OS === 'android') {
 } else { // web y otros
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }*/
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://cidtec-uc.com';
 
 // --- CONFIGURACIÓN DE IDIOMA PARA CALENDARIO ---
 LocaleConfig.locales['es'] = {

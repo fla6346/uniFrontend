@@ -135,7 +135,7 @@ const RejectedEventCard = ({ event, onPress }) => {
   );
 };
 
-const EventosRechazados = () => {
+const EventosCancelados = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   
@@ -153,8 +153,8 @@ const EventosRechazados = () => {
         return;
       }
 
-      console.log('🔍 Solicitando eventos rechazados...');
-      const response = await axios.get(`${API_BASE_URL}/eventos/rechazados`, {
+      console.log('🔍 Solicitando eventos cancelados...');
+      const response = await axios.get(`${API_BASE_URL}/eventos/cancelados`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -162,16 +162,16 @@ const EventosRechazados = () => {
         timeout: 10000,
       });
       
-      console.log('✅ Eventos rechazados recibidos:', response.data.length);
+      console.log('✅ Eventos cancelados recibidos:', response.data.length);
       if (response.data.length > 0) {
         console.log('📅 Primer evento:', response.data[0]);
       }
       
       setEvents(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error('❌ Error fetching rejected events:', error);
+      console.error('❌ Error fetching canceled events:', error);
       
-      let message = 'No se pudieron cargar los eventos rechazados.';
+      let message = 'No se pudieron cargar los eventos cancelados.';
       
       if (error.response?.status === 401) {
         message = 'Sesión expirada. Inicia sesión nuevamente.';
@@ -247,16 +247,16 @@ const EventosRechazados = () => {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Ionicons name="arrow-back" size={24} color={COLORS.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Eventos Rechazados</Text>
+          <Text style={styles.headerTitle}>Eventos Cancelados</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="close-circle-outline" size={80} color={COLORS.textTertiary} />
           </View>
-          <Text style={styles.emptyTitle}>Sin eventos rechazados</Text>
+          <Text style={styles.emptyTitle}>Sin eventos cancelados</Text>
           <Text style={styles.emptyText}>
-            No hay eventos con estado "rechazado" en este momento.
+            No hay eventos con estado "cancelado" en este momento.
           </Text>
           <TouchableOpacity style={styles.emptyButton} onPress={onRefresh}>
             <Ionicons name="refresh-outline" size={18} color={COLORS.white} />
@@ -275,7 +275,7 @@ const EventosRechazados = () => {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Eventos Rechazados</Text>
+        <Text style={styles.headerTitle}>Eventos Cancelados</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} disabled={refreshing}>
           <Ionicons name="refresh-outline" size={22} color={COLORS.white} />
         </TouchableOpacity>
@@ -328,7 +328,7 @@ const EventosRechazados = () => {
       <FlatList
         data={filteredEvents}
         keyExtractor={(item) => `event-${item.idevento || item.id}`}
-        renderItem={({ item }) => <RejectedEventCard event={item} onPress={handleEventPress} />}
+        renderItem={({ item }) => <CanceledEventCard event={item} onPress={handleEventPress} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -403,6 +403,6 @@ const styles = StyleSheet.create({
   clearSearchText: { fontSize: 14, color: COLORS.primary, fontWeight: '600' },
 });
 
-EventosRechazados.options = { headerShown: false };
+EventosCancelados.options = { headerShown: false };
 
-export default EventosRechazados;
+export default EventosCancelados;

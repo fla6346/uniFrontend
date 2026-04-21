@@ -7,11 +7,10 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { PieChart, LineChart, BarChart } from 'react-native-chart-kit';
+import { PieChart, LineChart } from 'react-native-chart-kit';
 
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL = 'https://evento.cidtec-uc.com';
 
-// --- Helper para obtener token ---
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
     return localStorage.getItem('adminAuthToken');
@@ -19,7 +18,15 @@ const getTokenAsync = async () => {
     return await SecureStore.getItemAsync('adminAuthToken');
   }
 };
-// ✅ AGREGA ESTO:
+
+const getUserRoleAsync = async () => {
+  if (Platform.OS === 'web') {
+    return localStorage.getItem('userRole'); // guarda el rol al hacer login
+  } else {
+    return await SecureStore.getItemAsync('userRole');
+  }
+};
+
 const COLORS = {
   primary: '#E95A0C',
   primaryLight: '#FFEDD5',
@@ -39,20 +46,23 @@ const COLORS = {
   white: '#FFFFFF',
   black: '#000000',
 };
+
+const MESES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
 const EstadisticaScreen = () => {
   const router = useRouter();
   const { width: windowWidth } = Dimensions.get('window');
-  
+
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState('6m'); // '1m', '3m', '6m', '1y'
+  const [dateRange, setDateRange] = useState('6m');
   const [stats, setStats] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
   const [statusDistribution, setStatusDistribution] = useState([]);
-  const [facultyData, setFacultyData] = useState([]);
+  const [error, setError] = useState(null);
 
-  // --- Fetch Data ---
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const token = await getTokenAsync();
       if (!token) {
@@ -60,46 +70,51 @@ const EstadisticaScreen = () => {
         return;
       }
 
+      const role = await getUserRoleAsync();
+      console.log('🔑 Role:', role);
+
+      // Elegir endpoint correcto según rol
+      const historicalEndpoint = role === 'academico'
+        ? `${API_BASE_URL}/dashboard/my-historical`
+        : `${API_BASE_URL}/dashboard/historical`;
+
+      const statsEndpoint = role === 'academico'
+        ? `${API_BASE_URL}/dashboard/my-stats`
+        : `${API_BASE_URL}/dashboard/stats`;
+
+      const headers = { 'Authorization': `Bearer ${token}` };
+
       const [statsRes, historicalRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/dashboard/stats`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        axios.get(`${API_BASE_URL}/dashboard/my-historical`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+        axios.get(statsEndpoint, { headers }),
+        axios.get(historicalEndpoint, { headers })
       ]);
 
-      // Procesar datos para gráficos
-      const statusData = statsRes.data.estadoCounts || {};
-      setStatusDistribution([
-        {
-          name: 'Aprobados',
-          population: statusData.aprobado || 0,
-          color: COLORS.success,
-          legendFontColor: COLORS.textSecondary,
-          legendFontSize: 12
-        },
-        {
-          name: 'Pendientes',
-          population: statusData.pendiente || 0,
-          color: COLORS.warning,
-          legendFontColor: COLORS.textSecondary,
-          legendFontSize: 12
-        },
-        {
-          name: 'Rechazados',
-          population: statusData.rechazado || 0,
-          color: COLORS.accent,
-          legendFontColor: COLORS.textSecondary,
-          legendFontSize: 12
-        }
-      ]);
+      console.log('📊 statsRes.data:', JSON.stringify(statsRes.data, null, 2));
+      console.log('📈 historicalRes.data:', JSON.stringify(historicalRes.data, null, 2));
 
-      setHistoricalData(historicalRes.data.historical || []);
-      setStats(statsRes.data);
-      
-    } catch (error) {
-      console.error('Error al cargar datos de análisis:', error);
+      const statsData = statsRes.data;
+
+      // Distribución por estado
+      const estadoCounts = statsData.estadoCounts || {};
+      const pieData = [
+        { name: 'Aprobados', population: estadoCounts.aprobado || 0, color: COLORS.success, legendFontColor: COLORS.textSecondary, legendFontSize: 12 },
+        { name: 'Pendientes', population: estadoCounts.pendiente || 0, color: COLORS.warning, legendFontColor: COLORS.textSecondary, legendFontSize: 12 },
+        { name: 'Rechazados', population: estadoCounts.rechazado || 0, color: COLORS.accent, legendFontColor: COLORS.textSecondary, legendFontSize: 12 },
+      ];
+      setStatusDistribution(pieData);
+
+      // Datos históricos - normalizar campos (backend devuelve {mes, total} o {name, eventos})
+      const rawHistorical = historicalRes.data?.historical || historicalRes.data || [];
+      const normalized = rawHistorical.map(item => ({
+        name: item.name || item.mes || '?',
+        eventos: item.eventos ?? item.total ?? 0,
+      }));
+      setHistoricalData(normalized);
+      setStats(statsData);
+
+    } catch (err) {
+      console.error('❌ Error al cargar datos:', err?.response?.data || err.message);
+      setError(err?.response?.data?.message || err.message || 'Error desconocido');
     } finally {
       setLoading(false);
     }
@@ -109,7 +124,6 @@ const EstadisticaScreen = () => {
     fetchData();
   }, [fetchData]);
 
-  // --- Config de gráficos ---
   const chartConfig = useMemo(() => ({
     backgroundColor: COLORS.surface,
     backgroundGradientFrom: COLORS.surface,
@@ -119,19 +133,38 @@ const EstadisticaScreen = () => {
     style: { borderRadius: 16 },
     propsForLabels: { fontSize: 10 },
     barPercentage: 0.7,
+    decimalPlaces: 0,
   }), []);
 
-  const lineChartData = useMemo(() => ({
-    labels: historicalData.map(d => d.name),
-    datasets: [{
-      data: historicalData.map(d => d.eventos ?? 0),
-      color: (opacity = 1) => `rgba(233, 90, 12, ${opacity})`,
-      strokeWidth: 2
-    }],
-    legend: ["Eventos creados"]
-  }), [historicalData]);
+  // Datos seguros para LineChart - nunca vacíos ni NaN
+  const lineChartData = useMemo(() => {
+    const safeData = historicalData.length > 0
+      ? historicalData
+      : [{ name: 'Sin datos', eventos: 0 }];
 
-  // --- Filtros ---
+    return {
+      labels: safeData.map(d => String(d.name || '')),
+      datasets: [{
+        data: safeData.map(d => {
+          const val = Number(d.eventos);
+          return isNaN(val) ? 0 : val;
+        }),
+        color: (opacity = 1) => `rgba(233, 90, 12, ${opacity})`,
+        strokeWidth: 2
+      }],
+      legend: ["Eventos"]
+    };
+  }, [historicalData]);
+
+  // Datos seguros para PieChart - si todos son 0, muestra placeholder
+  const safePieData = useMemo(() => {
+    const allZero = statusDistribution.every(d => d.population === 0);
+    if (allZero || statusDistribution.length === 0) {
+      return [{ name: 'Sin datos', population: 1, color: COLORS.border, legendFontColor: COLORS.textSecondary, legendFontSize: 12 }];
+    }
+    return statusDistribution.filter(d => d.population > 0);
+  }, [statusDistribution]);
+
   const dateFilters = [
     { label: '1M', value: '1m' },
     { label: '3M', value: '3m' },
@@ -148,9 +181,23 @@ const EstadisticaScreen = () => {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="alert-circle-outline" size={48} color={COLORS.accent} />
+        <Text style={[styles.loadingText, { color: COLORS.accent, textAlign: 'center', marginHorizontal: 24 }]}>
+          {error}
+        </Text>
+        <TouchableOpacity onPress={fetchData} style={[styles.exportButton, { marginTop: 16 }]}>
+          <Text style={styles.exportButtonText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -167,16 +214,10 @@ const EstadisticaScreen = () => {
           {dateFilters.map(filter => (
             <TouchableOpacity
               key={filter.value}
-              style={[
-                styles.filterButton,
-                dateRange === filter.value && styles.filterButtonActive
-              ]}
+              style={[styles.filterButton, dateRange === filter.value && styles.filterButtonActive]}
               onPress={() => setDateRange(filter.value)}
             >
-              <Text style={[
-                styles.filterButtonText,
-                dateRange === filter.value && styles.filterButtonTextActive
-              ]}>
+              <Text style={[styles.filterButtonText, dateRange === filter.value && styles.filterButtonTextActive]}>
                 {filter.label}
               </Text>
             </TouchableOpacity>
@@ -184,14 +225,12 @@ const EstadisticaScreen = () => {
         </View>
       </View>
 
-      {/* Tarjetas de Métricas Principales */}
+      {/* Métricas */}
       <View style={styles.metricsGrid}>
         <View style={[styles.metricCard, { borderLeftColor: COLORS.success }]}>
           <Text style={styles.metricValue}>{stats?.estadoCounts?.aprobado || 0}</Text>
           <Text style={styles.metricLabel}>Aprobados</Text>
-          <Text style={styles.metricTrend}>
-            {stats?.tasaAprobacion || 0}% tasa de aprobación
-          </Text>
+          <Text style={styles.metricTrend}>{stats?.tasaAprobacion || 0}% tasa de aprobación</Text>
         </View>
         <View style={[styles.metricCard, { borderLeftColor: COLORS.warning }]}>
           <Text style={styles.metricValue}>{stats?.estadoCounts?.pendiente || 0}</Text>
@@ -210,25 +249,33 @@ const EstadisticaScreen = () => {
         </View>
       </View>
 
-      {/* Gráfico de Línea - Tendencia Temporal */}
+      {/* Gráfico de Línea */}
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>📈 Tendencia de Eventos (Últimos 6 meses)</Text>
-        <LineChart
-          data={lineChartData}
-          width={windowWidth - 40}
-          height={220}
-          chartConfig={chartConfig}
-          bezier
-          style={styles.chart}
-          verticalLabelRotation={15}
-        />
+        {historicalData.length === 0 ? (
+          <View style={styles.emptyChart}>
+            <Ionicons name="bar-chart-outline" size={48} color={COLORS.border} />
+            <Text style={styles.emptyText}>Sin datos históricos disponibles</Text>
+          </View>
+        ) : (
+          <LineChart
+            data={lineChartData}
+            width={windowWidth - 40}
+            height={220}
+            chartConfig={chartConfig}
+            bezier
+            style={styles.chart}
+            verticalLabelRotation={15}
+            fromZero
+          />
+        )}
       </View>
 
-      {/* Gráfico de Pastel - Distribución por Estado */}
+      {/* Gráfico de Pastel */}
       <View style={styles.chartCard}>
         <Text style={styles.chartTitle}>🥧 Distribución por Estado</Text>
         <PieChart
-          data={statusDistribution}
+          data={safePieData}
           width={windowWidth - 40}
           height={220}
           chartConfig={chartConfig}
@@ -240,34 +287,32 @@ const EstadisticaScreen = () => {
       </View>
 
       {/* Tabla Resumen */}
-      <View style={styles.tableCard}>
-        <Text style={styles.chartTitle}>📋 Resumen Detallado</Text>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableCell, { flex: 2 }]}>Mes</Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>Eventos</Text>
-          <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>Tendencia</Text>
+      {historicalData.length > 0 && (
+        <View style={styles.tableCard}>
+          <Text style={styles.chartTitle}>📋 Resumen Detallado</Text>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableCell, { flex: 2, fontWeight: '700' }]}>Mes</Text>
+            <Text style={[styles.tableCell, { flex: 1, textAlign: 'center', fontWeight: '700' }]}>Eventos</Text>
+            <Text style={[styles.tableCell, { flex: 1, textAlign: 'right', fontWeight: '700' }]}>Tendencia</Text>
+          </View>
+          {historicalData.map((item, index) => {
+            const prev = historicalData[index - 1]?.eventos || 0;
+            const current = item.eventos || 0;
+            const trend = prev > 0 ? Math.round(((current - prev) / prev) * 100) : 0;
+            return (
+              <View key={item.name + index} style={styles.tableRow}>
+                <Text style={[styles.tableCell, { flex: 2 }]}>{item.name}</Text>
+                <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{current}</Text>
+                <Text style={[styles.tableCell, { flex: 1, textAlign: 'right', color: trend >= 0 ? COLORS.success : COLORS.accent }]}>
+                  {index === 0 ? '-' : `${trend >= 0 ? '↑' : '↓'} ${Math.abs(trend)}%`}
+                </Text>
+              </View>
+            );
+          })}
         </View>
-        {historicalData.map((item, index) => {
-          const prev = historicalData[index - 1]?.eventos || 0;
-          const current = item.eventos || 0;
-          const trend = prev > 0 ? Math.round(((current - prev) / prev) * 100) : 0;
-          
-          return (
-            <View key={item.name} style={styles.tableRow}>
-              <Text style={[styles.tableCell, { flex: 2 }]}>{item.name}</Text>
-              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{current}</Text>
-              <Text style={[
-                styles.tableCell, 
-                { flex: 1, textAlign: 'right', color: trend >= 0 ? COLORS.success : COLORS.accent }
-              ]}>
-                {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+      )}
 
-      {/* Botón de Exportar */}
+      {/* Exportar */}
       <TouchableOpacity style={styles.exportButton}>
         <Ionicons name="download-outline" size={20} color={COLORS.white} />
         <Text style={styles.exportButtonText}>Exportar Reporte (PDF)</Text>
@@ -279,9 +324,9 @@ const EstadisticaScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   loadingText: { marginTop: 12, color: COLORS.textSecondary },
-  
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 40 : 20, paddingBottom: 16,
@@ -290,7 +335,7 @@ const styles = StyleSheet.create({
   backButton: { padding: 8 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: COLORS.textPrimary },
   placeholder: { width: 40 },
-  
+
   filterContainer: {
     paddingHorizontal: 20, paddingVertical: 16, backgroundColor: COLORS.surface,
     borderBottomWidth: 1, borderColor: COLORS.border
@@ -304,36 +349,38 @@ const styles = StyleSheet.create({
   filterButtonActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   filterButtonText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   filterButtonTextActive: { color: COLORS.white },
-  
+
   metricsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', padding: 16, gap: 12, justifyContent: 'space-between'
   },
   metricCard: {
     width: '48%', backgroundColor: COLORS.surface, borderRadius: 12, padding: 16,
-    borderLeftWidth: 4, shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, shadowRadius: 4, elevation: 2
+    borderLeftWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 4, elevation: 2
   },
   metricValue: { fontSize: 24, fontWeight: '800', color: COLORS.textPrimary },
   metricLabel: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
   metricTrend: { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
-  
+
   chartCard: {
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, marginHorizontal: 16, marginBottom: 16,
-    shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2
+    backgroundColor: COLORS.surface, borderRadius: 16, padding: 16,
+    marginHorizontal: 16, marginBottom: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2
   },
   chartTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12 },
   chart: { marginVertical: 8, borderRadius: 8 },
-  
+  emptyChart: { alignItems: 'center', paddingVertical: 32 },
+  emptyText: { marginTop: 8, color: COLORS.textTertiary, fontSize: 14 },
+
   tableCard: {
-    backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, marginHorizontal: 16, marginBottom: 16,
-    shadowColor: COLORS.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2
+    backgroundColor: COLORS.surface, borderRadius: 16, padding: 16,
+    marginHorizontal: 16, marginBottom: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2
   },
-  tableHeader: {
-    flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: COLORS.border
-  },
+  tableHeader: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: COLORS.border },
   tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderColor: COLORS.divider },
   tableCell: { fontSize: 13, color: COLORS.textSecondary },
-  
+
   exportButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: COLORS.primary, marginHorizontal: 16, marginBottom: 32,

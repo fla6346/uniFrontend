@@ -5,7 +5,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { COLORS } from './EventosPendientes'; // o importa tus colores desde donde los tengas
 
-const API_BASE_URL = 'http://192.168.0.167:3001/api'; // ajusta según tu entorno
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {

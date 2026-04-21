@@ -85,42 +85,42 @@ const DetalleEvents = () => {
   };
 
   if (loading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color="#007bff" /></View>;
+    return <View style={S.centered}><ActivityIndicator size="large" color="#007bff" /></View>;
   }
 
   if (error || !event) {
-    return <View style={styles.centered}><Text style={styles.errorText}>{error || 'Evento no encontrado.'}</Text></View>;
+    return <View style={S.centered}><Text style={S.errorText}>{error || 'Evento no encontrado.'}</Text></View>;
   }
 
   // const canEdit = user && (user.role === 'admin' || user.id === event.organizerId); // Lógica para editar
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>{event.title}</Text>
-      {/* <Image source={{ uri: event.imageUrl }} style={styles.image} /> // Si tienes imágenes */}
-      <View style={styles.detailItem}>
-        <Text style={styles.label}>Descripción:</Text>
-        <Text style={styles.value}>{event.description}</Text>
+    <ScrollView style={S.container}>
+      <Text style={S.title}>{event.title}</Text>
+      {/* <Image source={{ uri: event.imageUrl }} style={S.image} /> // Si tienes imágenes */}
+      <View style={S.detailItem}>
+        <Text style={S.label}>Descripción:</Text>
+        <Text style={S.value}>{event.description}</Text>
       </View>
-      <View style={styles.detailItem}>
-        <Text style={styles.label}>Fecha y Hora:</Text>
-        <Text style={styles.value}>{event.date} a las {event.time}</Text>
+      <View style={S.detailItem}>
+        <Text style={S.label}>Fecha y Hora:</Text>
+        <Text style={S.value}>{event.date} a las {event.time}</Text>
       </View>
-      <View style={styles.detailItem}>
-        <Text style={styles.label}>Ubicación:</Text>
-        <Text style={styles.value}>{event.location}</Text>
+      <View style={S.detailItem}>
+        <Text style={S.label}>Ubicación:</Text>
+        <Text style={S.value}>{event.location}</Text>
       </View>
-      <View style={styles.detailItem}>
-        <Text style={styles.label}>Categoría:</Text>
-        <Text style={styles.value}>{event.category}</Text>
+      <View style={S.detailItem}>
+        <Text style={S.label}>Categoría:</Text>
+        <Text style={S.value}>{event.category}</Text>
       </View>
-      <View style={styles.detailItem}>
-        <Text style={styles.label}>Organizador:</Text>
-        <Text style={styles.value}>{event.organizer}</Text>
+      <View style={S.detailItem}>
+        <Text style={S.label}>Organizador:</Text>
+        <Text style={S.value}>{event.organizer}</Text>
       </View>
-      <View style={styles.detailItem}>
-        <Text style={styles.label}>Capacidad:</Text>
-        <Text style={styles.value}>{event.attendeesCount} / {event.capacity || 'Ilimitada'}</Text>
+      <View style={S.detailItem}>
+        <Text style={S.label}>Capacidad:</Text>
+        <Text style={S.value}>{event.attendeesCount} / {event.capacity || 'Ilimitada'}</Text>
       </View>
 
       {/* Lógica de botones según estado de registro y rol */}

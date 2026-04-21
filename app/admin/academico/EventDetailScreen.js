@@ -25,7 +25,7 @@ let determinedApiBaseUrl;
 } else {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
 }*/
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const TOKEN_KEY = 'acadAuthToken';
 
 // Funciones para manejo de tokens (sin cambios)

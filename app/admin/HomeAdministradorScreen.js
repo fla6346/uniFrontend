@@ -10,9 +10,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import Chatbot from '../chatbot';
 
-const API_BASE_URL = 'https://unibackend-1-izpi.onrender.com/api';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
+const RASA_WEBHOOK_URL = 'https://unirasa.onrender.com/webhooks/rest/webhook';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {
@@ -24,10 +24,16 @@ const getTokenAsync = async () => {
 };
 
 const deleteTokenAsync = async () => {
-  if (Platform.OS === 'web') {
-    try { localStorage.removeItem(TOKEN_KEY); } catch {}
-  } else {
-    try { await SecureStore.deleteItemAsync(TOKEN_KEY); } catch {}
+  try {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(TOKEN_KEY);
+      console.log('Token eliminado de localStorage');
+    } else {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      console.log('Token eliminado de SecureStore');
+    }
+  } catch (error) {
+    console.error('Error al eliminar token:', error);
   }
 };
 
@@ -282,17 +288,12 @@ const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpand
     { id: 'add-user', title: 'Nuevo Usuario', icon: 'person-add-outline', color: COLORS.primary, action: '/admin/UsuariosA' },
     { id: 'pendientes', title: 'Pendientes', icon: 'document-text-outline', color: COLORS.warning, action: '/admin/EventosPendientes' },
     { id: 'aprobados', title: 'Aprobados', icon: 'checkmark-circle-outline', color: COLORS.success, action: '/admin/EventosAprobados' },
-    { id: 'settings', title: 'Ajustes', icon: 'settings-outline', color: COLORS.secondary, action: '/admin/Settings' },
+    { id: 'rechazados', title: 'Rechazados', icon: 'close-circle-outline', color: COLORS.accent, action: '/admin/EventosRechazados' },  
   ];
 
   return (
     <Animated.View style={[styles.dock, { height: dockHeight }]}>
-      <Pressable onPress={onToggleExpanded} style={styles.dockToggle}>
-        <Animated.View style={{ transform: [{ rotate }] }}>
-          <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
-        </Animated.View>
-        <Text style={styles.dockToggleText}>Menú rápido</Text>
-      </Pressable>
+      
       {isExpanded && (
         <View style={styles.dockExpanded}>
           <View style={styles.dockActions}>
@@ -309,6 +310,12 @@ const MinimalBottomDock = ({ onLogout, onActionPress, isExpanded, onToggleExpand
           </TouchableOpacity>
         </View>
       )}
+      <Pressable onPress={onToggleExpanded} style={styles.dockToggle}>
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <Ionicons name="chevron-up-outline" size={20} color={COLORS.white} />
+        </Animated.View>
+        <Text style={styles.dockToggleText}>Menú rápido</Text>
+      </Pressable>
     </Animated.View>
   );
 };
@@ -373,9 +380,11 @@ const HomeAdministradorScreen = () => {
 
   const [eventosPorEstado, setEventosPorEstado]   = useState(null);
   const [eventosPorDia, setEventosPorDia]         = useState(null);
-  const [eventosPorMes, setEventosPorMes]         = useState(null);
   const [eventosPorFacultad, setEventosPorFacultad] = useState(null);
   const [tiempoPromedioAprobacion, setTiempoPromedioAprobacion] = useState('0');
+  const [rejectedEventsCount, setRejectedEventsCount] = useState('0');
+  const [cancelledEventsCount, setCancelledEventsCount] = useState('0');
+  const [expiredEventsCount, setExpiredEventsCount] = useState('0');
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -386,9 +395,9 @@ const HomeAdministradorScreen = () => {
     { title: 'Aprobados',        value: '–', icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Este mes' },
     { title: 'Tasa Aprobación',  value: '–', icon: 'analytics-outline', color: COLORS.info, trend: null, description: 'Eventos aprobados / totales' },
     { title: 'Estabilidad',      value: '–', icon: 'pulse-outline', color: COLORS.success, trend: null, description: 'Rendimiento del sistema' },
+    { title: 'Rechazados'      , value: '–', icon: 'close-circle-outline', color: COLORS.accent, trend: null, description: 'Eventos rechazados' },
   ]);
 
-  // ── Fetch dashboard data ───────────────────────────────────────────────────
   const fetchDashboardData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoadingDashboard(true);
@@ -405,7 +414,6 @@ const HomeAdministradorScreen = () => {
 
       const data = statsRes.data;
 
-      // ── Último evento ──────────────────────────────────────────────────────
       if (Array.isArray(eventosRes.data) && eventosRes.data.length > 0) {
         const sorted = [...eventosRes.data].sort((a, b) =>
           new Date(b.fechaevento || 0) - new Date(a.fechaevento || 0)
@@ -413,11 +421,20 @@ const HomeAdministradorScreen = () => {
         setUltimoEvento(sorted[0]);
       }
 
-      // ── Pie chart estados ──────────────────────────────────────────────────
       if (data.estadoCounts) {
         setPendingContentCount((data.estadoCounts.pendiente || 0).toString());
         setApprovedEventsCount((data.estadoCounts.aprobado  || 0).toString());
-        const stateColors = { aprobado: COLORS.success, pendiente: COLORS.warning, rechazado: COLORS.accent };
+        setRejectedEventsCount((data.estadoCounts.rechazado || 0).toString());
+        setCancelledEventsCount((data.estadoCounts.cancelado || 0).toString());
+        setExpiredEventsCount((data.estadoCounts.vencido || 0).toString());
+
+        const stateColors = { 
+          pendiente: COLORS.warning,
+          aprobado: COLORS.success,
+          rechazado: COLORS.accent,
+          cancelado: COLORS.danger,
+          vencido: COLORS.info
+         };
         const pie = Object.entries(data.estadoCounts)
           .filter(([, v]) => typeof v === 'number' && v > 0)
           .map(([k, v]) => ({
@@ -430,7 +447,6 @@ const HomeAdministradorScreen = () => {
         setEventosPorEstado(pie.length ? pie : null);
       }
 
-      // ── Line chart – eventos por día ───────────────────────────────────────
       if (Array.isArray(data.eventosPorDia) && data.eventosPorDia.length > 0) {
         setEventosPorDia({
           labels: data.eventosPorDia.map(item => {
@@ -441,25 +457,7 @@ const HomeAdministradorScreen = () => {
         });
       } else { setEventosPorDia(null); }
 
-      // ── Bar chart – eventos por mes (preferir endpoint mensual) ───────────
-      if (Array.isArray(mensualRes.data) && mensualRes.data.length > 0) {
-        setEventosPorMes({
-          labels: mensualRes.data.map(i => {
-            const [, m] = (i.mes || '').split('-');
-            return m ? MONTH_SHORT[parseInt(m) - 1] : i.mes;
-          }),
-          datasets: [{ data: mensualRes.data.map(i => i.totalEvents || 0) }],
-        });
-      } else if (Array.isArray(data.eventosPorMes) && data.eventosPorMes.length > 0) {
-        setEventosPorMes({
-          labels: data.eventosPorMes.map(i => {
-            const [, m] = (i.mes || '').split('-');
-            return m ? MONTH_SHORT[parseInt(m) - 1] : i.mes;
-          }),
-          datasets: [{ data: data.eventosPorMes.map(i => i.total || 0) }],
-        });
-      } else { setEventosPorMes(null); }
-
+     
       // ── Bar chart – eventos por facultad ───────────────────────────────────
       if (Array.isArray(data.eventosPorFacultad) && data.eventosPorFacultad.length > 0) {
         setEventosPorFacultad({
@@ -480,7 +478,9 @@ const HomeAdministradorScreen = () => {
         { title: 'Aprobados',          value: (data.estadoCounts?.aprobado  || 0).toString(), icon: 'checkmark-done-outline', color: COLORS.success, trend: null, description: 'Eventos aprobados' },
         { title: 'Tasa Aprobación',    value: `${data.tasaAprobacion || 0}%`,             icon: 'analytics-outline',     color: COLORS.info,      trend: null, description: 'Aprobados / totales' },
         { title: 'Tiempo Prom.',       value: `${tiempoPromedio}h`,                       icon: 'time-outline',          color: COLORS.warning,   trend: null, description: 'Horas promedio aprob.' },
-        { title: 'Estabilidad',        value: `${data.systemStability || 0}%`,            icon: 'pulse-outline',         color: COLORS.success,   trend: null, description: 'Rendimiento del sistema' },
+        { title: 'Cancelados',         value: cancelledEventsCount,                       icon: 'close-outline',         color: COLORS.danger,    trend: null, description: 'Eventos cancelados' },
+        { title: 'Vencidos',           value: expiredEventsCount,                         icon: 'timer-outline',         color: COLORS.info,      trend: null, description: 'Eventos vencidos' },
+        { title: 'Rechazados',         value: rejectedEventsCount,                        icon: 'close-circle-outline',  color: COLORS.accent,    trend: null, description: 'Eventos rechazados' },
       ]);
 
       setLastUpdated(new Date());
@@ -550,6 +550,9 @@ const HomeAdministradorScreen = () => {
     { id: '2', title: 'Eventos Pendientes',   iconName: 'timer-outline',            route: '/admin/EventosPendientes', color: COLORS.warning,   description: 'Revisión y aprobación de eventos',  badge: `${pendingContentCount} pendientes` },
     { id: '3', title: 'Eventos Aprobados',    iconName: 'checkmark-circle-outline', route: '/admin/EventosAprobados',  color: COLORS.success,   description: 'Gestión de eventos ya aprobados',   badge: `${approvedEventsCount} aprobados` },
     { id: '4', title: 'Reportes Avanzados',   iconName: 'document-text-outline',    route: '/admin/reportes',          color: COLORS.secondary, description: 'Generación de reportes detallados', badge: 'Nuevo' },
+    { id: '5', title: 'Eventos Rechazados',   iconName: 'close-circle-outline',    route: '/admin/EventosRechazados', color: COLORS.accent,    description: 'Revisión de eventos rechazados', badge: `${rejectedEventsCount} rechazados` },
+    { id: '6', title: 'Eventos Cancelados',   iconName: 'close-circle-outline',    route: '/admin/EventosCancelados', color: COLORS.accent,    description: 'Revisión de eventos cancelados', badge: `${cancelledEventsCount} cancelados` },
+    { id: '7', title: 'Eventos Vencidos',   iconName: 'close-circle-outline',    route: '/admin/EventosVencidos', color: COLORS.accent,    description: 'Revisión de eventos vencidos', badge: `${expiredEventsCount} vencidos` },
   ];
 
   const handleActionPress = (route) => {
@@ -558,12 +561,39 @@ const HomeAdministradorScreen = () => {
   };
 
   const handleLogout = async () => {
-    Alert.alert('Confirmar Cierre de Sesión', '¿Está seguro que desea cerrar la sesión actual?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Cerrar Sesión', style: 'destructive', onPress: async () => { await deleteTokenAsync(); router.replace('/'); } },
-    ], { cancelable: true });
+  const confirmLogout = async () => {
+    try {
+      await deleteTokenAsync();
+      router.replace('/');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+      // Forzar navegación incluso si hay error
+      router.replace('/');
+    }
   };
 
+  if (Platform.OS === 'web') {
+    // Usar confirm nativo del navegador para web
+    if (window.confirm('¿Está seguro que desea cerrar la sesión actual?')) {
+      await confirmLogout();
+    }
+  } else {
+    // Usar Alert para móviles
+    Alert.alert(
+      'Confirmar Cierre de Sesión',
+      '¿Está seguro que desea cerrar la sesión actual?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cerrar Sesión', 
+          style: 'destructive', 
+          onPress: confirmLogout 
+        },
+      ],
+      { cancelable: true }
+    );
+  }
+};
   const chartWidth = windowWidth - 60;
 
   return (
@@ -620,10 +650,7 @@ const HomeAdministradorScreen = () => {
             <CustomLineChart data={eventosPorDia} width={chartWidth} height={220} color={COLORS.primary} />
           </ChartCard>
 
-          <ChartCard title="Eventos por Mes" subtitle="Histórico mensual" empty={!eventosPorMes} emptyIcon="bar-chart-outline">
-            <CustomBarChart data={eventosPorMes} width={chartWidth} height={280} color={COLORS.info} />
-          </ChartCard>
-
+         
           <ChartCard title="Eventos por Facultad" subtitle="Distribución por unidad académica" empty={!eventosPorFacultad} emptyIcon="school-outline">
             <CustomBarChart data={eventosPorFacultad} width={chartWidth} height={280} color={COLORS.success} />
           </ChartCard>
@@ -758,7 +785,7 @@ const HomeAdministradorScreen = () => {
                 <Ionicons name="close" size={24} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}><Chatbot /></View>
+            <View style={{ flex: 1 }}><Chatbot rasaUrl={RASA_WEBHOOK_URL}  /></View>
           </View>
         </View>
       )}
@@ -877,10 +904,12 @@ const styles = StyleSheet.create({
   dockToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 8 },
   dockToggleText: { color: COLORS.white, fontSize: 15, fontWeight: '600' },
   dockExpanded: {
-    paddingHorizontal: 20, paddingBottom: 12, backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 62,
-  },
+  paddingHorizontal: 20,
+  paddingTop: 12,
+  paddingBottom: 8,
+  backgroundColor: COLORS.surface,
+  flex: 1,
+},
   dockActions: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14, gap: 8 },
   dockActionBtn: { alignItems: 'center', paddingVertical: 8, width: '22%' },
   dockActionText: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
