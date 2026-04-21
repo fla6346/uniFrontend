@@ -12,8 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 
-//const API_BASE_URL =  'https://evento.cidtec-uc.com';
-const API_BASE_URL =  'https://unifrontend.onrender.com';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://unifrontend.onrender.com';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;

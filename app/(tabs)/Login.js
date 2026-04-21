@@ -22,10 +22,12 @@ import { useRouter, Stack } from 'expo-router';
       determinedApiBaseUrl = 'http://localhost:3001/api';
   }
   */
- const API_BASE_URL =  'https://unifrontend.onrender.com';
- //'https://evento.cidtec-uc.com'; // Cambia esto a tu URL de backend
+ //const API_BASE_URL =  'https://unifrontend.onrender.com';
+ 
+ 
+ const API_BASE_URL = 'https://evento.cidtec-uc.com'; // Cambia esto a tu URL de backend
  let determinedApiBaseUrl= API_BASE_URL;
-;
+
 
 const LoginScreen = () => {
   const router = useRouter();

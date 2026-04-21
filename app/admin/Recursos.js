@@ -30,8 +30,8 @@ const COLORS = {
   success: '#10B981',
 };
 
-//const API_BASE_URL =  'https://evento.cidtec-uc.com';
-const API_BASE_URL =  'https://unifrontend.onrender.com';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://unifrontend.onrender.com';
 
 
 const getTokenAsync = async () => {

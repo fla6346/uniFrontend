@@ -18,8 +18,8 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import CustomAlert from '../../components/CustomAlert';
 
-//const API_BASE_URL = 'https://evento.cidtec-uc.com';
-const API_BASE_URL =  'https://unifrontend.onrender.com';
+const API_BASE_URL = 'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://unifrontend.onrender.com';
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {

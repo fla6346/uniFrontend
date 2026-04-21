@@ -11,8 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-//const API_BASE_URL =  'https://evento.cidtec-uc.com';
-const API_BASE_URL =  'https://unifrontend.onrender.com';
+const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://unifrontend.onrender.com';
 const RASA_WEBHOOK_URL = 'https://unirasa.onrender.com/webhooks/rest/webhook';
 const TOKEN_KEY = 'adminAuthToken';
 
