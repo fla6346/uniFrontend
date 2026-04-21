@@ -9,7 +9,8 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { PieChart, LineChart } from 'react-native-chart-kit';
 
-const API_BASE_URL = 'https://evento.cidtec-uc.com';
+//const API_BASE_URL = 'https://evento.cidtec-uc.com';
+const API_BASE_URL =  'https://unifrontend.onrender.com';
 
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {

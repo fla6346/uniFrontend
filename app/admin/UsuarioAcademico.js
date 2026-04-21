@@ -31,7 +31,8 @@ let determinedApiBaseUrl;
 } else {
   determinedApiBaseUrl = 'http://localhost:3001/api';
 }*/
-const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://evento.cidtec-uc.com';
+const API_BASE_URL =  'https://unifrontend.onrender.com';
 
 const getTokenAsync = async () => {
   const TOKEN_KEY = 'adminAuthToken';

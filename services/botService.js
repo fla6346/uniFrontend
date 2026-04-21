@@ -3,8 +3,9 @@ import axios from 'axios';
 
 // ✅ SOLUCIÓN: process.env funciona en Expo Web
 // En móvil (iOS/Android) también funciona si usas app.config.js
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://evento.cidtec-uc.com';
-
+//const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://evento.cidtec-uc.com';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://unifrontend.onrender.com';
+//const API_BASE_URL =  'https://unifrontend.onrender.com';
 const API = axios.create({
   baseURL: `${BASE_URL}/bot`,
   timeout: 30000,

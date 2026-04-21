@@ -31,7 +31,9 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
-const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://evento.cidtec-uc.com';
+const API_BASE_URL =  'https://unifrontend.onrender.com';
+
 const TOKEN_KEY = 'adminAuthToken';
 
 // ✅ getTokenAsync — sin las líneas sueltas de "reporte" que causaban el crash

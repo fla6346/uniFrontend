@@ -13,7 +13,9 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import dayjs from 'dayjs';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://evento.cidtec-uc.com';
+const API_BASE_URL =  'https://unifrontend.onrender.com';
+
 const TOKEN_KEY = 'adminAuthToken';
 
 const getTokenAsync = async () => {

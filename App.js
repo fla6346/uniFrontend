@@ -15,7 +15,8 @@ import BackendTestScreen from './screens/LoginScreen';
 SplashScreenExpo.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
-const API_BASE_URL =  'https://evento.cidtec-uc.com';
+//const API_BASE_URL =  'https://evento.cidtec-uc.com';
+const API_BASE_URL =  'https://unifrontend.onrender.com';
 
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);

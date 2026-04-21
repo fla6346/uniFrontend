@@ -16,8 +16,8 @@ import {
   Animated,
 } from 'react-native';
 
-const API_BASE_URL = 'https://evento.cidtec-uc.com';
-
+//const API_BASE_URL = 'https://evento.cidtec-uc.com';
+const API_BASE_URL =  'https://unifrontend.onrender.com';
 const windowWidth = Dimensions.get('window').width;
 const CAROUSEL_ITEM_WIDTH = windowWidth * 0.80;
 const ITEM_MARGIN = 8;
