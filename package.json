@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "serve dist --listen $PORT",
+    "start": "serve dist -l $PORT",
     "build": "expo export --platform web",
     "android": "expo start --android",
     "ios": "expo start --ios",
