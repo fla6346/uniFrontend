@@ -129,14 +129,8 @@ const LUGARES_CON_AREAS = {
       { id: 'cs-5', nombre: 'Aula 310' },
       { id: 'cs-6', nombre: 'GAme Room' },
     ]
-  },
-  'campus-centro': {
-    label: 'Campus Centro',
-    areas: [
-      { id: 'cc-1', nombre: 'Centro de Convenciones' },
-      { id: 'cc-2', nombre: 'Sala Polivalente' }
-    ]
   }
+  
 };
 
 const OBJETIVOS_EVENTO_MAP = {
@@ -794,7 +788,9 @@ const ProyectoEvento = () => {
   const [comiteLoading, setComiteLoading] = useState(true);
   const [comiteError, setComiteError] = useState(false);
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
-
+  const [horaSeleccionada, setHoraSeleccionada] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [textoHora, setTextoHora] = useState("Seleccionar hora");
   const addRecursoTecnologico = () => setRecursosTecnologicos(prev => [...prev, { nombre: '', cantidad: '' }]);
   const removeRecursoTecnologico = (index) => setRecursosTecnologicos(prev => prev.filter((_, i) => i !== index));
   const updateRecursoTecnologico = (value, index, field) => {
@@ -1074,6 +1070,24 @@ const ProyectoEvento = () => {
       return newState;
     });
   };
+  const onChangeHora = (event, selectedDate) => {
+  const currentDate = selectedDate || horaSeleccionada;
+  
+  // Ocultar el picker (necesario en Android inmediatamente)
+  setShowPicker(Platform.OS === 'ios'); 
+  
+  setHoraSeleccionada(currentDate);
+
+  // Formatear la hora para mostrarla en el botón/input
+  let tempDate = new Date(currentDate);
+  let horas = tempDate.getHours().toString().padStart(2, '0');
+  let minutos = tempDate.getMinutes().toString().padStart(2, '0');
+  
+  setTextoHora(`${horas}:${minutos}`);
+  
+  // Aquí actualizas tu estado global o el objeto del evento
+  setEvento({ ...evento, hora: `${horas}:${minutos}` });
+};
   const handleObjetivoPDIChange = (index, value) => {
     const newObjetivos = [...objetivosPDI];
     newObjetivos[index] = value;
@@ -1311,7 +1325,25 @@ const ProyectoEvento = () => {
         onChange={handleClockTimeChange}
       />
     </View>
+<Text style={styles.label}>Hora del Evento:</Text>
+<TouchableOpacity 
+  style={styles.input} 
+  onPress={() => setShowPicker(true)}
+>
+  <Text style={{ color: textoHora === "Seleccionar hora" ? '#999' : '#000' }}>
+    {textoHora}
+  </Text>
+</TouchableOpacity>
 
+{showPicker && (
+  <DateTimePicker
+    value={horaSeleccionada}
+    mode="time"
+    is24Hour={true}
+    display="default"
+    onChange={onChangeHora}
+  />
+)}
       <View style={styles.mainContainer}>
         {width > 768 && (
           <View style={styles.calendarColumn}>
