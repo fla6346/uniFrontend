@@ -157,14 +157,37 @@ const getNotificationIcon = (type) => {
 const TimePicker = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
   const [showNativePicker, setShowNativePicker] = useState(false);
+  const [inputH, setInputH] = useState('');
+  const [inputM, setInputM] = useState('');
+
   const h = dayjs(value).hour();
   const m = dayjs(value).minute();
   const pad = (n) => String(n).padStart(2, '0');
-  
+
   const apply = (newH, newM) => {
     const d = new Date(value);
     d.setHours(newH, newM, 0, 0);
     onChange(d);
+  };
+
+  const handleOpenModal = () => {
+    setInputH(pad(h));
+    setInputM(pad(m));
+    setOpen(true);
+  };
+
+  const handleHourInput = (text) => {
+    const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setInputH(clean);
+    const num = parseInt(clean, 10);
+    if (!isNaN(num) && num >= 0 && num <= 23) apply(num, m);
+  };
+
+  const handleMinuteInput = (text) => {
+    const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setInputM(clean);
+    const num = parseInt(clean, 10);
+    if (!isNaN(num) && num >= 0 && num <= 59) apply(h, num);
   };
 
   // iOS / Android: usar picker nativo con Modal
@@ -180,7 +203,7 @@ const TimePicker = ({ value, onChange }) => {
           <Text style={styles.timePickerTriggerText}>{pad(h)}:{pad(m)}</Text>
           <Ionicons name="chevron-down" size={16} color="#888" />
         </TouchableOpacity>
-        
+
         <Modal
           visible={showNativePicker}
           transparent={true}
@@ -195,7 +218,6 @@ const TimePicker = ({ value, onChange }) => {
                   <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
               </View>
-              
               <DateTimePicker
                 value={value}
                 mode="time"
@@ -211,7 +233,6 @@ const TimePicker = ({ value, onChange }) => {
                 }}
                 style={styles.dateTimePicker}
               />
-              
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
                   style={styles.doneButton}
@@ -227,11 +248,11 @@ const TimePicker = ({ value, onChange }) => {
     );
   }
 
-  // Web: Modal centrado perfectamente
+  // Web: Modal con inputs editables
   return (
     <>
       <TouchableOpacity
-        onPress={() => setOpen(!open)}
+        onPress={handleOpenModal}
         style={styles.timePickerTrigger}
         activeOpacity={0.7}
       >
@@ -248,6 +269,7 @@ const TimePicker = ({ value, onChange }) => {
       >
         <View style={styles.modalOverlayCentered}>
           <View style={styles.timePickerModalCentered}>
+
             {/* Header */}
             <View style={styles.timePickerModalHeader}>
               <Ionicons name="alarm" size={24} color="#e95a0c" />
@@ -257,43 +279,84 @@ const TimePicker = ({ value, onChange }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Tambores */}
+            {/* Drums con inputs editables */}
             <View style={styles.drumRow}>
+
               {/* Horas */}
               <View style={styles.drumContainer}>
                 <Text style={styles.drumLabel}>Hora</Text>
                 <View style={styles.drum}>
-                  <TouchableOpacity style={styles.drumBtn} onPress={() => apply((h + 1) % 24, m)}>
+                  <TouchableOpacity
+                    style={styles.drumBtn}
+                    onPress={() => {
+                      const newH = (h + 1) % 24;
+                      setInputH(pad(newH));
+                      apply(newH, m);
+                    }}
+                  >
                     <Ionicons name="chevron-up" size={24} color="#e95a0c" />
                   </TouchableOpacity>
-                  <View style={styles.drumValueContainer}>
-                    <Text style={styles.drumVal}>{pad(h)}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.drumBtn} onPress={() => apply((h + 23) % 24, m)}>
+                  <TextInput
+                    style={styles.drumInput}
+                    value={inputH}
+                    onChangeText={handleHourInput}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    textAlign="center"
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity
+                    style={styles.drumBtn}
+                    onPress={() => {
+                      const newH = (h + 23) % 24;
+                      setInputH(pad(newH));
+                      apply(newH, m);
+                    }}
+                  >
                     <Ionicons name="chevron-down" size={24} color="#e95a0c" />
                   </TouchableOpacity>
                 </View>
               </View>
-              
+
               <Text style={styles.drumColon}>:</Text>
-              
+
               {/* Minutos */}
               <View style={styles.drumContainer}>
                 <Text style={styles.drumLabel}>Minutos</Text>
                 <View style={styles.drum}>
-                  <TouchableOpacity style={styles.drumBtn} onPress={() => apply(h, (m + 5) % 60)}>
+                  <TouchableOpacity
+                    style={styles.drumBtn}
+                    onPress={() => {
+                      const newM = (m + 1) % 60;
+                      setInputM(pad(newM));
+                      apply(h, newM);
+                    }}
+                  >
                     <Ionicons name="chevron-up" size={24} color="#e95a0c" />
                   </TouchableOpacity>
-                  <View style={styles.drumValueContainer}>
-                    <Text style={styles.drumVal}>{pad(m)}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.drumBtn} onPress={() => apply(h, m - 5 < 0 ? 55 : m - 5)}>
+                  <TextInput
+                    style={styles.drumInput}
+                    value={inputM}
+                    onChangeText={handleMinuteInput}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    textAlign="center"
+                    selectTextOnFocus
+                  />
+                  <TouchableOpacity
+                    style={styles.drumBtn}
+                    onPress={() => {
+                      const newM = (m + 59) % 60;
+                      setInputM(pad(newM));
+                      apply(h, newM);
+                    }}
+                  >
                     <Ionicons name="chevron-down" size={24} color="#e95a0c" />
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
-            
+
             {/* Accesos rápidos */}
             <View style={styles.quickTimesContainer}>
               <Text style={styles.quickTimesLabel}>Horas disponibles:</Text>
@@ -310,7 +373,12 @@ const TimePicker = ({ value, onChange }) => {
                       styles.quickTimeBtn,
                       h === qt && m === 0 && styles.quickTimeBtnActive
                     ]}
-                    onPress={() => { apply(qt, 0); setOpen(false); }}
+                    onPress={() => {
+                      setInputH(pad(qt));
+                      setInputM('00');
+                      apply(qt, 0);
+                      setOpen(false);
+                    }}
                   >
                     <Text style={[
                       styles.quickTimeBtnText,
@@ -333,13 +401,13 @@ const TimePicker = ({ value, onChange }) => {
                 Confirmar {pad(h)}:{pad(m)}
               </Text>
             </TouchableOpacity>
+
           </View>
         </View>
       </Modal>
     </>
   );
 };
-
 
 const NotificationBell = ({ notificationCount, onPress }) => (
   <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
@@ -1985,6 +2053,19 @@ timePickerTriggerText: {
     marginBottom: 8,
     fontWeight: '600',
   },
+  drumInput: {
+  fontSize: 42,
+  fontWeight: '700',
+  color: '#e95a0c',
+  paddingVertical: 8,
+  textAlign: 'center',
+  width: '100%',
+  backgroundColor: '#fff',
+  borderTopWidth: 1,
+  borderBottomWidth: 1,
+  borderColor: '#e0e0e0',
+  outlineStyle: 'none', // evita el outline azul en web
+},
   
   drumValueContainer: {
     backgroundColor: '#f8f9fa',
