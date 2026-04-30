@@ -11,7 +11,8 @@ import {
   Animated,
   useWindowDimensions,
   Platform,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
