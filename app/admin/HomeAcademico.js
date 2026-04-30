@@ -301,20 +301,128 @@ const MinimalHeader = ({ nombreUsuario, facultad, unreadCount, onNotificationPre
 
   return (
     <View style={styles.minimalHeaderContainer}>
+     <View style={styles.minimalHeaderTop}>
       <View style={styles.minimalHeaderGreeting}>
         <Text style={styles.minimalGreetingText}>{getCurrentGreeting()},</Text>
         <Text style={styles.minimalUserNameText}>{nombreUsuario}</Text>
       </View>
       
+        <NotificationBell 
+          notificationCount={unreadCount} 
+          onPress={onNotificationPress} 
+        />
+      </View>
       <Text style={styles.minimalUserFacultyText}>
-        {facultad || 'Sin facultad asignada'} {/* ✅ CORREGIDO */}
+        {facultad || 'Sin facultad asignada'} 
       </Text>
       
       <Text style={styles.minimalHeaderTitle}>Panel de Usuario Académico</Text>
     </View>
   );
 };
+const NotificationBell = ({ notificationCount, onPress }) => (
+  <TouchableOpacity onPress={onPress} style={styles.notificationBell}>
+    <Ionicons name="notifications-outline" size={24} color={COLORS.textPrimary} />
+    {notificationCount > 0 && (
+      <View style={styles.notificationBadge}>
+        <Text style={styles.notificationBadgeText}>
+          {notificationCount > 99 ? '99+' : notificationCount}
+        </Text>
+      </View>
+    )}
+  </TouchableOpacity>
+);
+const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => (
+  <Modal
+    visible={visible}
+    transparent={true}
+    animationType="slide"
+    onRequestClose={onClose}
+  >
+    <View style={styles.notificationsModalOverlay}>
+      <View style={styles.notificationsModalContent}>
+        <View style={styles.notificationsModalHeader}>
+          <Text style={styles.notificationsModalTitle}>Notificaciones</Text>
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.notificationsList}>
+          {notifications.length === 0 ? (
+            <View style={styles.emptyNotifications}>
+              <Ionicons name="notifications-off-outline" size={48} color={COLORS.textTertiary} />
+              <Text style={styles.emptyNotificationsText}>No hay notificaciones nuevas</Text>
+            </View>
+          ) : (
+            notifications.map((notification) => (
+              <TouchableOpacity
+                key={notification.idnotification || notification.id}
+                style={[
+                  styles.notificationItem,
+                  !notification.read && styles.notificationItemUnread
+                ]}
+                onPress={() => {
+                  markAsRead(notification.idnotification || notification.id);
+                  // Aquí puedes navegar según el tipo de notificación
+                  if (notification.tipo === 'nuevo_evento' && notification.id_relacionado) {
+                    onClose();
+                    router.push(`/admin/EventDetailScreen?eventId=${notification.id_relacionado}`);
+                  }
+                }}
+              >
+                <View style={styles.notificationIconContainer}>
+                  <Ionicons
+                    name={getNotificationIcon(notification.tipo)}
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                  {!notification.read && <View style={styles.unreadDot} />}
+                </View>
+                <View style={styles.notificationContent}>
+                  <Text style={[styles.notificationTitle, !notification.read && styles.notificationTitleUnread]}>
+                    {notification.titulo || notification.title}
+                  </Text>
+                  <Text style={styles.notificationMessage} numberOfLines={2}>
+                    {notification.mensaje || notification.message}
+                  </Text>
+                  <Text style={styles.notificationTime}>
+                    {notification.created_at 
+                      ? new Date(notification.created_at).toLocaleDateString('es-ES', { 
+                          day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+                        })
+                      : ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+        
+        {notifications.length > 0 && (
+          <TouchableOpacity style={styles.markAllReadButton} onPress={() => {
+            notifications.filter(n => !n.read).forEach(n => markAsRead(n.idnotification || n.id));
+          }}>
+            <Text style={styles.markAllReadText}>Marcar todas como leídas</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  </Modal>
+);
 
+// Helper para iconos según tipo
+const getNotificationIcon = (type) => {
+  switch (type) {
+    case 'nuevo_evento': return 'calendar-outline';
+    case 'evento_aprobado': return 'checkmark-circle-outline';
+    case 'evento_rechazado': return 'close-circle-outline';
+    case 'recordatorio': return 'alarm-outline';
+    case 'comite_invitacion': return 'people-outline';
+    case 'mensaje_nuevo': return 'chatbubble-outline';
+    default: return 'notifications-outline';
+  }
+};
 const HomeAcademicoScreen = () => {
   const params = useLocalSearchParams();
   const nombreUsuario = params.nombre || 'Administrador';
@@ -339,6 +447,53 @@ const [userProfile, setUserProfile] = useState({
   facultad: null,
   loading: true,
 });
+// 🔔 Fetch de notificaciones
+const fetchNotifications = useCallback(async () => {
+  try {
+    const token = await getTokenAsync();
+    if (!token) return;
+
+    const response = await axios.get(`${API_BASE_URL}/notificaciones`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      timeout: 8000,
+    });
+
+    // Mapear respuesta a formato esperado
+    const mapped = (response.data || []).map(n => ({
+      ...n,
+      read: n.estado === 'leido' || n.read === true
+    }));
+    
+    setNotifications(mapped);
+  } catch (error) {
+    console.error('Error al cargar notificaciones:', error);
+  }
+}, []);
+
+// 🔔 Marcar como leída
+const markNotificationAsRead = useCallback(async (notificationId) => {
+  try {
+    const token = await getTokenAsync();
+    if (!token) return;
+
+    await axios.patch(
+      `${API_BASE_URL}/notificaciones/${notificationId}/read`,
+      {},
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+
+    // Actualizar estado local
+    setNotifications(prev => 
+      prev.map(n => 
+        (n.idnotification === notificationId || n.id === notificationId)
+          ? { ...n, read: true, estado: 'leido' }
+          : n
+      )
+    );
+  } catch (error) {
+    console.error('Error al marcar notificación como leída:', error);
+  }
+}, []);
 const fetchCommitteeEvents = useCallback(async () => {
   setLoadingComitee(true);
   try {
@@ -509,11 +664,14 @@ useEffect(() => {
       fetchUserProfile(),
       fetchHistoricalData(),
       fetchCommitteeEvents(),
+      fetchNotifications(),
     ]);
   };
 
   checkAuthAndLoadData();
-}, [fetchDashboardData, fetchUserProfile, fetchHistoricalData, router]);
+   const interval = setInterval(fetchNotifications, 30000);
+  return () => clearInterval(interval);
+}, [fetchDashboardData, fetchUserProfile, fetchHistoricalData,fetchHistoricalData, router]);
   const { columns: dashboardColumns, cardWidth: dashboardCardWidth } = useMemo(() => {
     let numColumns = Math.floor(windowWidth / (MIN_CARD_WIDTH_DASHBOARD + CARD_MARGIN));
     numColumns = Math.min(numColumns, MAX_COLUMNS_DASHBOARD);
@@ -877,6 +1035,19 @@ const handleActionPress = (action) => {
         isExpanded={isBannerExpanded}
         onToggleExpanded={() => setIsBannerExpanded(!isBannerExpanded)}
       />
+       <NotificationsModal
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        notifications={notifications}
+        markAsRead={markNotificationAsRead}
+      />
+
+      <MinimalBottomDock
+        onLogout={handleLogout}
+        onActionPress={handleActionPress}
+        isExpanded={isBannerExpanded}
+        onToggleExpanded={() => setIsBannerExpanded(!isBannerExpanded)}
+      />
     </View>
   );
 };
@@ -891,7 +1062,134 @@ const styles = StyleSheet.create({
   paddingHorizontal: 20,
   marginTop: 40,
   marginBottom: 60,
-},
+},  // 🔔 Notificaciones
+  notificationBell: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: COLORS.accent,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
+  },
+  notificationBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 2,
+  },
+  notificationsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  notificationsModalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+  },
+  notificationsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  notificationsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  notificationsList: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  emptyNotifications: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyNotificationsText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textTertiary,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+    gap: 12,
+  },
+  notificationItemUnread: {
+    backgroundColor: COLORS.primaryLight + '30',
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  notificationIconContainer: {
+    position: 'relative',
+    paddingTop: 4,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: 0,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  notificationTitleUnread: {
+    fontWeight: '700',
+  },
+  notificationMessage: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  notificationTime: {
+    fontSize: 11,
+    color: COLORS.textTertiary,
+  },
+  markAllReadButton: {
+    padding: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  markAllReadText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  minimalHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
 tableRow: {
   flexDirection: 'row',
   alignItems: 'center',
