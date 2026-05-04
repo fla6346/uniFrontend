@@ -83,16 +83,18 @@ const handleSend = async () => {
         text: botText, 
         sender: 'bot' 
       };
-      
-      setMessages(prev => [...prev, botMsg]);
-    } catch (error) {
-      console.error('❌ [ChatScreen] Error en handleSend:', error);
-      
+      if (error.message?.includes('429') || error.response?.status === 429) {
+        mensajeError = '⚠️ El sistema está saturado (límite de cuota excedido). Por favor, espera un minuto antes de intentar de nuevo.';
+      } 
+      else if (error.message?.includes('403') || error.response?.status === 403) {
+        mensajeError = '🚫 Error de configuración en el servidor (API Key).';
+      }
+
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
-        text: 'Lo siento, hubo un problema de conexión. Inténtalo de nuevo.',
-        sender: 'bot'
-      }]);
+        text: mensajeError,
+        sender: 'bot'}]);
+   
     } finally {
       setLoading(false);
       scrollToBottom();
