@@ -57,49 +57,54 @@ export default function ChatScreen({ route }) {
   };
 
 const handleSend = async () => {
-    const texto = input.trim();
-    if (!texto || loading) return;
+  const texto = input.trim();
+  if (!texto || loading) return;
 
-    // 1. Crear y mostrar mensaje del usuario inmediatamente
-    const userMsg = { id: Date.now().toString(), text: texto, sender: 'user' };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setLoading(true);
-    scrollToBottom();
+  // 1. Mostrar mensaje del usuario inmediatamente
+  const userMsg = { id: Date.now().toString(), text: texto, sender: 'user' };
+  setMessages(prev => [...prev, userMsg]);
+  setInput('');
+  setLoading(true);
+  scrollToBottom();
 
-    try {
-      console.log('🔌 [ChatScreen] Llamando a BotService.sendMessage...');
-      
-      // ✅ SE AGREGÓ LA LLAMADA: Guardamos el resultado en 'respuesta'
-      const respuesta = await BotService.sendMessage(texto, sender);
-      
-      console.log('✅ [ChatScreen] Respuesta recibida:', respuesta);
-      
-      // ✅ CORRECCIÓN DE ESTRUCTURA: Accedemos a .reply (como se ve en tu Postman)
-      const botText = respuesta.reply || 'No pude procesar tu mensaje.';
-      
-      const botMsg = { 
-        id: (Date.now() + 1).toString(), 
-        text: botText, 
-        sender: 'bot' 
-      };
-      if (error.message?.includes('429') || error.response?.status === 429) {
-        mensajeError = '⚠️ El sistema está saturado (límite de cuota excedido). Por favor, espera un minuto antes de intentar de nuevo.';
-      } 
-      else if (error.message?.includes('403') || error.response?.status === 403) {
-        mensajeError = '🚫 Error de configuración en el servidor (API Key).';
-      }
+  try {
+    console.log('🔌 [ChatScreen] Llamando a BotService.sendMessage...');
+    const respuesta = await BotService.sendMessage(texto, sender);
+    console.log('✅ [ChatScreen] Respuesta recibida:', respuesta);
 
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        text: mensajeError,
-        sender: 'bot'}]);
-   
-    } finally {
-      setLoading(false);
-      scrollToBottom();
+    // 2. Procesar respuesta exitosa
+    const botText = respuesta.reply || 'No pude procesar tu mensaje.';
+    const botMsg = { 
+      id: (Date.now() + 1).toString(), 
+      text: botText, 
+      sender: 'bot' 
+    };
+    setMessages(prev => [...prev, botMsg]);
+
+  } catch (error) { // 👈 IMPORTANTE: Se agregó el (error) aquí
+    console.error('❌ [ChatScreen] Error en handleSend:', error);
+    
+    let mensajeError = 'Lo siento, hubo un problema de conexión. Inténtalo de nuevo.';
+
+    // 3. Manejo inteligente de errores de Gemini
+    if (error.response?.status === 429 || error.message?.includes('429')) {
+      mensajeError = '⚠️ El sistema está saturado (límite de cuota excedido). Por favor, espera un minuto.';
+    } 
+    else if (error.response?.status === 403 || error.message?.includes('403')) {
+      mensajeError = '🚫 Error de configuración: La API Key ha expirado o está bloqueada.';
     }
-  };
+
+    setMessages(prev => [...prev, {
+      id: (Date.now() + 1).toString(),
+      text: mensajeError,
+      sender: 'bot'
+    }]);
+
+  } finally {
+    setLoading(false);
+    scrollToBottom();
+  }
+};
 
   // ✅ CORREGIDO: Sintaxis JSX correcta
   const renderMessage = ({ item }) => {
