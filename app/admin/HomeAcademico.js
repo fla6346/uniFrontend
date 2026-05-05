@@ -532,6 +532,9 @@ const fetchCommitteeEvents = useCallback(async () => {
       });
 
       const data = response.data;
+      console.log('Estructura de counts:', data.estadoCounts);
+
+    const counts = data.estadoCounts || {};
       console.log('Datos recibidos del dashboard:', data);
       setPendingContentCount(data.pendingContent?.toString() || '0');
       setActiveUsersCount(data.activeUsers?.toString() || '0');
