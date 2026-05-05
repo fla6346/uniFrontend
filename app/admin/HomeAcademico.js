@@ -94,29 +94,33 @@ const MIN_CARD_WIDTH_ACTIONS = 200;
 const MAX_COLUMNS_ACTIONS = 3;
 
 const DashboardCard = ({ title, value, icon, color, trend, description }) => {
-  const trendColor = trend > 0 ? COLORS.success : COLORS.warning;
-  const trendIcon = trend > 0 ? 'arrow-up' : 'arrow-down';
-
+  const trendColor = trend > 0 ? COLORS.success : COLORS.accent;
+  
   return (
-    <View style={[styles.dashboardCard, { backgroundColor: `${color}10` }]}>
+    <View style={[styles.dashboardCard, { backgroundColor: `${color}08` }]}>
       <View style={styles.cardHeader}>
+        {/* Contenedor del icono circular como en la imagen */}
         <View style={[styles.iconContainer, { backgroundColor: color }]}>
-          <Ionicons name={icon} size={20} color={COLORS.white} />
+          <Ionicons name={icon} size={22} color={COLORS.white} />
         </View>
         <Text style={styles.cardValue}>{value}</Text>
       </View>
-      <Text style={styles.cardTitle}>{title}</Text>
-      {trend !== null && (
-        <View style={styles.cardTrend}>
-          <Ionicons name={trendIcon} size={12} color={trendColor} />
-          <Text style={[styles.cardTrendText, { color: trendColor }]}>
-            {Math.abs(trend)}% {trend > 0 ? '↑' : '↓'}
-          </Text>
-        </View>
-      )}
-      {description && (
-        <Text style={styles.cardDescription}>{description}</Text>
-      )}
+      
+      <View>
+        <Text style={styles.cardTitle}>{title}</Text>
+        
+        {trend !== undefined && trend !== null ? (
+          <View style={styles.cardTrend}>
+            <Text style={[styles.cardTrendText, { color: trendColor }]}>
+              {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}% {trend > 0 ? '↑' : '↓'}
+            </Text>
+          </View>
+        ) : null}
+        
+        {description && (
+          <Text style={styles.cardDescription}>{description}</Text>
+        )}
+      </View>
     </View>
   );
 };
@@ -533,63 +537,58 @@ const fetchCommitteeEvents = useCallback(async () => {
       setActiveUsersCount(data.activeUsers?.toString() || '0');
       setApprovedEventsCount(data.estadoCounts?.aprobado?.toString() || '0')
 
-      setDashboardStats([
-        { 
+       setDashboardStats([
+      { 
         title: 'Eventos Aprobados', 
         value: data.estadoCounts?.aprobado?.toString() || '0', 
-        icon: 'checkmark-circle-outline', 
+        icon: 'checkmark-circle', 
         color: COLORS.success,
-        trend: null, // o calcula una tendencia si quieres
         description: 'Total aprobados'
-        },
-        { 
+      },
+      { 
         title: 'Eventos Pendientes', 
         value: data.estadoCounts?.pendiente?.toString() || '0', 
-        icon: 'checkmark-circle-outline', 
-        color: COLORS.success,
-        trend: null, // o calcula una tendencia si quieres
+        icon: 'time', 
+        color: COLORS.warning,
         description: 'Total pendientes'
-        },
-        { 
+      },
+      { 
         title: 'Eventos Cancelados', 
         value: data.estadoCounts?.cancelado?.toString() || '0', 
-        icon: 'checkmark-circle-outline', 
-        color: COLORS.success,
-        trend: null, // o calcula una tendencia si quieres
+        icon: 'close-circle', 
+        color: COLORS.accent,
         description: 'Total cancelados'
-        },
-        { 
+      },
+      { 
         title: 'Eventos Vencidos', 
         value: data.estadoCounts?.vencido?.toString() || '0', 
-        icon: 'checkmark-circle-outline', 
-        color: COLORS.success,
-        trend: null, // o calcula una tendencia si quieres
+        icon: 'calendar-outline', 
+        color: COLORS.secondary,
         description: 'Total vencidos'
-        },
-        { 
+      },
+      { 
         title: 'Eventos Rechazados', 
         value: data.estadoCounts?.rechazado?.toString() || '0', 
-        icon: 'checkmark-circle-outline', 
-        color: COLORS.success,
-        trend: null, // o calcula una tendencia si quieres
+        icon: 'remove-circle', 
+        color: '#6366F1', // Indigo para diferenciar
         description: 'Total rechazados'
-        },
-        { 
-          title: 'Eventos Totales', 
-          value: data.totalEvents?.toString() || '0', 
-          icon: 'calendar-outline', 
-          color: COLORS.info,
-          trend: -3.2,
-          description: 'Último mes'
-        },
-        { 
-          title: 'Estabilidad Sistema', 
-          value: `${data.systemStability || 0}%`, 
-          icon: 'pulse-outline',
-          color: COLORS.success,
-          trend: 2.1,
-          description: 'Rendimiento óptimo'
-        },
+      },
+      { 
+        title: 'Eventos Totales', 
+        value: data.totalEvents?.toString() || '0', 
+        icon: 'apps', 
+        color: COLORS.info,
+        trend: -3.2,
+        description: 'Último mes'
+      },
+      { 
+        title: 'Estabilidad Sistema', 
+        value: `${data.systemStability || 0}%`, 
+        icon: 'stats-chart',
+        color: COLORS.success,
+        trend: 2.1,
+        description: 'Rendimiento óptimo'
+      },
       ]);
     } catch (error) {
       console.error('Error al cargar dashboard:', error);
@@ -1347,6 +1346,44 @@ eventRoleBadgeText: {
   scrollContent: {
     alignItems: 'center',
   },
+  dashboardCard: {
+  borderRadius: 20,
+  padding: 20,
+  marginBottom: 12,
+  minHeight: 160,
+  justifyContent: 'space-between',
+  // Sutil borde para definir la tarjeta en fondos blancos
+  borderWidth: 1,
+  borderColor: 'rgba(0,0,0,0.02)',
+},
+iconContainer: {
+  width: 44,
+  height: 44,
+  borderRadius: 12, // Estilo moderno semi-redondeado
+  justifyContent: 'center',
+  alignItems: 'center',
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 3,
+  elevation: 2,
+},
+cardValue: {
+  fontSize: 32,
+  fontWeight: '800',
+  color: COLORS.textPrimary,
+},
+cardTitle: {
+  fontSize: 15,
+  fontWeight: '700',
+  color: COLORS.textPrimary,
+  marginTop: 12,
+},
+cardDescription: {
+  fontSize: 12,
+  color: COLORS.textTertiary,
+  marginTop: 4,
+},
   minimalHeaderContainer: {
     width: '100%',
     paddingHorizontal: 24,
@@ -1361,42 +1398,14 @@ eventRoleBadgeText: {
     shadowRadius: 4,
     elevation: 2,
   },
-  dashboardCard: {
-  flex: 1,
-  borderRadius: 16,
-  padding: 16,
-  shadowColor: COLORS.shadow,
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 6,
-  elevation: 3,
-  minHeight: 140,
-  justifyContent: 'space-between',
-},
+ 
 cardHeader: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'space-between',
   marginBottom: 12,
 },
-iconContainer: {
-  width: 40,
-  height: 40,
-  borderRadius: 10,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-cardValue: {
-  fontSize: 28,
-  fontWeight: '800',
-  color: COLORS.textPrimary,
-},
-cardTitle: {
-  fontSize: 16,
-  fontWeight: '600',
-  color: COLORS.textPrimary,
-  marginBottom: 4,
-},
+
 cardTrend: {
   flexDirection: 'row',
   alignItems: 'center',
@@ -1407,10 +1416,7 @@ cardTrendText: {
   fontSize: 12,
   fontWeight: '600',
 },
-cardDescription: {
-  fontSize: 12,
-  color: COLORS.textTertiary,
-},
+
   minimalHeaderTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
