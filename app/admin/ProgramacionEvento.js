@@ -425,14 +425,14 @@ const programacionEvento = () => {
     initializeAndFetch();
   }, [idevento]);
 
-  if (isEditing && idevento && layoutsDisponibles.length === 0) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#e95a0c" />
-        <Text style={{ marginTop: 10, color: '#555' }}>Cargando evento...</Text>
-      </View>
-    );
-  }
+ if (isEditing && idevento && isLoadingEventos) {
+  return (
+    <View style={styles.centered}>
+      <ActivityIndicator size="large" color="#e95a0c" />
+      <Text style={{ marginTop: 10, color: '#555' }}>Cargando evento...</Text>
+    </View>
+  );
+}
 
   const handleCrearEvento = async () => {
     if (!validateForm()) {
