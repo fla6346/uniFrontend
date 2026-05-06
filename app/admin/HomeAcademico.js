@@ -533,6 +533,8 @@ const fetchCommitteeEvents = useCallback(async () => {
 
       const data = response.data;
       console.log('Estructura de counts:', data.estadoCounts);
+        console.log('✅ Status:', response.status);
+    console.log('📦 Data completa:', JSON.stringify(response.data, null, 2));
 
     const counts = data.estadoCounts || {};
       console.log('Datos recibidos del dashboard:', data);
@@ -595,6 +597,8 @@ const fetchCommitteeEvents = useCallback(async () => {
       ]);
     } catch (error) {
       console.error('Error al cargar dashboard:', error);
+      console.log('❌ Error status:', error.response?.status);
+    console.log('❌ Error data:', JSON.stringify(error.response?.data));
       Alert.alert(
         'Error',
         `No se pudieron cargar los datos del panel. ${error.message || ''}`,
