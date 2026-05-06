@@ -13,11 +13,26 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import dayjs from 'dayjs';
 import * as SecureStore from 'expo-secure-store';
 
-//const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://unibackend1-production.up.railway.app';
-//const API_BASE_URL =  'https://unifrontend.onrender.com';
-
 const TOKEN_KEY = 'adminAuthToken';
+
+const COLORS = {
+  primary: '#E95A0C',
+  primaryLight: '#FFF3EC',
+  primaryMid: '#FDE8D8',
+  surface: '#FFFFFF',
+  background: '#F6F7FA',
+  border: '#E8EAF0',
+  borderFocus: '#E95A0C',
+  text: '#1A1D23',
+  textSecondary: '#64748B',
+  textMuted: '#9CA3AF',
+  success: '#10B981',
+  successLight: '#ECFDF5',
+  danger: '#EF4444',
+  dangerLight: '#FEF2F2',
+  shadow: 'rgba(0,0,0,0.06)',
+};
 
 const getTokenAsync = async () => {
   if (Platform.OS === 'web') {
@@ -39,17 +54,11 @@ LocaleConfig.defaultLocale = 'es';
 const parseDateSafe = (date) => {
   if (!date) return new Date().toISOString().split('T')[0];
   if (date instanceof Date) {
-    if (isNaN(date.getTime())) {
-      console.warn('⚠️ Fecha Date inválida:', date);
-      return new Date().toISOString().split('T')[0];
-    }
+    if (isNaN(date.getTime())) return new Date().toISOString().split('T')[0];
     return date.toISOString().split('T')[0];
   }
   const parsed = new Date(date);
-  if (isNaN(parsed.getTime())) {
-    console.warn('⚠️ Fecha string inválida:', date);
-    return new Date().toISOString().split('T')[0];
-  }
+  if (isNaN(parsed.getTime())) return new Date().toISOString().split('T')[0];
   return parsed.toISOString().split('T')[0];
 };
 
@@ -73,11 +82,10 @@ const formatServicioForSubmit = (servicio) => ({
   observaciones: servicio.observaciones?.trim() || '',
 });
 
+// ─── Sección de Actividades ───────────────────────────────────────────────────
 const SeccionActividades = ({ titulo, actividades, setActividades, handleActividadDateChange, errors, fechaevento }) => {
-   const fechaBase = fechaevento instanceof Date && !isNaN(fechaevento) 
-      ? fechaevento 
-      : new Date();
-      
+  const fechaBase = fechaevento instanceof Date && !isNaN(fechaevento) ? fechaevento : new Date();
+
   const agregarActividad = () => {
     setActividades(prev => [...prev, {
       key: `act-${titulo.replace(/\s/g, '')}-${Date.now()}`,
@@ -89,114 +97,161 @@ const SeccionActividades = ({ titulo, actividades, setActividades, handleActivid
       showDatePickerFin: false,
     }]);
   };
+
   const eliminarActividad = (index) => {
     setActividades(prev => prev.filter((_, i) => i !== index));
   };
+
+  // Icon mapping for section titles
+  const getIcon = () => {
+    if (titulo.includes('Previas')) return 'time-outline';
+    if (titulo.includes('Durante')) return 'play-circle-outline';
+    return 'checkmark-done-outline';
+  };
+
+  const getAccentColor = () => {
+    if (titulo.includes('Previas')) return '#3B82F6';
+    if (titulo.includes('Durante')) return COLORS.primary;
+    return COLORS.success;
+  };
+
+  const accent = getAccentColor();
+
   return (
-    <View style={styles.formSection}>
-      <Text style={styles.sectionTitle}>{titulo}</Text>
+    <View style={styles.card}>
+      {/* Section Header */}
+      <View style={[styles.sectionHeader, { borderLeftColor: accent }]}>
+        <View style={[styles.sectionIconWrap, { backgroundColor: accent + '15' }]}>
+          <Ionicons name={getIcon()} size={18} color={accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionTitle}>{titulo}</Text>
+          <Text style={styles.sectionSubtitle}>{actividades.length} actividad{actividades.length !== 1 ? 'es' : ''} registrada{actividades.length !== 1 ? 's' : ''}</Text>
+        </View>
+      </View>
+
       {actividades.map((actividad, index) => (
-        <View key={actividad.key} style={styles.actividadPreviaItemContainer}>
-          <View style={styles.actividadItemHeader}>
-            <Text style={styles.actividadPreviaTitle}>Actividad #{index + 1}</Text>
-            <TouchableOpacity onPress={() => eliminarActividad(index)} style={styles.deleteButton}>
-              <Ionicons name="trash-bin-outline" size={22} color="#c0392b" />
+        <View key={actividad.key} style={styles.subCard}>
+          {/* Sub-card header */}
+          <View style={styles.subCardHeader}>
+            <View style={styles.actIndexBadge}>
+              <Text style={styles.actIndexText}>{index + 1}</Text>
+            </View>
+            <Text style={styles.subCardTitle}>Actividad #{index + 1}</Text>
+            <TouchableOpacity onPress={() => eliminarActividad(index)} style={styles.deleteBtn}>
+              <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.label}>Actividad</Text>
-          <View style={styles.inputGroup}>
-            <Ionicons name="archive-outline" size={20} style={styles.inputIcon}/>
-            <TextInput
-              style={styles.input}
-              value={actividad.nombreActividad}
-              onChangeText={(text) => {
-                setActividades(prev => {
-                  const newState = [...prev];
-                  newState[index] = { ...newState[index], nombreActividad: text };
-                  return newState;
-                });
-              }}
-              placeholder="Nombre de la Actividad"
-              placeholderTextColor="#aaa"
-            />
-          </View>
-          {errors[`${titulo}_${index}_nombre`] && <Text style={styles.errorText}>{errors[`${titulo}_${index}_nombre`]}</Text>}
 
-          <Text style={styles.label}>Responsable</Text>
-          <View style={styles.inputGroup}>
-            <Ionicons name="person-outline" size={20} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={actividad.responsable}
-              onChangeText={(text) => {
-                setActividades(prev => {
-                  const newState = [...prev];
-                  newState[index] = { ...newState[index], responsable: text };
-                  return newState;
-                });
-              }}
-              placeholder="Nombre del responsable"
-              placeholderTextColor="#aaa"
-            />
-          </View>
-          {errors[`${titulo}_${index}_responsable`] && <Text style={styles.errorText}>{errors[`${titulo}_${index}_responsable`]}</Text>}
-
-          <Text style={styles.label}>Fecha Inicio Actividad</Text>
-          <TouchableOpacity
-            onPress={() => {
+          <FormField
+            label="Nombre de la Actividad"
+            icon="archive-outline"
+            value={actividad.nombreActividad}
+            onChangeText={(text) => {
               setActividades(prev => {
-                const newState = [...prev];
-                newState[index] = { ...newState[index], showDatePickerInicio: true };
-                return newState;
+                const s = [...prev];
+                s[index] = { ...s[index], nombreActividad: text };
+                return s;
               });
             }}
-            style={styles.datePickerButton}
-          >
-            <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
-            <Text style={styles.datePickerText}>{actividad.fechaInicio.toLocaleDateString()}</Text>
-          </TouchableOpacity>
-          {actividad.showDatePickerInicio && (
-            <DateTimePicker
-              value={actividad.fechaInicio}
-              mode="date"
-              display="default"
-              onChange={(event, date) => handleActividadDateChange(index, 'fechaInicio', event, date, setActividades)}
-            />
-          )}
+            placeholder="Ej: Preparación del espacio"
+            error={errors[`${titulo}_${index}_nombre`]}
+          />
 
-          <Text style={styles.label}>Fecha Fin Actividad</Text>
-          <TouchableOpacity
-            onPress={() => {
+          <FormField
+            label="Responsable"
+            icon="person-outline"
+            value={actividad.responsable}
+            onChangeText={(text) => {
               setActividades(prev => {
-                const newState = [...prev];
-                newState[index] = { ...newState[index], showDatePickerFin: true };
-                return newState;
+                const s = [...prev];
+                s[index] = { ...s[index], responsable: text };
+                return s;
               });
             }}
-            style={styles.datePickerButton}
-          >
-            <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
-            <Text style={styles.datePickerText}>{actividad.fechaFin.toLocaleDateString()}</Text>
-          </TouchableOpacity>
-          {actividad.showDatePickerFin && (
-            <DateTimePicker
-              value={actividad.fechaFin}
-              mode="date"
-              display="default"
-              minimumDate={actividad.fechaInicio}
-              onChange={(event, date) => handleActividadDateChange(index, 'fechaFin', event, date, setActividades)}
-            />
-          )}
+            placeholder="Nombre del responsable"
+            error={errors[`${titulo}_${index}_responsable`]}
+          />
+
+          <View style={styles.dateRow}>
+            <View style={{ flex: 1, marginRight: 8 }}>
+              <Text style={styles.fieldLabel}>Fecha Inicio</Text>
+              <TouchableOpacity
+                onPress={() => setActividades(prev => {
+                  const s = [...prev];
+                  s[index] = { ...s[index], showDatePickerInicio: true };
+                  return s;
+                })}
+                style={styles.datePill}
+              >
+                <Ionicons name="calendar-outline" size={15} color={COLORS.primary} />
+                <Text style={styles.datePillText}>{actividad.fechaInicio.toLocaleDateString('es-ES')}</Text>
+              </TouchableOpacity>
+              {actividad.showDatePickerInicio && (
+                <DateTimePicker
+                  value={actividad.fechaInicio}
+                  mode="date"
+                  display="default"
+                  onChange={(event, date) => handleActividadDateChange(index, 'fechaInicio', event, date, setActividades)}
+                />
+              )}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>Fecha Fin</Text>
+              <TouchableOpacity
+                onPress={() => setActividades(prev => {
+                  const s = [...prev];
+                  s[index] = { ...s[index], showDatePickerFin: true };
+                  return s;
+                })}
+                style={styles.datePill}
+              >
+                <Ionicons name="calendar-outline" size={15} color={COLORS.primary} />
+                <Text style={styles.datePillText}>{actividad.fechaFin.toLocaleDateString('es-ES')}</Text>
+              </TouchableOpacity>
+              {actividad.showDatePickerFin && (
+                <DateTimePicker
+                  value={actividad.fechaFin}
+                  mode="date"
+                  display="default"
+                  minimumDate={actividad.fechaInicio}
+                  onChange={(event, date) => handleActividadDateChange(index, 'fechaFin', event, date, setActividades)}
+                />
+              )}
+            </View>
+          </View>
         </View>
       ))}
-      <TouchableOpacity onPress={agregarActividad} style={styles.addButton}>
-        <Ionicons name="add-circle" size={26} color="#e95a0c" />
-        <Text style={styles.addButtonText}>Añadir Actividad</Text>
+
+      <TouchableOpacity onPress={agregarActividad} style={[styles.addBtn, { borderColor: accent }]}>
+        <Ionicons name="add-circle" size={20} color={accent} />
+        <Text style={[styles.addBtnText, { color: accent }]}>Añadir Actividad</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
+// ─── Reusable FormField ───────────────────────────────────────────────────────
+const FormField = ({ label, icon, value, onChangeText, placeholder, error, multiline }) => (
+  <View style={styles.fieldWrap}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    <View style={[styles.inputRow, error && styles.inputRowError]}>
+      <Ionicons name={icon} size={17} color={error ? COLORS.danger : COLORS.textMuted} style={styles.inputIcon} />
+      <TextInput
+        style={[styles.input, multiline && styles.inputMultiline]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.textMuted}
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
+      />
+    </View>
+    {error && <Text style={styles.errorText}>{error}</Text>}
+  </View>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const programacionEvento = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -212,24 +267,24 @@ const programacionEvento = () => {
     return new Date();
   };
 
-  const [authToken, setAuthToken]                   = useState(null);
-  const [nombreevento, setNombreevento]             = useState('');
-  const [lugarevento, setLugarevento]               = useState('');
-  const [responsable, setResponsable]               = useState('');
+  const [authToken, setAuthToken] = useState(null);
+  const [nombreevento, setNombreevento] = useState('');
+  const [lugarevento, setLugarevento] = useState('');
+  const [responsable, setResponsable] = useState('');
   const [fechaHoraSeleccionada, setFechaHoraSeleccionada] = useState(getInitialDate());
   const [actividadesPrevias, setActividadesPrevias] = useState([]);
   const [actividadesDurante, setActividadesDurante] = useState([]);
-  const [actividadesPost, setActividadesPost]       = useState([]);
-  const [idtipoevento, setIdtipoevento]             = useState('');
+  const [actividadesPost, setActividadesPost] = useState([]);
+  const [idtipoevento, setIdtipoevento] = useState('');
   const [serviciosContratados, setServiciosContratados] = useState([]);
-  const [ambientes, setAmbientes]                   = useState([]);
-  const [isLoading, setIsLoading]                   = useState(false);
-  const [errors, setErrors]                         = useState({});
-  const [isLoadingEventos, setIsLoadingEventos]     = useState(false);
+  const [ambientes, setAmbientes] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [isLoadingEventos, setIsLoadingEventos] = useState(false);
   const [comiteSeleccionado, setComiteSeleccionado] = useState([]);
   const [layoutsDisponibles, setLayoutsDisponibles] = useState([]);
   const [layoutSeleccionado, setLayoutSeleccionado] = useState(null);
-  const [cargandoLayouts, setCargandoLayouts]       = useState(false);
+  const [cargandoLayouts, setCargandoLayouts] = useState(false);
 
   const { idevento } = params;
   const isEditing = !!idevento;
@@ -246,20 +301,18 @@ const programacionEvento = () => {
   const handleActividadDateChange = (index, field, event, selectedDate, setActividades) => {
     const pickerFlag = field === 'fechaInicio' ? 'showDatePickerInicio' : 'showDatePickerFin';
     setActividades(prev => {
-      const newState = [...prev];
-      if (newState[index]) newState[index] = { ...newState[index], [pickerFlag]: false };
-      return newState;
+      const s = [...prev];
+      if (s[index]) s[index] = { ...s[index], [pickerFlag]: false };
+      return s;
     });
     if (event.type === 'set' && selectedDate) {
       setActividades(prev => {
-        const newState = [...prev];
-        if (newState[index]) {
-          newState[index] = { ...newState[index], [field]: selectedDate };
-          if (field === 'fechaInicio' && newState[index].fechaFin < selectedDate) {
-            newState[index].fechaFin = selectedDate;
-          }
+        const s = [...prev];
+        if (s[index]) {
+          s[index] = { ...s[index], [field]: selectedDate };
+          if (field === 'fechaInicio' && s[index].fechaFin < selectedDate) s[index].fechaFin = selectedDate;
         }
-        return newState;
+        return s;
       });
     }
   };
@@ -267,18 +320,15 @@ const programacionEvento = () => {
   const validateForm = () => {
     const newErrors = {};
     if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es requerido.';
-
     const validateActivityList = (list, listName) => {
       list.forEach((act, index) => {
         if (!act.nombreActividad?.trim()) newErrors[`${listName}_${index}_nombre`] = 'Nombre de actividad requerido.';
         if (!act.responsable?.trim()) newErrors[`${listName}_${index}_responsable`] = 'Responsable requerido.';
       });
     };
-
     if (actividadesPrevias.length > 0) validateActivityList(actividadesPrevias, 'Programación de Actividades Previas');
     if (actividadesDurante.length > 0) validateActivityList(actividadesDurante, 'Programación de Actividades Durante el Evento');
     if (actividadesPost.length > 0) validateActivityList(actividadesPost, 'Programación de Actividades Después del Evento');
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -300,9 +350,7 @@ const programacionEvento = () => {
   };
   const handleServicioDateChange = (index, field, event, selectedDate) => {
     actualizarServicio(index, 'showDatePickerInicio', false);
-    if (event.type === 'set' && selectedDate) {
-      actualizarServicio(index, field, selectedDate);
-    }
+    if (event.type === 'set' && selectedDate) actualizarServicio(index, field, selectedDate);
   };
 
   const cargarLayouts = async (token) => {
@@ -313,11 +361,7 @@ const programacionEvento = () => {
       const response = await axios.get(`${API_BASE_URL}/layouts`, {
         headers: { 'Authorization': `Bearer ${authTokenToUse}` }
       });
-      if (response.data && Array.isArray(response.data)) {
-        setLayoutsDisponibles(response.data);
-      } else {
-        setLayoutsDisponibles([]);
-      }
+      setLayoutsDisponibles(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       Alert.alert('Error', 'No se pudieron cargar los layouts disponibles.');
       setLayoutsDisponibles([]);
@@ -331,9 +375,7 @@ const programacionEvento = () => {
       const token = await getTokenAsync();
       setAuthToken(token);
       if (!token) { Alert.alert('Error', 'No autenticado'); router.back(); return; }
-
       await cargarLayouts(token);
-
       if (isEditing) {
         setIsLoadingEventos(true);
         try {
@@ -341,18 +383,14 @@ const programacionEvento = () => {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           const evento = response.data;
-
           setNombreevento(evento.nombreevento || '');
           setLugarevento(evento.lugarevento || '');
           setResponsable(evento.responsable_evento || '');
-
           if (evento.fechaevento && evento.horaevento) {
             const fechaCompleta = new Date(`${evento.fechaevento}T${evento.horaevento}`);
             if (!isNaN(fechaCompleta.getTime())) setFechaHoraSeleccionada(fechaCompleta);
           }
-
           setIdtipoevento(evento.idtipoevento?.toString() || '');
-
           if (Array.isArray(evento.actividadesPrevias)) {
             setActividadesPrevias(evento.actividadesPrevias.map((act, i) => ({
               key: `act-prev-${i}-${Date.now()}`,
@@ -391,9 +429,7 @@ const programacionEvento = () => {
               key: `servicio-${i}-${Date.now()}`,
               nombreServicio: serv.nombreServicio || '',
               caracteristica: serv.caracteristica || '',
-              fechaInicio: serv.fechaInicio ? new Date(serv.fechaInicio.includes('T') 
-            ? serv.fechaInicio 
-            : serv.fechaInicio + 'T00:00:00') : new Date(),
+              fechaInicio: serv.fechaInicio ? new Date(serv.fechaInicio.includes('T') ? serv.fechaInicio : serv.fechaInicio + 'T00:00:00') : new Date(),
               observaciones: serv.observaciones || '',
               showDatePickerInicio: false,
             })));
@@ -410,9 +446,7 @@ const programacionEvento = () => {
             const layoutEncontrado = layoutsDisponibles.find(l => l.idlayout === evento.idlayout);
             setLayoutSeleccionado(layoutEncontrado || null);
           }
-          if (Array.isArray(evento.comite)) {
-            setComiteSeleccionado(evento.comite);
-          }
+          if (Array.isArray(evento.comite)) setComiteSeleccionado(evento.comite);
         } catch (error) {
           console.error("Error al cargar el evento:", error);
           Alert.alert("Error", "No se pudo cargar el evento.");
@@ -425,161 +459,104 @@ const programacionEvento = () => {
     initializeAndFetch();
   }, [idevento]);
 
- if (isEditing && idevento && isLoadingEventos) {
-  return (
-    <View style={styles.centered}>
-      <ActivityIndicator size="large" color="#e95a0c" />
-      <Text style={{ marginTop: 10, color: '#555' }}>Cargando evento...</Text>
-    </View>
-  );
-}
+  if (isEditing && idevento && isLoadingEventos) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Cargando evento...</Text>
+      </View>
+    );
+  }
 
   const handleCrearEvento = async () => {
     if (!validateForm()) {
       Alert.alert("Formulario Incompleto", "Por favor, revisa los campos marcados en rojo.");
       return;
     }
-    if (!authToken) {
-      Alert.alert("Error de Autenticación", "No estás autenticado.");
-      return;
-    }
-
+    if (!authToken) { Alert.alert("Error de Autenticación", "No estás autenticado."); return; }
     setIsLoading(true);
-     try {
-    if (!fechaHoraSeleccionada || isNaN(fechaHoraSeleccionada.getTime())) {
-      throw new Error('Fecha del evento inválida');
-    }
-
-    const fasePayload = {
-      nrofase: 2,
-      ...(isEditing && idevento && { idevento: parseInt(idevento, 10) })
-    };
-
-    const payload = {
-      nombreevento: nombreevento.trim(),
-      lugarevento: lugarevento.trim(),
-      fechaevento: formatToISODate(fechaHoraSeleccionada),
-      horaevento: formatToISOTime(fechaHoraSeleccionada),
-      responsable: responsable.trim(),
-      actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
-      actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
-      actividadesPost: actividadesPost.map(formatActivityForSubmit),
-      serviciosContratados: serviciosContratados.map(formatServicioForSubmit),
-      ambientes: ambientes.map(formatAmbienteForSubmit),
-      idlayout: layoutSeleccionado ? layoutSeleccionado.idlayout : null,
-      comite: comiteSeleccionado,
-      nuevaFase: fasePayload,
-    };
-
-    console.log('📦 Payload enviado:', JSON.stringify(payload, null, 2));
-     console.log('🔧 Modo:', isEditing ? 'EDICIÓN' : 'CREACIÓN');
-    console.log('🔑 ID Evento:', idevento);
-
-  const validarFechasActividades = (actividades, nombre) => {
-      actividades.forEach((act, idx) => {
-        if (!act.fechaInicio || isNaN(new Date(act.fechaInicio).getTime())) {
-          console.warn(`⚠️ Fecha inválida en ${nombre}[${idx}]:`, act);
-        }
-        if (!act.fechaFin || isNaN(new Date(act.fechaFin).getTime())) {
-          console.warn(`⚠️ Fecha fin inválida en ${nombre}[${idx}]:`, act);
-        }
-      });
-    };
-
-    validarFechasActividades(payload.actividadesPrevias, 'actividadesPrevias');
-    validarFechasActividades(payload.actividadesDurante, 'actividadesDurante');
-    validarFechasActividades(payload.actividadesPost, 'actividadesPost');
-
-    let response;
-    if (isEditing) {
-      console.log(`✏️ Actualizando evento ${idevento}...`);
-      response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
-        headers: { 
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-      });
-    } else {
-      console.log('➕ Creando nuevo evento...');
-      response = await axios.post(`${API_BASE_URL}/eventos`, payload, {
-        headers: { 
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-      });
-    }
-
-    console.log('✅ Respuesta del servidor:', response.data);
-    
-    Alert.alert(
-      'Éxito', 
-      isEditing ? 'Evento actualizado correctamente.' : 'Evento creado correctamente.',
-      [{ text: 'OK', onPress: () => router.back() }]
-    );
-    
-  } catch (error) {
-    console.error('❌ Error detallado al guardar evento:');
-    console.error('├─ Status:', error.response?.status);
-    console.error('├─ Data:', error.response?.data);
-    console.error('├─ Message:', error.message);
-    console.error('└─ Config:', error.config);
-
-    let errorMessage = 'Ocurrió un error al guardar el evento.';
-    
-    if (error.response) {
-      const serverError = error.response.data;
-      
-      if (serverError.message) {
-        errorMessage = serverError.message;
-      } else if (serverError.error) {
-        errorMessage = serverError.error;
-      } else if (typeof serverError === 'string') {
-        errorMessage = serverError;
+    try {
+      if (!fechaHoraSeleccionada || isNaN(fechaHoraSeleccionada.getTime())) throw new Error('Fecha del evento inválida');
+      const fasePayload = { nrofase: 2, ...(isEditing && idevento && { idevento: parseInt(idevento, 10) }) };
+      const payload = {
+        nombreevento: nombreevento.trim(),
+        lugarevento: lugarevento.trim(),
+        fechaevento: formatToISODate(fechaHoraSeleccionada),
+        horaevento: formatToISOTime(fechaHoraSeleccionada),
+        responsable: responsable.trim(),
+        actividadesPrevias: actividadesPrevias.map(formatActivityForSubmit),
+        actividadesDurante: actividadesDurante.map(formatActivityForSubmit),
+        actividadesPost: actividadesPost.map(formatActivityForSubmit),
+        serviciosContratados: serviciosContratados.map(formatServicioForSubmit),
+        ambientes: ambientes.map(formatAmbienteForSubmit),
+        idlayout: layoutSeleccionado ? layoutSeleccionado.idlayout : null,
+        comite: comiteSeleccionado,
+        nuevaFase: fasePayload,
+      };
+      let response;
+      if (isEditing) {
+        response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, payload, {
+          headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        });
+      } else {
+        response = await axios.post(`${API_BASE_URL}/eventos`, payload, {
+          headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        });
       }
-      
-      if (errorMessage.includes('Transaction cannot be rolled back')) {
-        errorMessage = 'Error de base de datos. Por favor, contacta al administrador del sistema.\n\nDetalles: La transacción ya fue completada.';
-        console.error('🚨 ERROR DE TRANSACCIÓN DETECTADO - Posible bug en el backend');
+      Alert.alert('Éxito', isEditing ? 'Evento actualizado correctamente.' : 'Evento creado correctamente.',
+        [{ text: 'OK', onPress: () => router.back() }]);
+    } catch (error) {
+      let errorMessage = 'Ocurrió un error al guardar el evento.';
+      if (error.response) {
+        const serverError = error.response.data;
+        if (serverError.message) errorMessage = serverError.message;
+        else if (serverError.error) errorMessage = serverError.error;
+        else if (typeof serverError === 'string') errorMessage = serverError;
+        if (errorMessage.includes('Transaction cannot be rolled back')) {
+          errorMessage = 'Error de base de datos. Por favor, contacta al administrador del sistema.';
+        }
+      } else if (error.request) {
+        errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión.';
       }
-      
-    } else if (error.request) {
-      errorMessage = 'No se pudo conectar con el servidor. Verifica tu conexión.';
+      Alert.alert('Error al guardar', errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-
-    Alert.alert('Error al guardar', errorMessage);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.keyboardAvoidingContainer}
+      style={styles.container}
     >
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContentContainer}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <Stack.Screen options={{ title: isEditing ? 'Programar Evento' : 'Crear Nuevo Evento' }} />
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Información Principal</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Nombre del Evento</Text>
-            <Text style={styles.infoValue}>{nombreevento || 'No especificado'}</Text>
+        {/* ── Info Principal ── */}
+        <View style={styles.card}>
+          <View style={[styles.sectionHeader, { borderLeftColor: COLORS.primary }]}>
+            <View style={[styles.sectionIconWrap, { backgroundColor: COLORS.primaryLight }]}>
+              <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Información Principal</Text>
+              <Text style={styles.sectionSubtitle}>Datos generales del evento</Text>
+            </View>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Lugar del Evento</Text>
-            <Text style={styles.infoValue}>{lugarevento || 'No especificado'}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fecha</Text>
-            <Text style={styles.infoValue}>{formatToISODate(fechaHoraSeleccionada)}</Text>
+
+          <View style={styles.infoGrid}>
+            <InfoItem icon="bookmark-outline" label="Nombre" value={nombreevento || 'No especificado'} accent />
+            <InfoItem icon="location-outline" label="Lugar" value={lugarevento || 'No especificado'} />
+            <InfoItem icon="calendar-outline" label="Fecha" value={formatToISODate(fechaHoraSeleccionada)} last />
           </View>
         </View>
 
+        {/* ── Actividades ── */}
         <SeccionActividades
           titulo="Programación de Actividades Previas"
           actividades={actividadesPrevias}
@@ -605,277 +582,524 @@ const programacionEvento = () => {
           fechaevento={fechaHoraSeleccionada}
         />
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Servicios</Text>
+        {/* ── Servicios ── */}
+        <View style={styles.card}>
+          <View style={[styles.sectionHeader, { borderLeftColor: '#8B5CF6' }]}>
+            <View style={[styles.sectionIconWrap, { backgroundColor: '#F5F3FF' }]}>
+              <Ionicons name="build-outline" size={18} color="#8B5CF6" />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Servicios Contratados</Text>
+              <Text style={styles.sectionSubtitle}>{serviciosContratados.length} servicio{serviciosContratados.length !== 1 ? 's' : ''} registrado{serviciosContratados.length !== 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+
           {serviciosContratados.map((servicio, index) => (
-            <View key={servicio.key} style={styles.servicioItemContainer}>
-              <View style={styles.servicioItemHeader}>
-                <Text style={styles.sectionTitle}>Servicio #{index + 1}</Text>
-                <TouchableOpacity onPress={() => eliminarServicio(index)} style={styles.deleteButton}>
-                  <Ionicons name="trash-bin-outline" size={22} color="#c0392b" />
+            <View key={servicio.key} style={styles.subCard}>
+              <View style={styles.subCardHeader}>
+                <View style={[styles.actIndexBadge, { backgroundColor: '#EDE9FE' }]}>
+                  <Text style={[styles.actIndexText, { color: '#8B5CF6' }]}>{index + 1}</Text>
+                </View>
+                <Text style={styles.subCardTitle}>Servicio #{index + 1}</Text>
+                <TouchableOpacity onPress={() => eliminarServicio(index)} style={styles.deleteBtn}>
+                  <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.label}>Servicio</Text>
-              <View style={styles.inputGroup}>
-                <Ionicons name="build-outline" size={20} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={servicio.nombreServicio}
-                  onChangeText={(text) => actualizarServicio(index, 'nombreServicio', text)}
-                  placeholder="Nombre Servicio"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <Text style={styles.label}>Caracteristicas</Text>
-              <View style={styles.inputGroup}>
-                <Ionicons name="list-outline" size={20} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={servicio.caracteristica}
-                  onChangeText={(text) => actualizarServicio(index, 'caracteristica', text)}
-                  placeholder="Caracteristica"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <Text style={styles.label}>Fecha Entrega</Text>
-              <TouchableOpacity onPress={() => actualizarServicio(index, 'showDatePickerInicio', true)} style={styles.datePickerButton}>
-                <Ionicons name="calendar-outline" size={20} color="#e95a0c" style={styles.inputIcon} />
-                <Text style={styles.datePickerText}>
-                  {servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio)
-                    ? servicio.fechaInicio.toLocaleDateString('es-ES')
-                    : 'Seleccionar fecha'}
-                </Text>
-              </TouchableOpacity>
-              {servicio.showDatePickerInicio && (
-                <DateTimePicker 
-                  value={servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio) 
-                    ? servicio.fechaInicio 
-                    : new Date()} 
-                     mode="date"
-                    display="default"
+              <FormField label="Nombre del Servicio" icon="build-outline" value={servicio.nombreServicio}
+                onChangeText={(text) => actualizarServicio(index, 'nombreServicio', text)} placeholder="Ej: Catering, Sonido..." />
+              <FormField label="Características" icon="list-outline" value={servicio.caracteristica}
+                onChangeText={(text) => actualizarServicio(index, 'caracteristica', text)} placeholder="Descripción del servicio" />
+              <View style={styles.fieldWrap}>
+                <Text style={styles.fieldLabel}>Fecha de Entrega</Text>
+                <TouchableOpacity onPress={() => actualizarServicio(index, 'showDatePickerInicio', true)} style={styles.datePill}>
+                  <Ionicons name="calendar-outline" size={15} color={COLORS.primary} />
+                  <Text style={styles.datePillText}>
+                    {servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio)
+                      ? servicio.fechaInicio.toLocaleDateString('es-ES') : 'Seleccionar fecha'}
+                  </Text>
+                </TouchableOpacity>
+                {servicio.showDatePickerInicio && (
+                  <DateTimePicker
+                    value={servicio.fechaInicio instanceof Date && !isNaN(servicio.fechaInicio) ? servicio.fechaInicio : new Date()}
+                    mode="date" display="default"
                     onChange={(event, date) => handleServicioDateChange(index, 'fechaInicio', event, date)}
-  
-                />
-              )}
-              <Text style={styles.label}>Observaciones</Text>
-              <View style={styles.inputGroup}>
-                <Ionicons name="document-text-outline" size={20} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={servicio.observaciones}
-                  onChangeText={(text) => actualizarServicio(index, 'observaciones', text)}
-                  placeholder="Observaciones"
-                  placeholderTextColor="#aaa"
-                />
+                  />
+                )}
               </View>
+              <FormField label="Observaciones" icon="document-text-outline" value={servicio.observaciones}
+                onChangeText={(text) => actualizarServicio(index, 'observaciones', text)} placeholder="Notas adicionales" multiline />
             </View>
           ))}
-          <TouchableOpacity onPress={agregarServicio} style={styles.addButton}>
-            <Ionicons name="add-circle" size={26} color="#e95a0c" />
-            <Text style={styles.addButtonText}>Añadir Servicio</Text>
+          <TouchableOpacity onPress={agregarServicio} style={[styles.addBtn, { borderColor: '#8B5CF6' }]}>
+            <Ionicons name="add-circle" size={20} color="#8B5CF6" />
+            <Text style={[styles.addBtnText, { color: '#8B5CF6' }]}>Añadir Servicio</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Ambiente</Text>
+        {/* ── Ambientes ── */}
+        <View style={styles.card}>
+          <View style={[styles.sectionHeader, { borderLeftColor: '#0EA5E9' }]}>
+            <View style={[styles.sectionIconWrap, { backgroundColor: '#F0F9FF' }]}>
+              <Ionicons name="business-outline" size={18} color="#0EA5E9" />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Ambientes</Text>
+              <Text style={styles.sectionSubtitle}>{ambientes.length} ambiente{ambientes.length !== 1 ? 's' : ''} registrado{ambientes.length !== 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+
           {ambientes.map((ambiente, index) => (
-            <View key={ambiente.key} style={styles.ambienteItemContainer}>
-              <View style={styles.ambienteItemHeader}>
-                <Text style={styles.sectionTitle}>Ambiente #{index + 1}</Text>
-                <TouchableOpacity onPress={() => eliminarAmbiente(index)} style={styles.deleteButton}>
-                  <Ionicons name="trash-bin-outline" size={22} color="#c0392b" />
+            <View key={ambiente.key} style={styles.subCard}>
+              <View style={styles.subCardHeader}>
+                <View style={[styles.actIndexBadge, { backgroundColor: '#E0F2FE' }]}>
+                  <Text style={[styles.actIndexText, { color: '#0EA5E9' }]}>{index + 1}</Text>
+                </View>
+                <Text style={styles.subCardTitle}>Ambiente #{index + 1}</Text>
+                <TouchableOpacity onPress={() => eliminarAmbiente(index)} style={styles.deleteBtn}>
+                  <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.label}>Ambiente</Text>
-              <View style={styles.inputGroup}>
-                <Ionicons name="business-outline" size={20} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={ambiente.nombre}
-                  onChangeText={(text) => actualizarAmbiente(index, 'nombre', text)}
-                  placeholder="Nombre Ambiente"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <Text style={styles.label}>Requisito</Text>
-              <View style={styles.inputGroup}>
-                <Ionicons name="list-outline" size={20} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={ambiente.requisito}
-                  onChangeText={(text) => actualizarAmbiente(index, 'requisito', text)}
-                  placeholder="Requisito"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <Text style={styles.label}>Observaciones</Text>
-              <View style={styles.inputGroup}>
-                <Ionicons name="document-text-outline" size={20} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={ambiente.observaciones}
-                  onChangeText={(text) => actualizarAmbiente(index, 'observaciones', text)}
-                  placeholder="Observaciones"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
+              <FormField label="Nombre del Ambiente" icon="business-outline" value={ambiente.nombre}
+                onChangeText={(text) => actualizarAmbiente(index, 'nombre', text)} placeholder="Ej: Auditorio Principal" />
+              <FormField label="Requisito" icon="checkmark-circle-outline" value={ambiente.requisito}
+                onChangeText={(text) => actualizarAmbiente(index, 'requisito', text)} placeholder="Requisitos del ambiente" />
+              <FormField label="Observaciones" icon="document-text-outline" value={ambiente.observaciones}
+                onChangeText={(text) => actualizarAmbiente(index, 'observaciones', text)} placeholder="Notas adicionales" multiline />
             </View>
           ))}
-          <TouchableOpacity onPress={agregarAmbiente} style={styles.addButton}>
-            <Ionicons name="add-circle" size={26} color="#e95a0c" />
-            <Text style={styles.addButtonText}>Añadir Ambiente</Text>
+          <TouchableOpacity onPress={agregarAmbiente} style={[styles.addBtn, { borderColor: '#0EA5E9' }]}>
+            <Ionicons name="add-circle" size={20} color="#0EA5E9" />
+            <Text style={[styles.addBtnText, { color: '#0EA5E9' }]}>Añadir Ambiente</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.formSection}>
-          <Text style={styles.sectionTitle}>Layouts Disponibles</Text>
+        {/* ── Layouts ── */}
+        <View style={styles.card}>
+          <View style={[styles.sectionHeader, { borderLeftColor: '#F59E0B' }]}>
+            <View style={[styles.sectionIconWrap, { backgroundColor: '#FFFBEB' }]}>
+              <Ionicons name="images-outline" size={18} color="#F59E0B" />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Layout del Evento</Text>
+              <Text style={styles.sectionSubtitle}>Selecciona la distribución del espacio</Text>
+            </View>
+          </View>
+
           {cargandoLayouts ? (
-            <View style={styles.centered}>
-              <ActivityIndicator size="small" color="#e95a0c" />
-              <Text style={{ marginTop: 8, color: '#666' }}>Cargando layouts...</Text>
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.emptyStateText}>Cargando layouts...</Text>
             </View>
           ) : layoutsDisponibles.length === 0 ? (
-            <View>
-              <Text style={{ color: '#777', fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }}>
-                No hay layouts subidos aún.
-              </Text>
-              <TouchableOpacity onPress={() => cargarLayouts(authToken)} style={styles.retryButton}>
-                <Ionicons name="reload" size={20} color="#e95a0c" />
-                <Text style={styles.retryButtonText}>Reintentar carga</Text>
+            <View style={styles.emptyState}>
+              <Ionicons name="image-outline" size={36} color={COLORS.textMuted} />
+              <Text style={styles.emptyStateText}>No hay layouts disponibles aún</Text>
+              <TouchableOpacity onPress={() => cargarLayouts(authToken)} style={styles.retryBtn}>
+                <Ionicons name="reload-outline" size={16} color={COLORS.primary} />
+                <Text style={styles.retryBtnText}>Reintentar</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
-           <Text style={{ color: '#aaa', fontSize: 12, marginBottom: 6, textAlign: 'center', fontStyle: 'italic' }}>
-              Desliza para ver más →
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={true}
-              decelerationRate="fast"
-              contentContainerStyle={{ paddingRight: 20 }}
-            >
-              <View style={styles.layoutsGrid}>
-                {layoutsDisponibles.map((layout) => {
-                  const imageUrl = layout.imagenUrl || `${API_BASE_URL}/uploads/${layout.url_imagen}`;
-                  const isSelected = layoutSeleccionado?.idlayout === layout.idlayout;
-                  return (
-                    <TouchableOpacity
-                      key={layout.idlayout}
-                      style={[styles.layoutItem, isSelected && styles.layoutItemSelected]}
-                      onPress={() => setLayoutSeleccionado(isSelected ? null : layout)}
-                      activeOpacity={0.85}
-                    >
-                      <Image
-                        source={{ uri: imageUrl }}
-                        style={styles.layoutImage}
-                        resizeMode="cover"
-                      />
-                      <Text style={styles.layoutName} numberOfLines={2}>{layout.nombre}</Text>
-                      {isSelected && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                          <Ionicons name="checkmark-circle" size={18} color="#e95a0c" />
-                          <Text style={{ color: '#e95a0c', fontSize: 12, marginLeft: 4, fontWeight: '600' }}>
-                            Seleccionado
-                          </Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
+              <Text style={styles.scrollHint}>← Desliza para ver más →</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {layoutsDisponibles.map((layout) => {
+                    const imageUrl = layout.imagenUrl || `${API_BASE_URL}/uploads/${layout.url_imagen}`;
+                    const isSelected = layoutSeleccionado?.idlayout === layout.idlayout;
+                    return (
+                      <TouchableOpacity
+                        key={layout.idlayout}
+                        style={[styles.layoutCard, isSelected && styles.layoutCardSelected]}
+                        onPress={() => setLayoutSeleccionado(isSelected ? null : layout)}
+                        activeOpacity={0.85}
+                      >
+                        <Image source={{ uri: imageUrl }} style={styles.layoutImg} resizeMode="cover" />
+                        <Text style={styles.layoutName} numberOfLines={2}>{layout.nombre}</Text>
+                        {isSelected && (
+                          <View style={styles.layoutSelectedBadge}>
+                            <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} />
+                            <Text style={styles.layoutSelectedText}>Seleccionado</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
             </>
-                      )}
-                    </View>
+          )}
+        </View>
 
+        {/* ── Submit Button ── */}
         <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
+          style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
           onPress={handleCrearEvento}
           disabled={isLoading || !authToken}
+          activeOpacity={0.85}
         >
-          {isLoading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.buttonText}>{isEditing ? 'Guardar Cambios' : 'Crear Evento'}</Text>
-          }
+          {isLoading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <Ionicons name={isEditing ? "save-outline" : "add-circle-outline"} size={20} color="#fff" />
+              <Text style={styles.submitBtnText}>{isEditing ? 'Guardar Cambios' : 'Crear Evento'}</Text>
+            </>
+          )}
         </TouchableOpacity>
+
+        <View style={{ height: 20 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
+// ─── InfoItem helper ──────────────────────────────────────────────────────────
+const InfoItem = ({ icon, label, value, accent, last }) => (
+  <View style={[styles.infoItem, !last && styles.infoItemBorder]}>
+    <View style={styles.infoItemLeft}>
+      <Ionicons name={icon} size={15} color={accent ? COLORS.primary : COLORS.textMuted} />
+      <Text style={styles.infoItemLabel}>{label}</Text>
+    </View>
+    <Text style={[styles.infoItemValue, accent && { color: COLORS.primary, fontWeight: '700' }]}>{value}</Text>
+  </View>
+);
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  keyboardAvoidingContainer: { flex: 1, backgroundColor: '#F4F7F9' },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
   scrollView: { flex: 1 },
-  scrollContentContainer: { padding: 20, paddingBottom: 60 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 20 },
-  formSection: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, marginBottom: 20, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3.84, elevation: 5 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10 },
-  label: { fontSize: 14, color: '#555', marginBottom: 8, fontWeight: '500' },
-  inputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, marginBottom: 15 },
-  inputIcon: { paddingHorizontal: 12, color: '#888' },
-  input: { flex: 1, paddingVertical: Platform.OS === 'ios' ? 14 : 10, paddingRight: 15, fontSize: 16, color: '#333' },
-  errorText: { color: '#D32F2F', fontSize: 12, marginBottom: 10, marginLeft: 5, marginTop: -10 },
-  datePickerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8, paddingVertical: Platform.OS === 'ios' ? 14 : 12, marginBottom: 15, paddingLeft: 0 },
-  datePickerText: { fontSize: 16, color: '#333', flex: 1, marginLeft: 5 },
-  button: { backgroundColor: '#e95a0c', paddingVertical: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 10, flexDirection: 'row', shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.23, shadowRadius: 2.62, elevation: 4 },
-  buttonDisabled: { backgroundColor: '#f9bda3' },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  deleteButton: { padding: 6 },
-  addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, backgroundColor: '#e6ffee', borderRadius: 8, borderWidth: 1, borderColor: '#27ae60', marginTop: 10 },
-  addButtonText: { marginLeft: 8, color: '#27ae60', fontSize: 16, fontWeight: '500' },
-  retryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 15, borderWidth: 1, borderColor: '#e95a0c', borderRadius: 8, alignSelf: 'center', marginTop: 10 },
-  retryButtonText: { marginLeft: 8, color: '#e95a0c', fontSize: 16, fontWeight: '500' },
-  actividadPreviaItemContainer: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 10, padding: 15, marginBottom: 15, backgroundColor: '#fdfdfd' },
-  actividadItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  actividadPreviaTitle: { fontSize: 16, fontWeight: '600', color: '#333' },
-  ambienteItemContainer: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 10, padding: 15, marginBottom: 15, backgroundColor: '#fdfdfd' },
-  ambienteItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  servicioItemContainer: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 10, padding: 15, marginBottom: 15, backgroundColor: '#fdfdfd' },
-  servicioItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  infoLabel: { fontSize: 14, color: '#64748b', fontWeight: '500', flex: 1, flexWrap: 'wrap' },
-  infoValue: { fontSize: 15, color: '#1e293b', fontWeight: '600', textAlign: 'right', flex: 1.2, flexWrap: 'wrap' },
-  layoutsGrid: { 
-  flexDirection: 'row', 
-  paddingVertical: 10,
-  paddingHorizontal: 5,
-},
-layoutItem: { 
-  width: 260,
-  marginRight: 15, 
-  alignItems: 'center', 
-  backgroundColor: '#fff', 
-  borderRadius: 12, 
-  padding: 12, 
-  shadowColor: "#000", 
-  shadowOffset: { width: 0, height: 2 }, 
-  shadowOpacity: 0.12, 
-  shadowRadius: 4, 
-  elevation: 4,
-},
-layoutItemSelected: { 
-  borderColor: '#e95a0c', 
-  borderWidth: 3, 
-  borderRadius: 12, 
-  backgroundColor: '#fffaf5',
-},
-layoutImage: { 
-  width: 236,
-  height: 180, 
-  borderRadius: 8, 
-  backgroundColor: '#f0f0f0', 
-  borderWidth: 1, 
-  borderColor: '#eee',
-},
-layoutName: { 
-  marginTop: 10, 
-  fontSize: 14, 
-  color: '#333', 
-  textAlign: 'center', 
-  fontWeight: '600', 
-  width: '100%',
-},
+  scrollContent: {
+    padding: 16,
+    paddingTop: 20,
+  },
+  loadingScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+  },
+
+  // ── Cards ──
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  subCard: {
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  subCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 10,
+  },
+  subCardTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+
+  // ── Section Header ──
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 18,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
+    borderRadius: 2,
+  },
+  sectionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+
+  // ── Activity index badge ──
+  actIndexBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actIndexText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  // ── Info Grid ──
+  infoGrid: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  infoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  infoItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  infoItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoItemLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  infoItemValue: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '600',
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
+
+  // ── Form Fields ──
+  fieldWrap: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+  },
+  inputRowError: {
+    borderColor: COLORS.danger,
+    backgroundColor: COLORS.dangerLight,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+  },
+  inputMultiline: {
+    minHeight: 72,
+    textAlignVertical: 'top',
+    paddingTop: 4,
+  },
+  errorText: {
+    fontSize: 12,
+    color: COLORS.danger,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+
+  // ── Date pills ──
+  dateRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  datePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primaryMid,
+  },
+  datePillText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+
+  // ── Buttons ──
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    marginTop: 4,
+  },
+  addBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.dangerLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 4,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  submitBtnDisabled: {
+    backgroundColor: '#F9BDA3',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    marginTop: 10,
+  },
+  retryBtnText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // ── Empty state ──
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    gap: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
+  },
+  scrollHint: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginBottom: 10,
+    fontStyle: 'italic',
+  },
+
+  // ── Layouts ──
+  layoutCard: {
+    width: 200,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  layoutCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+  },
+  layoutImg: {
+    width: '100%',
+    height: 140,
+    borderRadius: 8,
+    backgroundColor: COLORS.background,
+  },
+  layoutName: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+  layoutSelectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  layoutSelectedText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
 });
 
 export default programacionEvento;
