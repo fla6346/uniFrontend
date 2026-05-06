@@ -844,6 +844,7 @@ const EditEventScreen = () => {
   const [eventosDelDia, setEventosDelDia] = useState([]);
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [conflictoDetectado, setConflictoDetectado] = useState(null);
+  const [participantesEsperados, setParticipantesEsperados] = useState('');
   const scrollViewRef = useRef(null);
   const objetivosSectionRef = useRef(null);
   const [objetivosSectionY, setObjetivosSectionY] = useState(0);
@@ -1158,6 +1159,28 @@ const EditEventScreen = () => {
     };
     loadEventData();
   }, [eventId, eventData, router]);
+const OBJETIVOS_ID_TO_KEY = {
+  1: 'modeloPedagogico',
+  2: 'posicionamiento',
+  3: 'internacionalizacion',
+  4: 'rsu',
+  5: 'fidelizacion',
+  6: 'otro',
+};
+
+const OBJETIVOS_ID_TO_KEY = {
+  1: 'modeloPedagogico',
+  2: 'posicionamiento',
+  3: 'internacionalizacion',
+  4: 'rsu',
+  5: 'fidelizacion',
+  6: 'otro',
+};
+
+// Inverso de SUBCATEGORIA_ID_MAP: número → string con letra (ej: 5 → '1e')
+const SUBCATEGORIA_NUM_TO_ID = Object.fromEntries(
+  Object.entries(SUBCATEGORIA_ID_MAP).map(([k, v]) => [v, k])
+);
 
 const populateFormFromApi = (apiData) => {
   // Datos básicos
@@ -1165,141 +1188,177 @@ const populateFormFromApi = (apiData) => {
   setEstadoEvento(apiData.estado || 'pendiente');
   setNombreevento(apiData.nombreevento || '');
   setLugarevento(apiData.lugarevento || '');
-  
+
   // Fecha y hora
-  if (apiData.fechaevento && apiData.horaevento) {
+  if (apiData.fechaevento) {
     const fecha = dayjs(apiData.fechaevento);
-    const [hora, min] = (apiData.horaevento || '00:00').split(':');
-    const fechaHora = fecha.hour(parseInt(hora)).minute(parseInt(min)).toDate();
+    const horaParts = (apiData.horaevento || '00:00').split(':');
+    const hora = parseInt(horaParts[0]) || 0;
+    const min  = parseInt(horaParts[1]) || 0;
+    const fechaHora = fecha.hour(hora).minute(min).second(0).toDate();
     setFechaHoraSeleccionada(fechaHora);
+    setHoraSeleccionada(fechaHora);
   }
-  
-  // Participantes y argumentación
+
+  // Participantes
   setParticipantesEsperados(apiData.participantes_esperados?.toString() || '');
+
+  // Argumentación
   setArgumentacion(apiData.argumentacion || '');
-  
-  // Clasificación
+
+  // Clasificación estratégica
   if (apiData.Clasificacion) {
-    setClasificacionSeleccionada(apiData.Clasificacion.idclasificacion?.toString() || '');
-    setSubcategoriaSeleccionada(apiData.Clasificacion.idsubcategoria?.toString() || '');
+    const idClasif = apiData.Clasificacion.idclasificacion?.toString() || '';
+    setClasificacionSeleccionada(idClasif);
+
+    // La API devuelve idsubcategoria como número; lo convertimos al string con letra
+    const idSubNum = apiData.Clasificacion.idsubcategoria;
+    if (idSubNum) {
+      const idSubStr = SUBCATEGORIA_NUM_TO_ID[idSubNum] || '';
+      setSubcategoriaSeleccionada(idSubStr);
+    }
   }
-  
+
   // Tipos de evento
   if (apiData.TiposDeEvento?.length) {
     const tiposMap = {};
     apiData.TiposDeEvento.forEach(tipo => {
-      if (tipo.idtipoevento) {
-        tiposMap[tipo.idtipoevento.toString()] = true;
-        if (tipo.texto_personalizado && tipo.idtipoevento.toString() === '5') {
+      const id = tipo.idtipoevento?.toString();
+      if (id) {
+        tiposMap[id] = true;
+        if (id === '5' && tipo.texto_personalizado) {
           setTextoOtroTipo(tipo.texto_personalizado);
         }
       }
     });
     setTiposSeleccionados(tiposMap);
   }
-  
-  // Objetivos principales
+
+  // Objetivos principales — las claves del estado son strings como 'modeloPedagogico'
   if (apiData.Objetivos?.length) {
-    const objetivosMap = {};
+    const nuevosObjetivos = {
+      modeloPedagogico: false,
+      posicionamiento: false,
+      internacionalizacion: false,
+      rsu: false,
+      fidelizacion: false,
+      otro: false,
+      otroTexto: '',
+    };
     apiData.Objetivos.forEach(obj => {
-      if (obj.idobjetivo) {
-        objetivosMap[`obj_${obj.idobjetivo}`] = true;
-      }
-      // Manejar objetivos con texto personalizado
-      if (obj.texto_personalizado && obj.idobjetivo === OBJETIVOS_EVENTO_MAP.otro) {
-        setObjetivos(prev => ({ ...prev, otro: true, otroTexto: obj.texto_personalizado }));
-      }
-    });
-    setObjetivos(objetivosMap);
-  }
-  
-  // Objetivos PDI
-  const pdiData = Array.isArray(apiData.ObjetivosPDI) 
-    ? apiData.ObjetivosPDI 
-    : parseJSONSafe(apiData.objetivos_pdi, []);
-  if (pdiData.length) {
-    setObjetivosPDI(pdiData.map(o => o.texto_personalizado || o));
-  }
-  
-  // Segmentos objetivo
-  if (apiData.Segmentos?.length) {
-    const segmentoMap = {};
-    const textosPersonalizados = {};
-    apiData.Segmentos.forEach(seg => {
-      if (seg.idsegmento) {
-        const key = {1: 'estudiantes', 2: 'docentes', 3: 'publicoExterno', 4: 'influencers'}[seg.idsegmento];
-        if (key) {
-          segmentoMap[key] = true;
-          if (seg.texto_personalizado) {
-            textosPersonalizados[key] = seg.texto_personalizado;
-          }
+      const key = OBJETIVOS_ID_TO_KEY[obj.idobjetivo];
+      if (key) {
+        nuevosObjetivos[key] = true;
+        if (key === 'otro' && obj.texto_personalizado) {
+          nuevosObjetivos.otroTexto = obj.texto_personalizado;
         }
       }
     });
-    setSegmentoObjetivo(segmentoMap);
-    setSegmentosTextoPersonalizado(textosPersonalizados);
+    setObjetivos(nuevosObjetivos);
   }
-  
+
+  // Objetivos PDI
+  const pdiData = Array.isArray(apiData.ObjetivosPDI)
+    ? apiData.ObjetivosPDI
+    : parseJSONSafe(apiData.objetivos_pdi, []);
+  if (pdiData.length) {
+    const textos = pdiData.map(o => (typeof o === 'string' ? o : o.texto_personalizado || ''));
+    // Siempre mantener al menos 3 slots
+    while (textos.length < 3) textos.push('');
+    setObjetivosPDI(textos);
+  }
+
+  // Segmentos objetivo — el estado usa: estudiantes, docentes, publicoExterno, influencers, otro, otroTexto
+  const SEG_ID_TO_KEY = { 1: 'estudiantes', 2: 'docentes', 3: 'publicoExterno', 4: 'influencers' };
+  if (apiData.Segmentos?.length) {
+    const nuevosSeg = {
+      estudiantes: false,
+      docentes: false,
+      publicoExterno: false,
+      influencers: false,
+      otro: false,
+      otroTexto: '',
+    };
+    const nuevosTextos = {};
+    apiData.Segmentos.forEach(seg => {
+      const key = SEG_ID_TO_KEY[seg.idsegmento];
+      if (key) {
+        nuevosSeg[key] = true;
+        if (seg.texto_personalizado) nuevosTextos[key] = seg.texto_personalizado;
+      } else {
+        // idsegmento 5 u otro valor → "otro"
+        nuevosSeg.otro = true;
+        if (seg.texto_personalizado) nuevosSeg.otroTexto = seg.texto_personalizado;
+      }
+    });
+    setSegmentoObjetivo(nuevosSeg);
+    setSegmentosTextoPersonalizado(nuevosTextos);
+  }
+
   // Resultados esperados
   if (apiData.Resultados?.[0]) {
+    const r = apiData.Resultados[0];
     setResultadosEsperados({
-      participacion: apiData.Resultados[0].participacion_esperada?.toString() || '',
-      satisfaccion: apiData.Resultados[0].satisfaccion_esperada?.toString() || '',
-      otro: apiData.Resultados[0].otros_resultados || ''
+      participacion: r.participacion_esperada?.toString() || '',
+      satisfaccion: r.satisfaccion_esperada?.toString() || '',
+      otro: r.otros_resultados || '',
     });
   }
-  
+
   // Recursos existentes
   if (apiData.Recursos?.length) {
-    setRecursosSeleccionados(apiData.Recursos.map(r => r.idrecurso?.toString()).filter(Boolean));
+    setRecursosSeleccionados(
+      apiData.Recursos.map(r => r.idrecurso?.toString()).filter(Boolean)
+    );
   }
-  
+
   // Recursos nuevos (tecnológicos, mobiliario, vajilla)
   if (apiData.RecursosNuevos?.length) {
     const tecnologicos = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'tecnologico');
-    const mobiliarios = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'mobiliario');
-    const vajillas = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'vajilla');
-    
-    if (tecnologicos.length) setRecursosTecnologicos(tecnologicos.map(r => ({ 
-      nombre: r.nombre_recurso, 
-      cantidad: r.cantidad?.toString() || '1' 
-    })));
-    if (mobiliarios.length) setMobiliario(mobiliarios.map(r => ({ 
-      nombre: r.nombre_recurso, 
-      cantidad: r.cantidad?.toString() || '1' 
-    })));
-    if (vajillas.length) setVajilla(vajillas.map(r => ({ 
-      nombre: r.nombre_recurso, 
-      cantidad: r.cantidad?.toString() || '1' 
-    })));
+    const mobiliarios  = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'mobiliario');
+    const vajillas     = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'vajilla');
+
+    if (tecnologicos.length)
+      setRecursosTecnologicos(tecnologicos.map(r => ({
+        nombre: r.nombre_recurso, cantidad: r.cantidad?.toString() || '1',
+      })));
+    if (mobiliarios.length)
+      setMobiliario(mobiliarios.map(r => ({
+        nombre: r.nombre_recurso, cantidad: r.cantidad?.toString() || '1',
+      })));
+    if (vajillas.length)
+      setVajilla(vajillas.map(r => ({
+        nombre: r.nombre_recurso, cantidad: r.cantidad?.toString() || '1',
+      })));
   }
-  
-  // Comité
+
+  // Comité — la API puede devolver id, idusuario o usuario_id
   if (apiData.Comite?.length) {
-    setComiteSeleccionado(apiData.Comite.map(m => m.id).filter(Boolean));
+    setComiteSeleccionado(
+      apiData.Comite.map(m => m.id ?? m.idusuario ?? m.usuario_id).filter(Boolean)
+    );
   }
-  
+
   // Presupuesto - Egresos
   if (apiData.Presupuesto?.egresos?.length) {
     setEgresos(apiData.Presupuesto.egresos.map(e => ({
-      key: `egreso-${e.idegreso || Date.now()}`,
+      key: `egreso-${e.idegreso || Date.now() + Math.random()}`,
       descripcion: e.descripcion || '',
       cantidad: e.cantidad?.toString() || '',
-      precio: e.precio_unitario?.toString() || ''
+      precio: e.precio_unitario?.toString() || '',
     })));
   }
-  
+
   // Presupuesto - Ingresos
   if (apiData.Presupuesto?.ingresos?.length) {
     setIngresos(apiData.Presupuesto.ingresos.map(i => ({
-      key: `ingreso-${i.idingreso || Date.now()}`,
+      key: `ingreso-${i.idingreso || Date.now() + Math.random()}`,
       descripcion: i.descripcion || '',
       cantidad: i.cantidad?.toString() || '',
-      precio: i.precio_unitario?.toString() || ''
+      precio: i.precio_unitario?.toString() || '',
     })));
   }
 };
-
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
     const selectedLabels = selectedIds.map(id => {
