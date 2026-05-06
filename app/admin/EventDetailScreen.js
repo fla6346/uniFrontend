@@ -1159,14 +1159,7 @@ const EditEventScreen = () => {
     };
     loadEventData();
   }, [eventId, eventData, router]);
-const OBJETIVOS_ID_TO_KEY = {
-  1: 'modeloPedagogico',
-  2: 'posicionamiento',
-  3: 'internacionalizacion',
-  4: 'rsu',
-  5: 'fidelizacion',
-  6: 'otro',
-};
+
 
 const OBJETIVOS_ID_TO_KEY = {
   1: 'modeloPedagogico',
