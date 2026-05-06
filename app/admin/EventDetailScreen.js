@@ -1319,26 +1319,34 @@ const populateFormFromApi = (apiData) => {
       apiData.Comite.map(m => m.id ?? m.idusuario ?? m.usuario_id).filter(Boolean)
     );
   }
+// Presupuesto — tolerante a string JSON o a campos planos
+  let presupuesto = apiData.Presupuesto || apiData.presupuesto;
+  if (typeof presupuesto === 'string') {
+    try { presupuesto = JSON.parse(presupuesto); } catch { presupuesto = null; }
+  }
 
-  // Presupuesto
-  if (apiData.Presupuesto?.egresos?.length) {
-    setEgresos(apiData.Presupuesto.egresos.map(e => ({
-      key: `egreso-${e.idegreso || Math.random()}`,
+  const egresosData = presupuesto?.egresos || apiData.egresos || [];
+  const ingresosData = presupuesto?.ingresos || apiData.ingresos || [];
+
+  if (egresosData.length) {
+    setEgresos(egresosData.map((e, i) => ({
+      key: `egreso-${e.idegreso || i}-${Date.now()}`,
       descripcion: e.descripcion || '',
-      cantidad: e.cantidad?.toString() || '',
-      precio: e.precio_unitario?.toString() || '',
+      cantidad: (e.cantidad ?? '').toString(),
+      precio: (e.precio_unitario ?? e.precio ?? '').toString(),
     })));
   }
-  if (apiData.Presupuesto?.ingresos?.length) {
-    setIngresos(apiData.Presupuesto.ingresos.map(i => ({
-      key: `ingreso-${i.idingreso || Math.random()}`,
-      descripcion: i.descripcion || '',
-      cantidad: i.cantidad?.toString() || '',
-      precio: i.precio_unitario?.toString() || '',
-    })));
-};
 
-};
+  if (ingresosData.length) {
+    setIngresos(ingresosData.map((e, i) => ({
+      key: `ingreso-${e.idingreso || i}-${Date.now()}`,
+      descripcion: e.descripcion || '',
+      cantidad: (e.cantidad ?? '').toString(),
+      precio: (e.precio_unitario ?? e.precio ?? '').toString(),
+    })));
+  }
+};  // ← cierre de populateFormFromApi, solo uno
+
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
     const selectedLabels = selectedIds.map(id => {
