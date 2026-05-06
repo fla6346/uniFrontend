@@ -717,7 +717,6 @@ const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetec
               <Text style={styles.conflictEventDetails}>
                 {dayjs(conflictoDetectado.horaevento.split('+')[0], 'HH:mm:ss').format('HH:mm')} - {conflictoDetectado.lugarevento}
               </Text>
-              <Text style={styles.conflictEventResponsible}>Responsable: {conflictoDetectado.responsable_evento}</Text>
             </View>
             <Text style={styles.modalWarning}>Se recomienda mantener al menos 2 horas de separación entre eventos.</Text>
           </View>
@@ -783,7 +782,6 @@ const EventosDelDiaMejorado = ({ eventosDelDia, fechaHoraSeleccionada, verificar
                 </View>
                 <View style={styles.eventoDetailRow}>
                   <Ionicons name="person-outline" size={14} color="#666" />
-                  <Text style={styles.eventoDetailText}>{evento.responsable_evento}</Text>
                 </View>
               </View>
             </View>
@@ -852,7 +850,6 @@ const EditEventScreen = () => {
   const [isScrollingToObjetivos, setIsScrollingToObjetivos] = useState(false);
   const [nombreevento, setNombreevento] = useState('');
   const [lugarevento, setLugarevento] = useState('');
-  const [nombreResponsable, setNombreResponsable] = useState('');
   const [tiposSeleccionados, setTiposSeleccionados] = useState({});
   const [textoOtroTipo, setTextoOtroTipo] = useState('');
   const [textoTiposSeleccionados, setTextoTiposSeleccionados] = useState('');
@@ -1167,7 +1164,6 @@ const EditEventScreen = () => {
     setEstadoEvento(apiData.estado || 'pendiente');
     setNombreevento(apiData.nombreevento || '');
     setLugarevento(apiData.lugarevento || '');
-    setNombreResponsable(apiData.responsable_evento || '');
     if (apiData.fechaevento && apiData.horaevento) {
       const fecha = dayjs(apiData.fechaevento);
       const [hora, min] = (apiData.horaevento || '00:00').split(':');
@@ -1244,7 +1240,6 @@ const EditEventScreen = () => {
   const handleInputChange = (field, value) => {
     if (field === 'nombreevento') setNombreevento(value);
     if (field === 'lugarevento') setLugarevento(value);
-    if (field === 'nombreResponsable') setNombreResponsable(value);
     if (errors[field]) setErrors(prevErrors => ({ ...prevErrors, [field]: null }));
   };
 
@@ -1415,7 +1410,6 @@ const EditEventScreen = () => {
           `Ya existe un evento programado a las ${dayjs(fechaHoraSeleccionada).format('HH:mm')} del ${dayjs(fechaHoraSeleccionada).format('DD/MM/YYYY')}.
     Evento existente: ${conflictos[0].nombreevento}
     Lugar: ${conflictos[0].lugarevento}
-    Responsable: ${conflictos[0].responsable_evento}
     
     Por favor, selecciona otra hora o fecha.`,
           [{ text: 'Entendido' }]
@@ -1981,7 +1975,7 @@ const EditEventScreen = () => {
           </TouchableOpacity>
         )}
       </View>
-      <ConfirmModal showConfirmModal={showConfirmModal} setShowConfirmModal={setShowConfirmModal} handleSubmitConfirmed={handleSubmitConfirmed} isLoading={isLoading} formData={{ nombreevento, lugarevento, nombreResponsable, fechaHoraSeleccionada }} mode={mode} />
+      <ConfirmModal showConfirmModal={showConfirmModal} setShowConfirmModal={setShowConfirmModal} handleSubmitConfirmed={handleSubmitConfirmed} isLoading={isLoading} formData={{ nombreevento, lugarevento, fechaHoraSeleccionada }} mode={mode} />
       <NotificationsModal visible={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} notifications={notifications} markAsRead={markNotificationAsRead} />
       <ConflictModal showConflictModal={showConflictModal} setShowConflictModal={setShowConflictModal} conflictoDetectado={conflictoDetectado} setConflictoDetectado={setConflictoDetectado} />
     </KeyboardAvoidingView>
