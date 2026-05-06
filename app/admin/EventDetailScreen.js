@@ -1174,6 +1174,12 @@ const SUBCATEGORIA_NUM_TO_ID = Object.fromEntries(
 );
 
 const populateFormFromApi = (apiData) => {
+  console.log('=== PRESUPUESTO RAW ===', JSON.stringify({
+    Presupuesto: apiData.Presupuesto,
+    presupuesto: apiData.presupuesto,
+    egresos: apiData.egresos,
+    ingresos: apiData.ingresos,
+  }, null, 2));
   console.log('=== OBJETIVOS ===', apiData.Objetivos);
   console.log('=== OBJETIVOS PDI ===', apiData.ObjetivosPDI);
 
@@ -1506,7 +1512,10 @@ const populateFormFromApi = (apiData) => {
     if (!nombreevento.trim()) newErrors.nombreevento = 'El nombre del evento es obligatorio.';
     if (Object.values(tiposSeleccionados).every(v => !v)) newErrors.tipos = 'Selecciona al menos un tipo de evento.';
     if (tiposSeleccionados['5'] && !textoOtroTipo.trim()) newErrors.textoOtroTipo = 'Describe el otro tipo de evento.';
-    if (Object.values(objetivos).every(v => !v)) newErrors.objetivos = 'Selecciona al menos un objetivo.';
+    const tieneAlgunObjetivo = Object.entries(objetivos).some(
+  ([key, val]) => key !== 'otroTexto' && val === true
+);
+if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.';
     if (objetivos.otro && !objetivos.otroTexto.trim()) newErrors.objetivosOtroTexto = 'Describe el otro objetivo.';
     if (!argumentacion.trim()) newErrors.argumentacion = 'La argumentación es obligatoria.';
     if (!clasificacionSeleccionada) newErrors.clasificacionSeleccionada = 'La clasificación estratégica es obligatoria.';
