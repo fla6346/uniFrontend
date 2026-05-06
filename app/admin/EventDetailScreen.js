@@ -579,7 +579,7 @@ const EventDetailScreen = () => {
           </View>
         )}
 
-        <TouchableOpacity style={styles.editButton} onPress={() => router.push(`/admin/EditEvent?eventId=${event.id}`)}>
+        <TouchableOpacity style={styles.editButton} onPress={() => router.push(`/admin/EditEventScreen?eventId=${event.id}`)}>
           <Ionicons name="create-outline" size={20} color={COLORS.white} />
           <Text style={styles.editButtonText}>Editar Evento</Text>
         </TouchableOpacity>
