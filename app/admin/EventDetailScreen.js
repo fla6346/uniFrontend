@@ -1159,60 +1159,146 @@ const EditEventScreen = () => {
     loadEventData();
   }, [eventId, eventData, router]);
 
-  const populateFormFromApi = (apiData) => {
-    setIdevento(apiData.idevento);
-    setEstadoEvento(apiData.estado || 'pendiente');
-    setNombreevento(apiData.nombreevento || '');
-    setLugarevento(apiData.lugarevento || '');
-    if (apiData.fechaevento && apiData.horaevento) {
-      const fecha = dayjs(apiData.fechaevento);
-      const [hora, min] = (apiData.horaevento || '00:00').split(':');
-      const fechaHora = fecha.hour(parseInt(hora)).minute(parseInt(min)).toDate();
-      setFechaHoraSeleccionada(fechaHora);
-    }
-    if (apiData.Clasificacion) {
-      setClasificacionSeleccionada(apiData.Clasificacion.idclasificacion?.toString() || '');
-      setSubcategoriaSeleccionada(apiData.Clasificacion.idsubcategoria?.toString() || '');
-    }
-    if (apiData.TiposDeEvento?.length) {
-      const tiposMap = {};
-      apiData.TiposDeEvento.forEach(tipo => {
-        tiposMap[tipo.idtipoevento?.toString()] = true;
-      });
-      setTiposSeleccionados(tiposMap);
-    }
-    if (apiData.Objetivos?.length) {
-      const objetivosMap = {};
-      apiData.Objetivos.forEach(obj => {
-        if (obj.idobjetivo) objetivosMap[`obj_${obj.idobjetivo}`] = true;
-      });
-      setObjetivos(objetivosMap);
-    }
-    const pdiData = Array.isArray(apiData.ObjetivosPDI)
-      ? apiData.ObjetivosPDI
-      : parseJSONSafe(apiData.objetivos_pdi, []);
-    if (pdiData.length) {
-      setObjetivosPDI(pdiData.map(o => o.texto_personalizado || o));
-    }
-    if (apiData.Recursos?.length) {
-      setRecursosSeleccionados(apiData.Recursos.map(r => r.idrecurso?.toString()));
-    }
-    if (apiData.Comite?.length) {
-      setComiteSeleccionado(apiData.Comite.map(m => m.id));
-    }
-    setEgresos(parseJSONSafe(apiData.Egresos, []).map(e => ({
+const populateFormFromApi = (apiData) => {
+  // Datos básicos
+  setIdevento(apiData.idevento);
+  setEstadoEvento(apiData.estado || 'pendiente');
+  setNombreevento(apiData.nombreevento || '');
+  setLugarevento(apiData.lugarevento || '');
+  
+  // Fecha y hora
+  if (apiData.fechaevento && apiData.horaevento) {
+    const fecha = dayjs(apiData.fechaevento);
+    const [hora, min] = (apiData.horaevento || '00:00').split(':');
+    const fechaHora = fecha.hour(parseInt(hora)).minute(parseInt(min)).toDate();
+    setFechaHoraSeleccionada(fechaHora);
+  }
+  
+  // Participantes y argumentación
+  setParticipantesEsperados(apiData.participantes_esperados?.toString() || '');
+  setArgumentacion(apiData.argumentacion || '');
+  
+  // Clasificación
+  if (apiData.Clasificacion) {
+    setClasificacionSeleccionada(apiData.Clasificacion.idclasificacion?.toString() || '');
+    setSubcategoriaSeleccionada(apiData.Clasificacion.idsubcategoria?.toString() || '');
+  }
+  
+  // Tipos de evento
+  if (apiData.TiposDeEvento?.length) {
+    const tiposMap = {};
+    apiData.TiposDeEvento.forEach(tipo => {
+      if (tipo.idtipoevento) {
+        tiposMap[tipo.idtipoevento.toString()] = true;
+        if (tipo.texto_personalizado && tipo.idtipoevento.toString() === '5') {
+          setTextoOtroTipo(tipo.texto_personalizado);
+        }
+      }
+    });
+    setTiposSeleccionados(tiposMap);
+  }
+  
+  // Objetivos principales
+  if (apiData.Objetivos?.length) {
+    const objetivosMap = {};
+    apiData.Objetivos.forEach(obj => {
+      if (obj.idobjetivo) {
+        objetivosMap[`obj_${obj.idobjetivo}`] = true;
+      }
+      // Manejar objetivos con texto personalizado
+      if (obj.texto_personalizado && obj.idobjetivo === OBJETIVOS_EVENTO_MAP.otro) {
+        setObjetivos(prev => ({ ...prev, otro: true, otroTexto: obj.texto_personalizado }));
+      }
+    });
+    setObjetivos(objetivosMap);
+  }
+  
+  // Objetivos PDI
+  const pdiData = Array.isArray(apiData.ObjetivosPDI) 
+    ? apiData.ObjetivosPDI 
+    : parseJSONSafe(apiData.objetivos_pdi, []);
+  if (pdiData.length) {
+    setObjetivosPDI(pdiData.map(o => o.texto_personalizado || o));
+  }
+  
+  // Segmentos objetivo
+  if (apiData.Segmentos?.length) {
+    const segmentoMap = {};
+    const textosPersonalizados = {};
+    apiData.Segmentos.forEach(seg => {
+      if (seg.idsegmento) {
+        const key = {1: 'estudiantes', 2: 'docentes', 3: 'publicoExterno', 4: 'influencers'}[seg.idsegmento];
+        if (key) {
+          segmentoMap[key] = true;
+          if (seg.texto_personalizado) {
+            textosPersonalizados[key] = seg.texto_personalizado;
+          }
+        }
+      }
+    });
+    setSegmentoObjetivo(segmentoMap);
+    setSegmentosTextoPersonalizado(textosPersonalizados);
+  }
+  
+  // Resultados esperados
+  if (apiData.Resultados?.[0]) {
+    setResultadosEsperados({
+      participacion: apiData.Resultados[0].participacion_esperada?.toString() || '',
+      satisfaccion: apiData.Resultados[0].satisfaccion_esperada?.toString() || '',
+      otro: apiData.Resultados[0].otros_resultados || ''
+    });
+  }
+  
+  // Recursos existentes
+  if (apiData.Recursos?.length) {
+    setRecursosSeleccionados(apiData.Recursos.map(r => r.idrecurso?.toString()).filter(Boolean));
+  }
+  
+  // Recursos nuevos (tecnológicos, mobiliario, vajilla)
+  if (apiData.RecursosNuevos?.length) {
+    const tecnologicos = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'tecnologico');
+    const mobiliarios = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'mobiliario');
+    const vajillas = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'vajilla');
+    
+    if (tecnologicos.length) setRecursosTecnologicos(tecnologicos.map(r => ({ 
+      nombre: r.nombre_recurso, 
+      cantidad: r.cantidad?.toString() || '1' 
+    })));
+    if (mobiliarios.length) setMobiliario(mobiliarios.map(r => ({ 
+      nombre: r.nombre_recurso, 
+      cantidad: r.cantidad?.toString() || '1' 
+    })));
+    if (vajillas.length) setVajilla(vajillas.map(r => ({ 
+      nombre: r.nombre_recurso, 
+      cantidad: r.cantidad?.toString() || '1' 
+    })));
+  }
+  
+  // Comité
+  if (apiData.Comite?.length) {
+    setComiteSeleccionado(apiData.Comite.map(m => m.id).filter(Boolean));
+  }
+  
+  // Presupuesto - Egresos
+  if (apiData.Presupuesto?.egresos?.length) {
+    setEgresos(apiData.Presupuesto.egresos.map(e => ({
       key: `egreso-${e.idegreso || Date.now()}`,
       descripcion: e.descripcion || '',
       cantidad: e.cantidad?.toString() || '',
       precio: e.precio_unitario?.toString() || ''
     })));
-    setIngresos(parseJSONSafe(apiData.Ingresos, []).map(i => ({
+  }
+  
+  // Presupuesto - Ingresos
+  if (apiData.Presupuesto?.ingresos?.length) {
+    setIngresos(apiData.Presupuesto.ingresos.map(i => ({
       key: `ingreso-${i.idingreso || Date.now()}`,
       descripcion: i.descripcion || '',
       cantidad: i.cantidad?.toString() || '',
       precio: i.precio_unitario?.toString() || ''
     })));
-  };
+  }
+};
 
   useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
