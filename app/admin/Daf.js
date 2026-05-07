@@ -353,10 +353,14 @@ const Daf = () => {
 
   const adminActions = [
     { id: '1', title: 'Gestión de usuarios',   iconName: 'people-outline',        route: '/admin/UsuariosDaf',  color: COLORS.secondary, colorLight: '#F3F4F6',           description: 'Administración de cuentas' },
-    { id: '4', title: 'Análisis de datos',      iconName: 'analytics-outline',     route: '/admin/Estadistica',  color: COLORS.info,      colorLight: COLORS.infoLight,    description: 'Informes y métricas del sistema' },
-    { id: '5', title: 'Reportes avanzados',     iconName: 'document-text-outline', route: '/admin/reportes',     color: COLORS.danger,    colorLight: COLORS.dangerLight,  description: 'Generación de reportes detallados', badge: 'Nuevo' },
-    { id: '6', title: 'Creación de recursos',   iconName: 'construct-outline',     route: '/admin/Recursos',     color: COLORS.warning,   colorLight: COLORS.warningLight, description: 'Gestión de recursos del sistema',   badge: 'Nuevo' },
-    { id: '7', title: 'Subida de layouts',      iconName: 'images-outline',        route: '/admin/Layouts',      color: COLORS.info,      colorLight: COLORS.infoLight,    description: 'Administración de plantillas',       badge: 'Nuevo' },
+    { id: '2', title: 'Pantalla de solicitudes', iconName: 'document-text-outline', route: '/admin/Solicitudes', color: COLORS.warning,   colorLight: COLORS.warningLight, description: 'Lista y detalle con aprobación/rechazo con modificacion de cantidades' },
+    { id: '3', title: 'Gestion de stock de recursos',  iconName: 'checkmark-circle-outline', route: '/admin/Inventario', color: COLORS.success,  colorLight: COLORS.successLight, description: 'Eventos aprobados y gestión de detalles' },
+    { id: '4', title: 'Estadisticas de uso de recursos',      iconName: 'analytics-outline',     route: '/admin/ReportesDaf',  color: COLORS.info,      colorLight: COLORS.infoLight,    description: 'Informes y métricas del sistema' },
+    { id: '5', title: 'Análisis de datos',      iconName: 'analytics-outline',     route: '/admin/Estadistica',  color: COLORS.info,      colorLight: COLORS.infoLight,    description: 'Informes y métricas del sistema' },
+    { id: '6', title: 'Reportes avanzados',     iconName: 'document-text-outline', route: '/admin/reportes',     color: COLORS.danger,    colorLight: COLORS.dangerLight,  description: 'Generación de reportes detallados', badge: 'Nuevo' },
+    { id: '7', title: 'Creación de recursos',   iconName: 'construct-outline',     route: '/admin/Recursos',     color: COLORS.warning,   colorLight: COLORS.warningLight, description: 'Gestión de recursos del sistema',   badge: 'Nuevo' },
+    { id: '8', title: 'Subida de layouts',      iconName: 'images-outline',        route: '/admin/Layouts',      color: COLORS.info,      colorLight: COLORS.infoLight,    description: 'Administración de plantillas',       badge: 'Nuevo' },
+
   ];
 
   return (
