@@ -109,16 +109,17 @@ export default function DafServicios() {
         { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
         { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
       ]);
+      
       const data = Array.isArray(res.data) ? res.data : [];
       const mapped = data.map(e => ({
         id: e.idevento,
         nombreEvento: e.nombreevento || 'Sin título',
         solicitante: e.academicoCreador ? `${e.academicoCreador.nombre} ${e.academicoCreador.apellidopat}` : 'Desconocido',
         fechaEvento: e.fechaevento ? new Date(e.fechaevento).toLocaleDateString('es-ES') : 'N/A',
-        estado: e.estadoDAF || 'Pendiente',
+        estado: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : e.estado?.toLowerCase().includes('rechazado') ? 'Rechazado' : 'Pendiente',
         totalRecursos: e.recursos?.length || 0,
       }));
-
+      setAllEventos(mapped);
       setSolicitudes(mapped);
       setStats({
         pendientes: mapped.filter(s => s.estado.toLowerCase() === 'pendiente').length,
