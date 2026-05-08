@@ -93,7 +93,7 @@ export default function DafServicios() {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
-      const res = await axios.get(`${API_BASE_URL}/daf/solicitudes`, {
+      const res = await axios.get(`${API_BASE_URL}/solicitudes`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -173,7 +173,7 @@ export default function DafServicios() {
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={styles.sectionTitle}>Solicitudes Recientes</Text>
-            <TouchableOpacity onPress={() => router.push('/admin/daf/Solicitudes')}>
+            <TouchableOpacity onPress={() => router.push('/admin/Solicitudes')}>
               <Text style={styles.sectionActionText}>Ver todas</Text>
             </TouchableOpacity>
           </View>
@@ -187,7 +187,7 @@ export default function DafServicios() {
               <SolicitudCard 
                 key={item.id} 
                 item={item} 
-                onPress={() => router.push({ pathname: '/admin/daf/DetalleSolicitud', params: { id: item.id } })}
+                onPress={() => router.push({ pathname: '/admin/DetalleSolicitud', params: { id: item.id } })}
               />
             ))
           )}
@@ -197,8 +197,9 @@ export default function DafServicios() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Herramientas</Text>
           {[
-            { title: 'Inventario de Recursos', icon: 'cube-outline', route: '/admin/daf/Inventario', color: COLORS.info },
-            { title: 'Reportes y Métricas', icon: 'bar-chart-outline', route: '/admin/daf/Reportes', color: COLORS.secondary },
+            { title: 'Inventario de Recursos', icon: 'cube-outline', route: '../admin/Inventario', color: COLORS.info },
+            { title: 'Reportes y Métricas', icon: 'bar-chart-outline', route: '../admin/Reportes', color: COLORS.secondary },
+            { title: 'Reportes y Métricas', icon: 'bar-chart-outline', route: '../admin/Recursos', color: COLORS.secondary },
           ].map((action, i) => (
             <TouchableOpacity key={i} style={styles.actionCard} onPress={() => router.push(action.route)}>
               <View style={[styles.actionIcon, { backgroundColor: action.color + '15' }]}>
