@@ -254,6 +254,7 @@ const Daf = () => {
   const [lastUpdated, setLastUpdated]             = useState(null);
   const [allEvents, setAllEvents]                 = useState([]);
   const [stats, setStats]                           = useState(null);
+  const [loadingReportes, setLoadingReportes]   = useState(false);
 
   const [dashboardStats, setDashboardStats] = useState([
     { title: 'Usuarios Activos',      value: '–', icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
@@ -267,7 +268,7 @@ const Daf = () => {
   // ── Fetch data ─────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
-    else { setLoadingDashboard(true); setLoadingEvents(true); }
+    else { setLoadingDashboard(true); setLoadingEvents(true); setLoadingReportes(true); }
 
     try {
       const token = await getTokenAsync();
@@ -277,6 +278,7 @@ const Daf = () => {
         axios.get(`${API_BASE_URL}/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
         axios.get(`${API_BASE_URL}/eventos`,          { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
         axios.get(`${API_BASE_URL}/notificaciones`,   { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE_URL}/dashboard/mensual`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }).catch(() => ({ data: [] })),
       ]);
 
       const data = dashRes.data;
@@ -320,6 +322,7 @@ const Daf = () => {
     } finally {
       setLoadingDashboard(false);
       setLoadingEvents(false);
+      setLoadingReportes(false);
       setRefreshing(false);
     }
   }, []);
