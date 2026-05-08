@@ -103,6 +103,7 @@ export default function DafServicios() {
         axios.get(`${API_BASE_URL}/notificaciones`,   { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }).catch(() => ({ data: [] })),
       ]);
       const dataRes = dashRes.data || {};
+      
        setDashboardStats([
         { title: 'Usuarios Activos',      value: (dataRes.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
         { title: 'Eventos Totales',       value: (dataRes.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
@@ -116,7 +117,7 @@ export default function DafServicios() {
         nombreEvento: e.nombreevento || 'Sin título',
         solicitante: e.academicoCreador ? `${e.academicoCreador.nombre} ${e.academicoCreador.apellidopat}` : 'Desconocido',
         fechaEvento: e.fechaevento ? new Date(e.fechaevento).toLocaleDateString('es-ES') : 'N/A',
-        estado: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : e.estado?.toLowerCase().includes('rechazado') ? 'Rechazado' : 'Pendiente',
+       estado: (e.estadoDAF || e.estado || 'Pendiente').toLowerCase(),
         totalRecursos: e.recursos?.length || 0,
       }));
       setAllEventos(mapped);
