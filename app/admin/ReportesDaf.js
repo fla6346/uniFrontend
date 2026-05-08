@@ -89,27 +89,27 @@ export default function Reportes() {
       const res = await axios.get(`${API_BASE_URL}/daf/reportes?periodo=${p}`, {
         headers: { Authorization: `Bearer ${token}` }, timeout: 10000,
       });
-      setData(res.data);
+      const data = res.data;
+      if(!data|| typeof data !== 'object') throw new Error('Respuesta inválida de la API');
+
+      setData({
+      totalSolicitudes: data.totalSolicitudes ?? 0,
+      aprobadas: data.aprobadas ?? 0,
+      rechazadas: data.rechazadas ?? 0,
+      pendientes: data.pendientes ?? 0,
+      recursosMasUsados: Array.isArray(data.recursosMasUsados) ? data.recursosMasUsados : [],
+      eventoRecientes: Array.isArray(data.eventoRecientes) ? data.eventoRecientes : [],
+    });
     } catch (err) {
       console.error(err);
       // Datos de demo si la API falla
       setData({
-        totalSolicitudes: 24,
-        aprobadas: 18,
-        rechazadas: 4,
-        pendientes: 2,
-        recursosMasUsados: [
-          { nombre: 'Sillas plásticas', usos: 42 },
-          { nombre: 'Mesas rectangulares', usos: 30 },
-          { nombre: 'Vajilla completa', usos: 18 },
-          { nombre: 'Proyector', usos: 12 },
-          { nombre: 'Manteles', usos: 9 },
-        ],
-        eventoRecientes: [
-          { id: 1, nombreEvento: 'Seminario de Innovación', solicitante: 'J. Pérez', fecha: '10/05/2025', estado: 'Aprobado', totalRecursos: 5 },
-          { id: 2, nombreEvento: 'Conferencia de Investigación', solicitante: 'M. López', fecha: '08/05/2025', estado: 'Aprobado', totalRecursos: 3 },
-          { id: 3, nombreEvento: 'Taller de Liderazgo', solicitante: 'R. García', fecha: '06/05/2025', estado: 'Rechazado', totalRecursos: 2 },
-        ],
+        totalSolicitudes: 0,
+        aprobadas: 0,
+        rechazadas: 0,
+        pendientes: 0,
+        recursosMasUsados: [],
+        eventoRecientes: [],
       });
     } finally { setLoading(false); }
   }, []);
