@@ -38,7 +38,7 @@ const COLORS = {
 };
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
-const DashboardCard = ({ title, value, icon, color, description }) => (
+const DashboardCard = ({ title, value, icon, color, description, subtitle }) => (
   <View style={[styles.kpiCard, { borderTopColor: color }]}>
     <View style={styles.kpiTopRow}>
       <View style={[styles.kpiIconWrap, { backgroundColor: color + '15' }]}>
@@ -48,6 +48,7 @@ const DashboardCard = ({ title, value, icon, color, description }) => (
     </View>
     <Text style={styles.kpiTitle}>{title}</Text>
     {description && <Text style={styles.kpiDesc}>{description}</Text>}
+    {subtitle && <Text style={styles.kpiSub}>{subtitle}</Text>}
   </View>
 );
 
@@ -283,6 +284,10 @@ const Daf = () => {
 
       const data = dashRes.data;
       setStats(data);
+     const totalEvents = data.totalEvents || 0;
+      const aprobados = data.estadoCounts?.aprobado || 0;
+      const pendientes = data.estadoCounts?.pendiente || 0;
+      const tasaAprobacion = totalEvents > 0 ? Math.round((aprobados / totalEvents) * 100) : 0;
 
       setDashboardStats([
         { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
