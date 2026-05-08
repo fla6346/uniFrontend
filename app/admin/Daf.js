@@ -285,52 +285,52 @@ const Daf = () => {
       const data = dashRes.data;
       setStats(data);
      const totalEvents = data.totalEvents || 0;
-      const aprobados = data.estadoCounts?.aprobado || 0;
-      const pendientes = data.estadoCounts?.pendiente || 0;
-      const tasaAprobacion = totalEvents > 0 ? Math.round((aprobados / totalEvents) * 100) : 0;
-
-      setDashboardStats([
-        { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
-        { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
-        { title: 'Contenidos Pendientes', value: (stats?.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
-        { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
-      ]);
+        const aprobados = data.estadoCounts?.aprobado || 0;
+        const pendientes = data.estadoCounts?.pendiente || 0;
+        const rechazados = data.estadoCounts?.rechazado || 0;
+        const tasaAprobacion = totalEvents > 0 ? Math.round((aprobados / totalEvents) * 100) : 0;
+     setDashboardStats([
+      { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
+      { title: 'Eventos Totales',       value: totalEvents.toString(),                              icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
+      { title: 'Tasa Aprobación',       value: `${tasaAprobacion}%`,                                 icon: 'checkmark-done-outline', color: COLORS.success,  description: 'Porcentaje de aprobación' },
+      { title: 'Tiempo Prom.',          value: `${data.tiempoPromedioAprobacion || 0}h`,            icon: 'time-outline',          color: COLORS.warning,  description: 'Tiempo promedio aprobación' },
+      { title: 'Pendientes',            value: pendientes.toString(),                                icon: 'hourglass-outline',     color: COLORS.warning,  description: 'Sin revisar', subtitle: 'Sin revisar' },
+      { title: 'Nuevos Usuarios',       value: (data.usuariosNuevosEsteMes || 0).toString(),        icon: 'person-add-outline',    color: COLORS.purple,   description: 'Este mes', subtitle: 'Este mes' },
+    ]);
 
       const events = (Array.isArray(eventsRes.data) ? eventsRes.data : [])
-        .filter(e => e.idfase === 2)
-        .map(e => ({
-          id: e.idevento,
-          title: e.nombreevento || 'Sin título',
-          date: e.fechaevento
-            ? new Date(e.fechaevento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-            : 'N/A',
-          time: e.horaevento
-            ? e.horaevento.substring(0, 5)
-            : 'N/A',
-          state: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : 'Pendiente',
-          creator: e.academicoCreador
-            ? `${e.academicoCreador.nombre || ''} ${e.academicoCreador.apellidopat || ''}`.trim()
-            : 'Desconocido',
-        }));
+      .filter(e => e.idfase === 2)
+      .map(e => ({
+        id: e.idevento,
+        title: e.nombreevento || 'Sin título',
+        date: e.fechaevento
+          ? new Date(e.fechaevento).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : 'N/A',
+        time: e.horaevento ? e.horaevento.substring(0, 5) : 'N/A',
+        state: e.estado?.toLowerCase().includes('aprobado') ? 'Aprobado' : 'Pendiente',
+        creator: e.academicoCreador
+          ? `${e.academicoCreador.nombre || ''} ${e.academicoCreador.apellidopat || ''}`.trim()
+          : 'Desconocido',
+      }));
 
-      setAllEvents(events);
-      setNotifications(Array.isArray(notifsRes.data) ? notifsRes.data : []);
-      setLastUpdated(new Date());
+    setAllEvents(events);
+    setNotifications(Array.isArray(notifsRes.data) ? notifsRes.data : []);
+    setLastUpdated(new Date());
 
-    } catch (error) {
-      console.error('Error fetchData:', error);
-      if (error.response?.status === 401) { await deleteTokenAsync(); router.replace('/'); }
-      else Alert.alert('Error de Conexión', 'No se pudieron cargar los datos.', [
-        { text: 'Reintentar', onPress: () => fetchData() },
-        { text: 'Cancelar', style: 'cancel' },
-      ]);
-    } finally {
-      setLoadingDashboard(false);
-      setLoadingEvents(false);
-      setLoadingReportes(false);
-      setRefreshing(false);
-    }
-  }, []);
+  } catch (error) {
+    console.error('Error fetchData:', error);
+    if (error.response?.status === 401) { await deleteTokenAsync(); router.replace('/'); }
+    else Alert.alert('Error de Conexión', 'No se pudieron cargar los datos.', [
+      { text: 'Reintentar', onPress: () => fetchData() },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  } finally {
+    setLoadingDashboard(false);
+    setLoadingEvents(false);
+    setLoadingReportes(false);
+    setRefreshing(false);
+  }
+}, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
