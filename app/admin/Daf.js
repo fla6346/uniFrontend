@@ -292,7 +292,7 @@ const Daf = () => {
       setDashboardStats([
         { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
         { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
-        { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
+        { title: 'Contenidos Pendientes', value: (stats?.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
         { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
       ]);
 
