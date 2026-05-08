@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet, View, Text, ScrollView, TouchableOpacity,
-  StatusBar, Alert, ActivityIndicator, TextInput, Modal,
-  Platform, KeyboardAvoidingView,
+  StatusBar, Alert, ActivityIndicator, TextInput,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
@@ -22,349 +23,290 @@ const C = {
   warning: '#F59E0B', warningLight: '#FEF3C7',
   danger: '#EF4444',  dangerLight: '#FEE2E2',
   info: '#3B82F6',    infoLight: '#DBEAFE',
+  purple: '#8B5CF6',  purpleLight: '#EDE9FE',
   bg: '#F3F4F6', surface: '#FFFFFF',
   t1: '#111827', t2: '#6B7280', t3: '#9CA3AF', border: '#E5E7EB',
 };
 
-const CATEGORIAS = ['Todos', 'Mobiliario', 'Vajilla', 'Electrónica', 'Decoración', 'Otros'];
+// Mismos colores que tu CrearRecurso.js
+const TIPO_COLORS = {
+  tecnologico: { color: '#3B82F6', bg: '#DBEAFE', label: 'Tecnológico' },
+  mobiliario:  { color: '#8B5CF6', bg: '#EDE9FE', label: 'Mobiliario'  },
+  vajilla:     { color: '#F59E0B', bg: '#FEF3C7', label: 'Vajilla'     },
+};
+const tipoStyle = (tipo) =>
+  TIPO_COLORS[tipo] || { color: C.t3, bg: C.bg, label: tipo || 'Otro' };
 
-const stockColor = (disponible, total) => {
-  if (total === 0) return { color: C.t3, bg: C.bg, label: 'Sin datos' };
-  const pct = disponible / total;
-  if (pct >= 0.5) return { color: C.success, bg: C.successLight, label: 'Disponible' };
-  if (pct > 0)    return { color: C.warning, bg: C.warningLight, label: 'Bajo stock' };
-  return            { color: C.danger,  bg: C.dangerLight,  label: 'Agotado' };
+// Categorías para el filtro (incluye todos los tipos de tu Picker)
+const CATEGORIAS = ['Todos', 'Tecnológico', 'Mobiliario', 'Vajilla'];
+const categoriaToTipo = {
+  'Tecnológico': 'tecnologico',
+  'Mobiliario':  'mobiliario',
+  'Vajilla':     'vajilla',
 };
 
-// ─── Barra de stock ───────────────────────────────────────────────────────────
-const StockBar = ({ disponible, total }) => {
-  const pct = total > 0 ? Math.min(disponible / total, 1) : 0;
-  const sc = stockColor(disponible, total);
-  return (
-    <View style={st.barWrap}>
-      <View style={st.barBg}>
-        <View style={[st.barFill, { width: `${pct * 100}%`, backgroundColor: sc.color }]} />
-      </View>
-      <Text style={[st.barLabel, { color: sc.color }]}>{disponible}/{total}</Text>
-    </View>
-  );
-};
+// ─── Tarjeta de recurso ───────────────────────────────────────────────────────
+// Usa exactamente los campos de tu BD: idrecurso, nombre_recurso, recurso_tipo,
+// descripcion, habilitado
+const RecursoCard = ({ item, onEdit }) => {
+  const ts        = tipoStyle(item.recurso_tipo);
+  const habilitado = item.habilitado == 1;
 
-// ─── Modal editar/agregar recurso ─────────────────────────────────────────────
-const RecursoModal = ({ visible, recurso, onClose, onSave, saving }) => {
-  const isEdit = !!recurso?.id;
-  const [nombre, setNombre]       = useState('');
-  const [categoria, setCategoria] = useState('Mobiliario');
-  const [total, setTotal]         = useState('');
-  const [disponible, setDisp]     = useState('');
-  const [descripcion, setDesc]    = useState('');
-
-  useEffect(() => {
-    if (recurso) {
-      setNombre(recurso.nombre || '');
-      setCategoria(recurso.categoria || 'Mobiliario');
-      setTotal(recurso.total?.toString() || '');
-      setDisp(recurso.disponible?.toString() || '');
-      setDesc(recurso.descripcion || '');
-    } else {
-      setNombre(''); setCategoria('Mobiliario'); setTotal(''); setDisp(''); setDesc('');
-    }
-  }, [recurso, visible]);
-
-  const handleSave = () => {
-    if (!nombre.trim()) { Alert.alert('Campo requerido', 'Ingresa el nombre del recurso.'); return; }
-    const t = parseInt(total, 10);
-    const d = parseInt(disponible, 10);
-    if (isNaN(t) || t < 0) { Alert.alert('Cantidad inválida', 'Ingresa una cantidad total válida.'); return; }
-    if (isNaN(d) || d < 0 || d > t) { Alert.alert('Cantidad inválida', 'La cantidad disponible no puede superar el total.'); return; }
-    onSave({ id: recurso?.id, nombre: nombre.trim(), categoria, total: t, disponible: d, descripcion: descripcion.trim() });
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={st.modalContainer}>
-          <View style={st.modalHeader}>
-            <TouchableOpacity onPress={onClose} style={st.modalClose}>
-              <Ionicons name="close" size={22} color={C.t2} />
-            </TouchableOpacity>
-            <Text style={st.modalTitle}>{isEdit ? 'Editar recurso' : 'Nuevo recurso'}</Text>
-          </View>
-
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
-            <View style={st.formCard}>
-              <Text style={st.fieldLabel}>Nombre del recurso *</Text>
-              <TextInput style={st.textInput} value={nombre} onChangeText={setNombre} placeholder="Ej. Sillas plásticas" placeholderTextColor={C.t3} />
-
-              <Text style={[st.fieldLabel, { marginTop: 16 }]}>Categoría</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
-                <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                  {['Mobiliario', 'Vajilla', 'Electrónica', 'Decoración', 'Otros'].map(c => (
-                    <TouchableOpacity
-                      key={c}
-                      style={[st.catChip, categoria === c && { backgroundColor: C.primary, borderColor: C.primary }]}
-                      onPress={() => setCategoria(c)}
-                    >
-                      <Text style={[st.catChipText, categoria === c && { color: C.surface }]}>{c}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-
-              <View style={st.row}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[st.fieldLabel, { marginTop: 16 }]}>Cantidad total *</Text>
-                  <TextInput style={st.textInput} value={total} onChangeText={setTotal} keyboardType="numeric" placeholder="0" placeholderTextColor={C.t3} />
-                </View>
-                <View style={{ width: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[st.fieldLabel, { marginTop: 16 }]}>Disponible *</Text>
-                  <TextInput style={st.textInput} value={disponible} onChangeText={setDisp} keyboardType="numeric" placeholder="0" placeholderTextColor={C.t3} />
-                </View>
-              </View>
-
-              <Text style={[st.fieldLabel, { marginTop: 16 }]}>Descripción</Text>
-              <TextInput
-                style={[st.textInput, { minHeight: 70, textAlignVertical: 'top' }]}
-                value={descripcion} onChangeText={setDesc}
-                multiline placeholder="Descripción opcional…" placeholderTextColor={C.t3}
-              />
-            </View>
-          </ScrollView>
-
-          <View style={st.modalActions}>
-            <TouchableOpacity style={[st.btn, st.btnSave]} onPress={handleSave} disabled={saving}>
-              {saving
-                ? <ActivityIndicator size="small" color={C.surface} />
-                : <><Ionicons name="save-outline" size={18} color={C.surface} /><Text style={[st.btnText, { color: C.surface }]}>Guardar</Text></>
-              }
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-};
-
-// ─── Recurso card ─────────────────────────────────────────────────────────────
-const RecursoCard = ({ item, onEdit, onDelete }) => {
-  const sc = stockColor(item.disponible, item.total);
   return (
     <View style={st.card}>
       <View style={st.cardTop}>
-        <View style={[st.catTag, { backgroundColor: C.infoLight }]}>
-          <Text style={[st.catTagText, { color: C.info }]}>{item.categoria}</Text>
+        {/* Badge tipo — mismo estilo que CrearRecurso.js */}
+        <View style={[st.tipoBadge, { backgroundColor: ts.bg }]}>
+          <Text style={[st.tipoBadgeText, { color: ts.color }]}>{ts.label}</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity style={st.iconAction} onPress={() => onEdit(item)}>
-            <Ionicons name="pencil-outline" size={15} color={C.t2} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[st.iconAction, { borderColor: C.dangerLight }]} onPress={() => onDelete(item)}>
-            <Ionicons name="trash-outline" size={15} color={C.danger} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={st.editBtn} onPress={() => onEdit(item)}>
+          <Ionicons name="pencil-outline" size={15} color={C.primary} />
+        </TouchableOpacity>
       </View>
-      <Text style={st.cardName}>{item.nombre}</Text>
-      {item.descripcion ? <Text style={st.cardDesc} numberOfLines={1}>{item.descripcion}</Text> : null}
-      <StockBar disponible={item.disponible} total={item.total} />
-      <View style={[st.stockBadge, { backgroundColor: sc.bg }]}>
-        <View style={[st.stockDot, { backgroundColor: sc.color }]} />
-        <Text style={[st.stockLabel, { color: sc.color }]}>{sc.label}</Text>
+
+      <Text style={st.cardName}>{item.nombre_recurso}</Text>
+
+      {item.descripcion ? (
+        <Text style={st.cardDesc} numberOfLines={2}>{item.descripcion}</Text>
+      ) : null}
+
+      {/* Estado habilitado / deshabilitado — mismo estilo que CrearRecurso.js */}
+      <View style={[st.estadoBadge, { backgroundColor: habilitado ? '#D1FAE5' : '#FEE2E2' }]}>
+        <Text style={[st.estadoBadgeText, { color: habilitado ? '#065F46' : '#991B1B' }]}>
+          {habilitado ? '● Habilitado' : '● Deshabilitado'}
+        </Text>
       </View>
     </View>
   );
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function Inventario() {
+export default function InventarioDAF() {
   const router = useRouter();
-  const [loading, setLoading]         = useState(true);
-  const [saving, setSaving]           = useState(false);
-  const [recursos, setRecursos]       = useState([]);
-  const [filtro, setFiltro]           = useState('Todos');
-  const [search, setSearch]           = useState('');
-  const [modalVisible, setModal]      = useState(false);
-  const [editTarget, setEditTarget]   = useState(null);
 
-  const fetchRecursos = useCallback(async () => {
+  const [loading, setLoading]     = useState(true);
+  const [recursos, setRecursos]   = useState([]);
+  const [filtro, setFiltro]       = useState('Todos');
+  const [search, setSearch]       = useState('');
+
+  // Cargar recursos desde el mismo endpoint que usa CrearRecurso.js: GET /recursos
+  const cargarRecursos = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getToken();
-      const res = await axios.get(`${API_BASE_URL}/daf/recursos`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 });
-      setRecursos(Array.isArray(res.data) ? res.data : []);
+      const res = await axios.get(`${API_BASE_URL}/recursos`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      let raw = res.data;
+      if (!Array.isArray(raw)) raw = raw.data || raw.recursos || [];
+      setRecursos(raw);
     } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'No se pudo cargar el inventario.');
-    } finally { setLoading(false); }
+      console.error('cargarRecursos:', err);
+      Alert.alert('Error', 'No se pudo cargar el inventario de recursos.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { fetchRecursos(); }, [fetchRecursos]);
+  // Recargar cuando la pantalla vuelve a estar en foco (igual que CrearRecurso)
+  useFocusEffect(cargarRecursos);
 
-  const handleSave = async (data) => {
-    setSaving(true);
-    try {
-      const token = await getToken();
-      if (data.id) {
-        await axios.put(`${API_BASE_URL}/daf/recursos/${data.id}`, data, { headers: { Authorization: `Bearer ${token}` } });
-      } else {
-        await axios.post(`${API_BASE_URL}/daf/recursos`, data, { headers: { Authorization: `Bearer ${token}` } });
-      }
-      Alert.alert('Éxito', data.id ? 'Recurso actualizado.' : 'Recurso creado.');
-      setModal(false);
-      setEditTarget(null);
-      fetchRecursos();
-    } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'No se pudo guardar el recurso.');
-    } finally { setSaving(false); }
+  // Editar: redirige a la pantalla existente de CrearRecurso para no duplicar lógica
+  const handleEdit = (recurso) => {
+    router.push({
+      pathname: '/admin/Recursos',
+      params: { editId: recurso.idrecurso.toString() },
+    });
   };
 
-  const handleDelete = (item) => {
-    Alert.alert('Eliminar recurso', `¿Deseas eliminar "${item.nombre}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try {
-          const token = await getToken();
-          await axios.delete(`${API_BASE_URL}/daf/recursos/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
-          fetchRecursos();
-        } catch { Alert.alert('Error', 'No se pudo eliminar el recurso.'); }
-      }},
-    ]);
-  };
-
-  const openEdit = (item) => { setEditTarget(item); setModal(true); };
-  const openNew  = ()     => { setEditTarget(null);  setModal(true); };
-
+  // Filtrar por tipo y búsqueda
   const filtered = recursos.filter(r => {
-    const matchCat = filtro === 'Todos' || r.categoria === filtro;
-    const matchQ   = !search || r.nombre.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchQ;
+    const matchF = filtro === 'Todos' || r.recurso_tipo === categoriaToTipo[filtro];
+    const matchS = !search || r.nombre_recurso.toLowerCase().includes(search.toLowerCase());
+    return matchF && matchS;
   });
 
-  const bajoStock = recursos.filter(r => r.total > 0 && r.disponible / r.total < 0.5);
+  const habilitados    = recursos.filter(r => r.habilitado == 1).length;
+  const deshabilitados = recursos.filter(r => r.habilitado != 1).length;
 
   return (
     <View style={st.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
+      {/* Header */}
       <View style={st.header}>
         <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color={C.t1} />
+          <Ionicons name="arrow-back" size={20} color={C.t1} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={st.hTitle}>Inventario</Text>
-          <Text style={st.hSub}>{recursos.length} recursos · {bajoStock.length} bajo stock</Text>
+          <Text style={st.hTitle}>Inventario de recursos</Text>
+          <Text style={st.hSub}>
+            {recursos.length} recursos · {habilitados} habilitados · {deshabilitados} deshabilitados
+          </Text>
         </View>
-        <TouchableOpacity style={st.fabSmall} onPress={openNew}>
-          <Ionicons name="add" size={22} color={C.surface} />
+        <TouchableOpacity style={st.refreshBtn} onPress={cargarRecursos}>
+          <Ionicons name="refresh-outline" size={20} color={C.primary} />
         </TouchableOpacity>
+      </View>
+
+      {/* Banner informativo */}
+      <View style={st.infoBanner}>
+        <Ionicons name="information-circle-outline" size={16} color={C.info} />
+        <Text style={st.infoBannerText}>
+          Para crear o editar recursos ve a{' '}
+          <Text
+            style={{ fontWeight: '700', color: C.primary }}
+            onPress={() => router.push('/admin/Recursos')}
+          >
+            Creación de Recursos
+          </Text>
+        </Text>
       </View>
 
       {/* Buscador */}
-      <View style={st.searchBar}>
-        <Ionicons name="search-outline" size={18} color={C.t3} />
-        <TextInput style={st.searchInput} placeholder="Buscar recurso…" placeholderTextColor={C.t3} value={search} onChangeText={setSearch} />
-        {search ? <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close-circle" size={18} color={C.t3} /></TouchableOpacity> : null}
+      <View style={st.searchWrap}>
+        <Ionicons name="search-outline" size={17} color={C.t3} />
+        <TextInput
+          style={st.searchInput}
+          placeholder="Buscar recurso…"
+          placeholderTextColor={C.t3}
+          value={search}
+          onChangeText={setSearch}
+        />
+        {search ? (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <Ionicons name="close-circle" size={17} color={C.t3} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
-      {/* Categorías */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.chips}>
+      {/* Filtros por tipo */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.chipsRow}>
         {CATEGORIAS.map(c => (
-          <TouchableOpacity key={c} style={[st.chip, filtro === c && { backgroundColor: C.primary, borderColor: C.primary }]} onPress={() => setFiltro(c)}>
+          <TouchableOpacity
+            key={c}
+            style={[st.chip, filtro === c && { backgroundColor: C.primary, borderColor: C.primary }]}
+            onPress={() => setFiltro(c)}
+          >
             <Text style={[st.chipText, filtro === c && { color: C.surface }]}>{c}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {loading ? (
-        <View style={st.loadingBox}><ActivityIndicator color={C.primary} /><Text style={st.loadingText}>Cargando inventario…</Text></View>
-      ) : filtered.length === 0 ? (
-        <View style={st.emptyBox}>
-          <Ionicons name="cube-outline" size={40} color={C.t3} />
-          <Text style={st.emptyTitle}>Sin recursos</Text>
-          <Text style={st.emptyText}>Agrega recursos con el botón +</Text>
+      {/* Resumen rápido por tipo */}
+      {!loading && (
+        <View style={st.summaryRow}>
+          {Object.entries(TIPO_COLORS).map(([tipo, ts]) => {
+            const count = recursos.filter(r => r.recurso_tipo === tipo && r.habilitado == 1).length;
+            return (
+              <View key={tipo} style={[st.summaryCard, { borderTopColor: ts.color, borderTopWidth: 2 }]}>
+                <Text style={[st.summaryCount, { color: ts.color }]}>{count}</Text>
+                <Text style={st.summaryLabel}>{ts.label}</Text>
+              </View>
+            );
+          })}
         </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-          {filtered.map(item => (
-            <RecursoCard key={item.id} item={item} onEdit={openEdit} onDelete={handleDelete} />
-          ))}
-        </ScrollView>
       )}
 
-      <RecursoModal visible={modalVisible} recurso={editTarget} onClose={() => { setModal(false); setEditTarget(null); }} onSave={handleSave} saving={saving} />
+      {/* Lista */}
+      {loading ? (
+        <View style={st.centerBox}>
+          <ActivityIndicator color={C.primary} />
+          <Text style={st.loadText}>Cargando inventario…</Text>
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={st.centerBox}>
+          <Ionicons name="cube-outline" size={42} color={C.t3} />
+          <Text style={st.emptyTitle}>Sin recursos</Text>
+          <Text style={st.emptyText}>
+            {search ? 'No hay recursos que coincidan con tu búsqueda.' : 'No hay recursos para este tipo.'}
+          </Text>
+          <TouchableOpacity
+            style={st.goCreateBtn}
+            onPress={() => router.push('/admin/Recursos')}
+          >
+            <Ionicons name="add-circle-outline" size={16} color={C.surface} />
+            <Text style={st.goCreateText}>Ir a Creación de Recursos</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {filtered.map(item => (
+            <RecursoCard key={String(item.idrecurso)} item={item} onEdit={handleEdit} />
+          ))}
+
+          {/* Botón ir a crear */}
+          <TouchableOpacity
+            style={st.createFloatBtn}
+            onPress={() => router.push('/admin/Recursos')}
+          >
+            <Ionicons name="add-circle-outline" size={18} color={C.primary} />
+            <Text style={st.createFloatText}>Agregar nuevo recurso en Creación de Recursos</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+
   header: {
     backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: (StatusBar.currentHeight || 40) + 12, paddingBottom: 14,
-    borderBottomWidth: 0.5, borderColor: C.border, gap: 12,
+    paddingHorizontal: 16, paddingTop: (StatusBar.currentHeight || 40) + 12,
+    paddingBottom: 14, borderBottomWidth: 0.5, borderColor: C.border, gap: 10,
   },
   backBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', borderWidth: 0.5, borderColor: C.border },
-  hTitle: { fontSize: 20, fontWeight: '800', color: C.t1 },
-  hSub: { fontSize: 12, color: C.t2 },
-  fabSmall: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.primary, justifyContent: 'center', alignItems: 'center' },
+  hTitle: { fontSize: 18, fontWeight: '800', color: C.t1 },
+  hSub:   { fontSize: 12, color: C.t2, marginTop: 1 },
+  refreshBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.primaryLight, justifyContent: 'center', alignItems: 'center' },
 
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface,
-    marginHorizontal: 16, marginTop: 14, borderRadius: 12, borderWidth: 0.5, borderColor: C.border,
-    paddingHorizontal: 12, paddingVertical: 10,
+  infoBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.infoLight, marginHorizontal: 16, marginTop: 14,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 0.5, borderColor: C.info + '40',
   },
+  infoBannerText: { fontSize: 13, color: C.info, flex: 1, lineHeight: 18 },
+
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.surface, marginHorizontal: 16, marginTop: 12, borderRadius: 12, borderWidth: 0.5, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 10 },
   searchInput: { flex: 1, fontSize: 14, color: C.t1, padding: 0 },
 
-  chips: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  chipsRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
   chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 0.5, borderColor: C.border, backgroundColor: C.surface },
   chipText: { fontSize: 13, color: C.t2, fontWeight: '500' },
 
-  card: { backgroundColor: C.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 0.5, borderColor: C.border },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  catTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  catTagText: { fontSize: 11, fontWeight: '600' },
-  cardName: { fontSize: 16, fontWeight: '700', color: C.t1, marginBottom: 4 },
-  cardDesc: { fontSize: 12, color: C.t3, marginBottom: 8 },
+  summaryRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 4 },
+  summaryCard: { flex: 1, backgroundColor: C.surface, borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 0.5, borderColor: C.border },
+  summaryCount: { fontSize: 22, fontWeight: '800' },
+  summaryLabel: { fontSize: 11, color: C.t2, marginTop: 2 },
 
-  barWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  barBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.bg, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 3 },
-  barLabel: { fontSize: 12, fontWeight: '700', minWidth: 36, textAlign: 'right' },
+  // Tarjeta recurso — mismo estilo visual que CrearRecurso.js
+  card: {
+    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginBottom: 10,
+    borderWidth: 0.5, borderColor: C.border,
+  },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  tipoBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  tipoBadgeText: { fontSize: 12, fontWeight: '600' },
+  editBtn: { padding: 7, borderRadius: 8, backgroundColor: C.primaryLight },
+  cardName: { fontSize: 15, fontWeight: '700', color: C.t1, marginBottom: 4 },
+  cardDesc: { fontSize: 13, color: C.t2, marginBottom: 8 },
+  estadoBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  estadoBadgeText: { fontSize: 12, fontWeight: '600' },
 
-  stockBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-  stockDot: { width: 6, height: 6, borderRadius: 3 },
-  stockLabel: { fontSize: 11, fontWeight: '600' },
-
-  iconAction: { width: 30, height: 30, borderRadius: 8, borderWidth: 0.5, borderColor: C.border, justifyContent: 'center', alignItems: 'center', backgroundColor: C.bg },
-
-  loadingBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  loadingText: { fontSize: 13, color: C.t2 },
-  emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
+  centerBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 32 },
+  loadText: { fontSize: 13, color: C.t2 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: C.t1 },
-  emptyText: { fontSize: 13, color: C.t2, textAlign: 'center' },
+  emptyText:  { fontSize: 13, color: C.t2, textAlign: 'center' },
+  goCreateBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, marginTop: 8 },
+  goCreateText: { fontSize: 14, fontWeight: '600', color: C.surface },
 
-  // Modal
-  modalContainer: { flex: 1, backgroundColor: C.bg },
-  modalHeader: {
-    backgroundColor: C.surface, flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 16 : (StatusBar.currentHeight || 0) + 12,
-    paddingBottom: 14, borderBottomWidth: 0.5, borderColor: C.border,
-  },
-  modalClose: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', borderWidth: 0.5, borderColor: C.border },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: C.t1 },
-  formCard: { backgroundColor: C.surface, borderRadius: 14, padding: 16, borderWidth: 0.5, borderColor: C.border },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: C.t2, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  textInput: { borderWidth: 0.5, borderColor: C.border, borderRadius: 10, padding: 12, fontSize: 14, color: C.t1, backgroundColor: C.bg },
-  row: { flexDirection: 'row' },
-  catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 0.5, borderColor: C.border, backgroundColor: C.bg },
-  catChipText: { fontSize: 13, color: C.t2 },
-  modalActions: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16,
-    backgroundColor: C.surface, borderTopWidth: 0.5, borderColor: C.border,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
-  },
-  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 12 },
-  btnSave: { backgroundColor: C.primary },
-  btnText: { fontSize: 15, fontWeight: '700' },
+  createFloatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.primaryLight, borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: C.primary + '40', marginTop: 6 },
+  createFloatText: { fontSize: 13, fontWeight: '600', color: C.primary },
 });
