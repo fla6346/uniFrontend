@@ -253,6 +253,7 @@ const Daf = () => {
   const [refreshing, setRefreshing]               = useState(false);
   const [lastUpdated, setLastUpdated]             = useState(null);
   const [allEvents, setAllEvents]                 = useState([]);
+  const [stats, setStats]                           = useState(null);
 
   const [dashboardStats, setDashboardStats] = useState([
     { title: 'Usuarios Activos',      value: '–', icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
@@ -279,6 +280,7 @@ const Daf = () => {
       ]);
 
       const data = dashRes.data;
+      setStats(data);
 
       setDashboardStats([
         { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
