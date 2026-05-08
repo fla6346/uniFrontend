@@ -97,6 +97,18 @@ export default function DafServicios() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      const [dashRes, eventsRes, notifsRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/dashboard/stats`, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+        axios.get(`${API_BASE_URL}/eventos`,          { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }),
+        axios.get(`${API_BASE_URL}/notificaciones`,   { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 }).catch(() => ({ data: [] })),
+      ]);
+      const dataRes = dashRes.data || {};
+       setDashboardStats([
+        { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
+        { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
+        { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
+        { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
+      ]);
       const data = Array.isArray(res.data) ? res.data : [];
       const mapped = data.map(e => ({
         id: e.idevento,
