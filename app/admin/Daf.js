@@ -104,10 +104,10 @@ export default function DafServicios() {
       ]);
       const dataRes = dashRes.data || {};
        setDashboardStats([
-        { title: 'Usuarios Activos',      value: (data.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
-        { title: 'Eventos Totales',       value: (data.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
-        { title: 'Contenidos Pendientes', value: (data.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
-        { title: 'Estabilidad Sistema',   value: `${data.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
+        { title: 'Usuarios Activos',      value: (dataRes.activeUsers || 0).toLocaleString(),          icon: 'people-outline',        color: COLORS.primary,  description: 'Cuentas habilitadas' },
+        { title: 'Eventos Totales',       value: (dataRes.totalEvents || 0).toString(),                 icon: 'calendar-outline',      color: COLORS.info,     description: 'Todos los eventos' },
+        { title: 'Contenidos Pendientes', value: (dataRes.estadoCounts?.pendiente || 0).toString(),     icon: 'document-text-outline', color: COLORS.warning,  description: 'Esperando revisión' },
+        { title: 'Estabilidad Sistema',   value: `${dataRes.systemStability || 0}%`,                    icon: 'pulse-outline',         color: COLORS.success,  description: 'Rendimiento del sistema' },
       ]);
       
       const data = Array.isArray(res.data) ? res.data : [];
