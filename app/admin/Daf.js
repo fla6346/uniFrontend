@@ -198,7 +198,7 @@ export default function DafServicios() {
           <Text style={styles.sectionTitle}>Herramientas</Text>
           {[
             { title: 'Inventario de Recursos', icon: 'cube-outline', route: '../admin/Inventario', color: COLORS.info },
-            { title: 'Reportes y Métricas', icon: 'bar-chart-outline', route: '../admin/Reportes', color: COLORS.secondary },
+            { title: 'Reportes y Métricas', icon: 'bar-chart-outline', route: '../admin/reportes', color: COLORS.secondary },
             { title: 'Reportes y Métricas', icon: 'bar-chart-outline', route: '../admin/Recursos', color: COLORS.secondary },
           ].map((action, i) => (
             <TouchableOpacity key={i} style={styles.actionCard} onPress={() => router.push(action.route)}>
