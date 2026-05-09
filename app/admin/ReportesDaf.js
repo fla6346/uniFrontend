@@ -86,7 +86,7 @@ export default function Reportes() {
     setLoading(true);
     try {
       const token = await getToken();
-      const res = await axios.get(`${API_BASE_URL}/daf/reportes?periodo=${p}`, {
+      const res = await axios.get(`${API_BASE_URL}/reportes?periodo=${p}`, {
         headers: { Authorization: `Bearer ${token}` }, timeout: 10000,
       });
       const data = res.data;
