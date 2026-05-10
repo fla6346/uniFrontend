@@ -76,6 +76,7 @@ export default function CrearRecurso() {
   const [editHabilitado, setEditHabilitado] = useState('1');
   const [editCantidad, setEditCantidad] = useState('1');
   const [editLoading, setEditLoading] = useState(false);
+  const [editCantidad, setEditCantidad] = useState(null);
 
   // ── Cargar lista ────────────────────────────────────────────────────────
   const cargarRecursos = useCallback(async () => {
@@ -292,10 +293,6 @@ export default function CrearRecurso() {
           maxLength={5}
         />
 
-       
-
-       
-
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleSubmit}
@@ -378,7 +375,15 @@ export default function CrearRecurso() {
                 multiline
                 numberOfLines={4}
               />
-
+              <Text style={styles.label}>Cantidad *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editCantidad}
+                  onChangeText={setEditCantidad}
+                  placeholder="Cantidad disponible"
+                  keyboardType="numeric"
+                  maxLength={5}
+                />
               <Text style={styles.label}>Estado</Text>
               <View style={styles.row}>
                 <TouchableOpacity
