@@ -99,7 +99,11 @@ export default function InventarioDAF() {
         timeout: 10000,
       });
       let raw = res.data;
-      if (!Array.isArray(raw)) raw = raw.data || raw.recursos || [];
+      if (raw?.recursos && Array.isArray(raw.recursos)) {
+        raw = raw.recursos;
+      } else if (!Array.isArray(raw)) {
+        raw = raw.data || [];
+}
       setRecursos(raw);
     } catch (err) {
       console.error('cargarRecursos:', err);
