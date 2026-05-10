@@ -55,7 +55,19 @@ export default function ChatScreen({ route }) {
   const scrollToBottom = () => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   };
-
+const sendToAI = async (text, currentHistory, eventId = null) => {
+  const res = await fetch('https://tu-backend-railway.up.railway.app/bot/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: text,
+      sender: userEmail, // JWT o auth
+      eventId,           // Opcional: vincula la respuesta a un evento
+      history: currentHistory // Array de {role: 'user'|'model', parts: [{text: '...'}]}
+    })
+  });
+  return await res.json();
+};
 const handleSend = async () => {
   const texto = input.trim();
   if (!texto || loading) return;
