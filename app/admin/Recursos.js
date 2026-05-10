@@ -76,7 +76,6 @@ export default function CrearRecurso() {
   const [editHabilitado, setEditHabilitado] = useState('1');
   const [editCantidad, setEditCantidad] = useState('1');
   const [editLoading, setEditLoading] = useState(false);
-  const [editCantidad, setEditCantidad] = useState(null);
 
   // ── Cargar lista ────────────────────────────────────────────────────────
   const cargarRecursos = useCallback(async () => {
