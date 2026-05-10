@@ -60,6 +60,7 @@ export default function CrearRecurso() {
   const [recurso_tipo, setRecursoTipo] = useState('tecnologico');
   const [descripcion, setDescripcion] = useState('');
   const [habilitado, setHabilitado] = useState('1');
+  const [cantidad, setCantidad] = useState('1');
   const [loading, setLoading] = useState(false);
 
   // ── Estado de la lista ──────────────────────────────────────────────────
@@ -73,6 +74,7 @@ export default function CrearRecurso() {
   const [editTipo, setEditTipo] = useState('tecnologico');
   const [editDescripcion, setEditDescripcion] = useState('');
   const [editHabilitado, setEditHabilitado] = useState('1');
+  const [editCantidad, setEditCantidad] = useState('1');
   const [editLoading, setEditLoading] = useState(false);
 
   // ── Cargar lista ────────────────────────────────────────────────────────
@@ -102,6 +104,11 @@ export default function CrearRecurso() {
       Alert.alert('Error', 'El nombre del recurso es obligatorio.');
       return;
     }
+    const cantidadNum = parseInt(cantidad);
+  if (isNaN(cantidadNum) || cantidadNum < 1) {
+    Alert.alert('Error', 'La cantidad debe ser un número mayor a 0.');
+    return;
+  }
     setLoading(true);
     try {
       const token = await getTokenAsync();
@@ -117,6 +124,7 @@ export default function CrearRecurso() {
           recurso_tipo,
           descripcion: descripcion.trim() || null,
           habilitado: parseInt(habilitado),
+          cantidad: cantidadNum,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -125,6 +133,7 @@ export default function CrearRecurso() {
       setRecursoTipo('tecnologico');
       setDescripcion('');
       setHabilitado('1');
+      setCantidad('1');
       await cargarRecursos();
       Alert.alert('✅ Éxito', 'Recurso creado correctamente.');
     } catch (error) {
@@ -142,6 +151,7 @@ export default function CrearRecurso() {
     setEditTipo(recurso.recurso_tipo || 'tecnologico');
     setEditDescripcion(recurso.descripcion || '');
     setEditHabilitado(String(recurso.habilitado ?? '1'));
+    setEditCantidad(String(recurso.cantidad ?? '1'));
     setEditModalVisible(true);
   };
 
@@ -151,6 +161,11 @@ export default function CrearRecurso() {
       Alert.alert('Error', 'El nombre es obligatorio.');
       return;
     }
+    const cantidadNum = parseInt(editCantidad);
+  if (isNaN(cantidadNum) || cantidadNum < 1) {
+    Alert.alert('Error', 'La cantidad debe ser un número mayor a 0.');
+    return;
+  }
     setEditLoading(true);
     try {
       const token = await getTokenAsync();
@@ -161,6 +176,7 @@ export default function CrearRecurso() {
           recurso_tipo: editTipo,
           descripcion: editDescripcion.trim() || null,
           habilitado: parseInt(editHabilitado),
+          cantidad: cantidadNum,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -213,6 +229,10 @@ export default function CrearRecurso() {
           </Text>
         </View>
         <Text style={styles.recursoNombre}>{recurso.nombre_recurso}</Text>
+         <View style={styles.cantidadRow}>
+        <Ionicons name="cube-outline" size={14} color={COLORS.textSecondary} />
+        <Text style={styles.cantidadText}>Cantidad: {recurso.cantidad || 0}</Text>
+      </View>
         {recurso.descripcion ? (
           <Text style={styles.recursoDescripcion} numberOfLines={2}>{recurso.descripcion}</Text>
         ) : null}
@@ -262,6 +282,15 @@ export default function CrearRecurso() {
             <Picker.Item label="Vajilla" value="vajilla" />
           </Picker>
         </View>
+        <Text style={styles.label}>Cantidad *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: 10"
+          value={cantidad}
+          onChangeText={setCantidad}
+          keyboardType="numeric"
+          maxLength={5}
+        />
 
        
 
@@ -397,6 +426,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     padding: 16,
+  },
+  cantidadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6,
+  },
+  cantidadText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   section: {
     backgroundColor: COLORS.surface,
