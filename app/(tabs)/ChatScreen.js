@@ -1,5 +1,4 @@
-// screens/ChatScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+/*import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   FlatList, KeyboardAvoidingView, Platform,
@@ -118,7 +117,6 @@ const handleSend = async () => {
   }
 };
 
-  // ✅ CORREGIDO: Sintaxis JSX correcta
   const renderMessage = ({ item }) => {
     const isUser = item.sender === 'user';
     
@@ -163,7 +161,6 @@ const handleSend = async () => {
           onContentSizeChange={scrollToBottom}
         />
 
-        {/* ✅ CORREGIDO: && en lugar de & & */}
         {loading && (
           <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#007AFF" />
@@ -311,4 +308,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 15,
   },
-});
+});*/

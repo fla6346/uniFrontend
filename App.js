@@ -11,6 +11,7 @@ import SplashScreen from './screens/SplashScreen';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/EstudianteEvents';
 import BackendTestScreen from './screens/LoginScreen';
+import EventoChatScreen from './screens/ChatbotScreen';
 
 SplashScreenExpo.preventAutoHideAsync();
 
@@ -91,6 +92,11 @@ export default function App() {
             <Stack.Screen name="Home" component={HomeScreen} />
           )}
           <Stack.Screen name="BackendTest" component={BackendTestScreen} options={{ headerShown: true, title: 'Pruebas Backend' }} />
+          <Stack.Screen
+            name="EventoChat"
+            component={EventoChatScreen}
+            options={{ headerShown: false }}  // El header ya está incluido en la pantalla
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </View>
