@@ -11,7 +11,7 @@ import SplashScreen from './screens/SplashScreen';
 import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/EstudianteEvents';
 import BackendTestScreen from './screens/LoginScreen';
-import EventoChatScreen from './screens/ChatbotScreen';
+import EventoChatScreen from './app/ChatbotScreen';
 
 SplashScreenExpo.preventAutoHideAsync();
 

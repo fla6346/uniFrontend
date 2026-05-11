@@ -105,7 +105,6 @@ const LoginScreen = () => {
           USER_DATA_KEY = 'userData';
       }
 
-      // 🔥 LIMPIAR TODAS LAS CLAVES POSIBLES ANTES DE GUARDAR (evita datos mezclados)
       const allKeys = [
         'adminAuthToken', 'adminUserData',
         'studentAuthToken', 'studentUserData', 
@@ -117,7 +116,11 @@ const LoginScreen = () => {
         'admisionesAuthToken', 'admisionesUserData',
         'serviciosEstudiantilesAuthToken', 'serviciosEstudiantilesUserData'
       ];
-      
+      await AsyncStorage.setItem('usuario', JSON.stringify({
+          id:     respuesta.user.id,
+          nombre: respuesta.user.nombre,
+          role:   respuesta.user.role   
+        }));
       console.log('🧹 Limpiando claves anteriores...');
       if (Platform.OS === 'web') {
         allKeys.forEach(key => localStorage.removeItem(key));

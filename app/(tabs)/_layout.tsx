@@ -52,7 +52,7 @@ export default function TabLayout() {
         name="chatbot"
         options={{
           title: 'Chatbot',
-          tabBarIcon: ({ color }) => <TabBarIcon name="comments" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="chatbubble" size={24} color={color} />,
         }}
       />
     </Tabs>
