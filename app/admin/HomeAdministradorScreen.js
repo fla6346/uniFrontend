@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   StyleSheet, View, Text, ScrollView, TouchableOpacity,
   StatusBar, Alert, ActivityIndicator, Pressable, Animated,
-  useWindowDimensions, Platform,
+  useWindowDimensions, Platform,FlatList
 } from 'react-native';
 import { PieChart } from 'react-native-chart-kit';
 import Svg, { Line, Circle, Text as SvgText, Path, G, Rect } from 'react-native-svg';
