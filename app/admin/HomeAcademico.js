@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   Platform,
   ActivityIndicator,
-  Modal,Platform, FlatList, TextInput, KeyboardAvoidingView
+  Modal,Platform, TextInput, KeyboardAvoidingView
 } from 'react-native';
 import { useRouter, useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
