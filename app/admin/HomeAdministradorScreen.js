@@ -361,8 +361,129 @@ const MinimalHeader = ({ nombreUsuario, unreadCount, onNotificationPress, lastUp
     </View>
   );
 };
+const BACKEND_URL = 'https://unibackend1-production.up.railway.app';
+const SALA_GENERAL = 'general';
+const ROL_COLORS = { admin: '#FF6B35', creador: '#007AFF', logistica: '#34C759' };
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+const ChatEmbed = ({ userId, userRole }) => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput]       = useState('');
+  const [connected, setConnected] = useState(false);
+  const socketRef   = useRef(null);
+  const flatListRef = useRef(null);
+  const ioRef       = useRef(null);
+
+  useEffect(() => {
+    import('socket.io-client').then(mod => {
+      ioRef.current = mod.io || mod.default;
+      const socket = ioRef.current(BACKEND_URL, {
+        transports: Platform.OS === 'web' ? ['polling', 'websocket'] : ['websocket']
+      });
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        setConnected(true);
+        socket.emit('join_event', {
+          eventoId: SALA_GENERAL,
+          userId,
+          role: userRole,
+          userName: userId
+        });
+      });
+
+      socket.on('disconnect', () => setConnected(false));
+
+      socket.on('history', (h) => {
+        setMessages(h.map((m, i) => ({ ...m, id: `h_${i}` })));
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+      });
+
+      socket.on('receive_message', (msg) => {
+        setMessages(prev => [...prev, { ...msg, id: `m_${Date.now()}` }]);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      });
+    });
+
+    return () => {
+      socketRef.current?.emit('leave_event', { eventoId: SALA_GENERAL });
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  const handleSend = () => {
+    const texto = input.trim();
+    if (!texto || !socketRef.current?.connected) return;
+    socketRef.current.emit('send_message', {
+      eventoId: SALA_GENERAL,
+      userId, role: userRole, userName: userId, message: texto
+    });
+    setInput('');
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+      {/* Estado conexión */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' }}>
+        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: connected ? '#34C759' : '#FF3B30' }} />
+        <Text style={{ fontSize: 11, color: '#888' }}>{connected ? 'En línea' : 'Conectando...'}</Text>
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ padding: 12 }}
+        renderItem={({ item }) => {
+          if (item.system) return (
+            <View style={{ alignItems: 'center', marginVertical: 6 }}>
+              <Text style={{ fontSize: 11, color: '#bbb', fontStyle: 'italic' }}>{item.text}</Text>
+            </View>
+          );
+          const isMe = String(item.userId) === String(userId);
+          const color = ROL_COLORS[item.role] || '#888';
+          return (
+            <View style={{ flexDirection: 'row', marginVertical: 3, justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+              <View style={{ maxWidth: '75%' }}>
+                {!isMe && <Text style={{ fontSize: 11, color, fontWeight: '600', marginBottom: 2, marginLeft: 4 }}>{item.userName}</Text>}
+                <View style={{ backgroundColor: isMe ? COLORS.primary : '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16,
+                  borderBottomRightRadius: isMe ? 2 : 16, borderBottomLeftRadius: isMe ? 16 : 2 }}>
+                  <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#1A1A1A' }}>{item.message}</Text>
+                </View>
+              </View>
+            </View>
+          );
+        }}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', paddingTop: 40 }}>
+            <Text style={{ color: '#ccc', fontSize: 13 }}>Aún no hay mensajes</Text>
+          </View>
+        }
+      />
+
+      {/* Input */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={{ flexDirection: 'row', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', gap: 8 }}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Escribe un mensaje..."
+            placeholderTextColor="#999"
+            style={{ flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, backgroundColor: '#f9f9f9' }}
+            multiline
+            editable={connected}
+          />
+          <TouchableOpacity
+            onPress={handleSend}
+            disabled={!input.trim() || !connected}
+            style={{ backgroundColor: !input.trim() || !connected ? '#ccc' : COLORS.primary, borderRadius: 20, paddingHorizontal: 16, justifyContent: 'center' }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Enviar</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+};
 const HomeAdministradorScreen = () => {
   const params = useLocalSearchParams();
   const nombreUsuario = params.nombre || 'Administrador';
@@ -777,20 +898,21 @@ const HomeAdministradorScreen = () => {
         </TouchableOpacity>
       )}
 
-      {/* ── CHAT MODAL ── */}
-      {isChatOpen && (
-        <View style={styles.chatOverlay}>
-          <View style={styles.chatModal}>
-            <View style={styles.chatHeader}>
-              <Text style={styles.chatTitle}>Asistente UFT</Text>
-              <TouchableOpacity onPress={() => setIsChatOpen(false)}>
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1 }}><Chatbot rasaUrl={RASA_WEBHOOK_URL}  /></View>
-          </View>
-        </View>
-      )}
+      // ── CHAT MODAL ── (REEMPLAZA CON ESTO)
+{isChatOpen && (
+  <View style={styles.chatOverlay}>
+    <View style={styles.chatModal}>
+      <View style={styles.chatHeader}>
+        <Text style={styles.chatTitle}>Chat General</Text>
+        <TouchableOpacity onPress={() => setIsChatOpen(false)}>
+          <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+      {/* ✅ Chat embebido directo */}
+      <ChatEmbed userId={nombreUsuario} userRole="admin" />
+    </View>
+  </View>
+)}
     </View>
   );
 };
