@@ -13,6 +13,7 @@ import {
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store'; 
 import { useRouter, Stack } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /*if (Platform.OS === 'android') {
   determinedApiBaseUrl = 'http://192.168.0.167:3001/api';
@@ -117,9 +118,9 @@ const LoginScreen = () => {
         'serviciosEstudiantilesAuthToken', 'serviciosEstudiantilesUserData'
       ];
       await AsyncStorage.setItem('usuario', JSON.stringify({
-          id:     respuesta.user.id,
-          nombre: respuesta.user.nombre,
-          role:   respuesta.user.role   
+          id:     user.id,
+          nombre: user.nombre,
+          role:   user.role   
         }));
       console.log('🧹 Limpiando claves anteriores...');
       if (Platform.OS === 'web') {
