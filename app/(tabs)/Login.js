@@ -122,6 +122,13 @@ const LoginScreen = () => {
           nombre: user.nombre,
           role:   user.role   
         }));
+        if (Platform.OS === 'web') {
+  localStorage.setItem('usuario', JSON.stringify({
+    id:     user.id,
+    nombre: user.nombre || user.username,
+    role:   user.role
+  }));
+}
       console.log('🧹 Limpiando claves anteriores...');
       if (Platform.OS === 'web') {
         allKeys.forEach(key => localStorage.removeItem(key));
