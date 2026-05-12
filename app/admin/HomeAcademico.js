@@ -418,7 +418,6 @@ const NotificationsModal = ({ visible, onClose, notifications, markAsRead }) => 
   </Modal>
 );
 
-// Helper para iconos según tipo
 const getNotificationIcon = (type) => {
   switch (type) {
     case 'nuevo_evento': return 'calendar-outline';
@@ -430,17 +429,60 @@ const getNotificationIcon = (type) => {
     default: return 'notifications-outline';
   }
 };
+const ROL_COLORS = { admin: '#FF6B35', creador: '#007AFF', logistica: '#34C759', academico: '#9B59B6' };
+
 const ChatEmbed = ({ userId, userRole }) => {
-  const [messages, setMessages] = useState([]);
-  const [input, setInput]       = useState('');
-  const [connected, setConnected] = useState(false);
+  const [vista, setVista]           = useState('eventos'); // 'eventos' | 'chat'
+  const [eventos, setEventos]       = useState([]);
+  const [loadingEventos, setLoadingEventos] = useState(true);
+  const [eventoActual, setEventoActual]     = useState(null);
+  const [messages, setMessages]     = useState([]);
+  const [input, setInput]           = useState('');
+  const [connected, setConnected]   = useState(false);
   const socketRef   = useRef(null);
   const flatListRef = useRef(null);
   const ioRef       = useRef(null);
 
+  // ─── Cargar eventos del usuario ───────────────────────────────────
   useEffect(() => {
+    const cargarEventos = async () => {
+      try {
+        const token = Platform.OS === 'web'
+          ? localStorage.getItem('adminAuthToken')
+          : await SecureStore.getItemAsync('adminAuthToken');
+
+        const res = await fetch(`${API_BASE_URL}/eventos`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        // Solo aprobados con comité
+        const aprobados = Array.isArray(data)
+          ? data.filter(e => e.estado === 'aprobado')
+          : [];
+        setEventos(aprobados);
+      } catch (e) {
+        console.warn('Error cargando eventos:', e.message);
+      } finally {
+        setLoadingEventos(false);
+      }
+    };
+    cargarEventos();
+  }, []);
+
+  // ─── Conectar socket al seleccionar evento ────────────────────────
+  const abrirChat = (evento) => {
+    setEventoActual(evento);
+    setMessages([]);
+    setVista('chat');
+
     import('socket.io-client').then(mod => {
       ioRef.current = mod.io || mod.default;
+
+      // Desconectar anterior si existe
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+
       const socket = ioRef.current(API_BASE_URL, {
         transports: Platform.OS === 'web' ? ['polling', 'websocket'] : ['websocket']
       });
@@ -449,7 +491,7 @@ const ChatEmbed = ({ userId, userRole }) => {
       socket.on('connect', () => {
         setConnected(true);
         socket.emit('join_event', {
-          eventoId: SALA_GENERAL,
+          eventoId: String(evento.idevento || evento.id),
           userId,
           role: userRole,
           userName: userId
@@ -468,29 +510,105 @@ const ChatEmbed = ({ userId, userRole }) => {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       });
     });
+  };
 
-    return () => {
-      socketRef.current?.emit('leave_event', { eventoId: SALA_GENERAL });
-      socketRef.current?.disconnect();
-    };
-  }, []);
+  const volverAEventos = () => {
+    if (socketRef.current) {
+      socketRef.current.emit('leave_event', { eventoId: String(eventoActual?.idevento || eventoActual?.id) });
+      socketRef.current.disconnect();
+    }
+    setVista('eventos');
+    setConnected(false);
+    setMessages([]);
+  };
 
   const handleSend = () => {
     const texto = input.trim();
     if (!texto || !socketRef.current?.connected) return;
     socketRef.current.emit('send_message', {
-      eventoId: SALA_GENERAL,
+      eventoId: String(eventoActual?.idevento || eventoActual?.id),
       userId, role: userRole, userName: userId, message: texto
     });
     setInput('');
   };
 
+  // ─── Vista: Lista de eventos ──────────────────────────────────────
+  if (vista === 'eventos') {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+        <View style={{ padding: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#666' }}>
+            Selecciona un evento para chatear
+          </Text>
+        </View>
+
+        {loadingEventos ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : eventos.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Ionicons name="calendar-outline" size={40} color="#ccc" />
+            <Text style={{ color: '#aaa', marginTop: 10, textAlign: 'center' }}>
+              No hay eventos aprobados disponibles
+            </Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: 12 }}>
+            {eventos.map((evento) => (
+              <TouchableOpacity
+                key={evento.idevento || evento.id}
+                onPress={() => abrirChat(evento)}
+                style={{
+                  backgroundColor: '#fff', borderRadius: 12, padding: 14,
+                  marginBottom: 10, flexDirection: 'row', alignItems: 'center',
+                  borderLeftWidth: 4, borderLeftColor: COLORS.primary,
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.06, shadowRadius: 3, elevation: 2,
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 }}>
+                    {evento.nombreevento || 'Sin nombre'}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#888' }}>
+                    {evento.fechaevento?.split('T')[0] || '–'} · {evento.lugarevento || '–'}
+                  </Text>
+                  {evento.Comite && evento.Comite.length > 0 && (
+                    <Text style={{ fontSize: 11, color: COLORS.primary, marginTop: 4 }}>
+                      👥 {evento.Comite.length} miembro{evento.Comite.length > 1 ? 's' : ''} en el comité
+                    </Text>
+                  )}
+                </View>
+                <Ionicons name="chatbubbles-outline" size={22} color={COLORS.primary} />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      {/* Estado conexión */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' }}>
-        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: connected ? '#34C759' : '#FF3B30' }} />
-        <Text style={{ fontSize: 11, color: '#888' }}>{connected ? 'En línea' : 'Conectando...'}</Text>
+      {/* Sub-header del evento */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        paddingHorizontal: 12, paddingVertical: 10,
+        backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee'
+      }}>
+        <TouchableOpacity onPress={volverAEventos}>
+          <Ionicons name="arrow-back" size={20} color={COLORS.primary} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A1A' }} numberOfLines={1}>
+            {eventoActual?.nombreevento || 'Evento'}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connected ? '#34C759' : '#FF3B30' }} />
+            <Text style={{ fontSize: 10, color: '#888' }}>{connected ? 'En línea' : 'Conectando...'}</Text>
+          </View>
+        </View>
       </View>
 
       <FlatList
@@ -509,9 +627,17 @@ const ChatEmbed = ({ userId, userRole }) => {
           return (
             <View style={{ flexDirection: 'row', marginVertical: 3, justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
               <View style={{ maxWidth: '75%' }}>
-                {!isMe && <Text style={{ fontSize: 11, color, fontWeight: '600', marginBottom: 2, marginLeft: 4 }}>{item.userName}</Text>}
-                <View style={{ backgroundColor: isMe ? COLORS.primary : '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16,
-                  borderBottomRightRadius: isMe ? 2 : 16, borderBottomLeftRadius: isMe ? 16 : 2 }}>
+                {!isMe && (
+                  <Text style={{ fontSize: 11, color, fontWeight: '600', marginBottom: 2, marginLeft: 4 }}>
+                    {item.userName}
+                  </Text>
+                )}
+                <View style={{
+                  backgroundColor: isMe ? COLORS.primary : '#fff',
+                  paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16,
+                  borderBottomRightRadius: isMe ? 2 : 16,
+                  borderBottomLeftRadius: isMe ? 16 : 2
+                }}>
                   <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#1A1A1A' }}>{item.message}</Text>
                 </View>
               </View>
@@ -520,27 +646,36 @@ const ChatEmbed = ({ userId, userRole }) => {
         }}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', paddingTop: 40 }}>
-            <Text style={{ color: '#ccc', fontSize: 13 }}>Aún no hay mensajes</Text>
+            <Ionicons name="chatbubbles-outline" size={36} color="#ddd" />
+            <Text style={{ color: '#ccc', fontSize: 13, marginTop: 8 }}>Aún no hay mensajes en este evento</Text>
           </View>
         }
       />
 
-      {/* Input */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <View style={{ flexDirection: 'row', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', gap: 8 }}>
+        <View style={{
+          flexDirection: 'row', padding: 10, backgroundColor: '#fff',
+          borderTopWidth: 1, borderColor: '#eee', gap: 8
+        }}>
           <TextInput
             value={input}
             onChangeText={setInput}
             placeholder="Escribe un mensaje..."
             placeholderTextColor="#999"
-            style={{ flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, backgroundColor: '#f9f9f9' }}
+            style={{
+              flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20,
+              paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, backgroundColor: '#f9f9f9'
+            }}
             multiline
             editable={connected}
           />
           <TouchableOpacity
             onPress={handleSend}
             disabled={!input.trim() || !connected}
-            style={{ backgroundColor: !input.trim() || !connected ? '#ccc' : COLORS.primary, borderRadius: 20, paddingHorizontal: 16, justifyContent: 'center' }}
+            style={{
+              backgroundColor: !input.trim() || !connected ? '#ccc' : COLORS.primary,
+              borderRadius: 20, paddingHorizontal: 16, justifyContent: 'center'
+            }}
           >
             <Text style={{ color: '#fff', fontWeight: '600' }}>Enviar</Text>
           </TouchableOpacity>
