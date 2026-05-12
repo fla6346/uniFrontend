@@ -31,6 +31,7 @@ let determinedApiBaseUrl;
 }*/
 //const API_BASE_URL =  'https://evento.cidtec-uc.com';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://unibackend1-production.up.railway.app';
+
 //const API_BASE_URL =  'https://unifrontend.onrender.com';
 const TOKEN_KEY = 'adminAuthToken';
 
@@ -440,7 +441,7 @@ const ChatEmbed = ({ userId, userRole }) => {
   useEffect(() => {
     import('socket.io-client').then(mod => {
       ioRef.current = mod.io || mod.default;
-      const socket = ioRef.current(BACKEND_URL, {
+      const socket = ioRef.current(API_BASE_URL, {
         transports: Platform.OS === 'web' ? ['polling', 'websocket'] : ['websocket']
       });
       socketRef.current = socket;
