@@ -149,6 +149,7 @@ const EventosAprobadosPorFacultad = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [usuarioActual, setUsuarioActual] = useState({id: '', nombre: '', role: 'academico'});
 
   const fetchApprovedEventsByFaculty = useCallback(async () => {
     try {
@@ -190,7 +191,17 @@ const EventosAprobadosPorFacultad = () => {
   useEffect(() => {
     fetchApprovedEventsByFaculty();
   }, [fetchApprovedEventsByFaculty]);
-
+useEffect(() => {
+  const cargar = async () => {
+    try {
+      const data = Platform.OS === 'web'
+        ? localStorage.getItem('usuario')
+        : await AsyncStorage.getItem('usuario');
+      if (data) setUsuarioActual(JSON.parse(data));
+    } catch {}
+  };
+  cargar();
+}, []);
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchApprovedEventsByFaculty();
@@ -199,7 +210,12 @@ const EventosAprobadosPorFacultad = () => {
   const handleEventPress = (event) => {
     router.push({
       pathname: '/admin/EventDetailUpdateScreen',
-      params: { eventId: event.id }
+      params: { eventId: event.id,
+         userId:       String(usuarioActual.id),
+          userRole:     usuarioActual.role,
+          userName:     usuarioActual.nombre,
+          eventoNombre: item.title
+       }
     });
   };
 
@@ -285,14 +301,44 @@ const EventosAprobadosPorFacultad = () => {
             </View>
           </View>
 
-          {/* Footer con acción */}
-          <TouchableOpacity 
-            style={styles.viewDetailsButton}
-            onPress={() => handleEventPress(item)}
-          >
-            <Text style={styles.viewDetailsText}>Ver detalles</Text>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
-          </TouchableOpacity>
+         <View style={{ flexDirection: 'row', gap: 8, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border }}>
+  {/* Botón ver detalles */}
+  <TouchableOpacity
+    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+    onPress={() => !isPast && handleEventPress(item)}
+    disabled={isPast}
+  >
+    <Text style={[styles.viewDetailsText, isPast && styles.infoTextPast]}>
+      {isPast ? 'Ver historial' : 'Ver detalles'}
+    </Text>
+    <Ionicons name={isPast ? "archive-outline" : "chevron-forward"} size={18}
+      color={isPast ? COLORS.grayMedium : COLORS.primary} />
+  </TouchableOpacity>
+
+  {/* ✅ Botón chat del comité */}
+  {!isPast && (
+    <TouchableOpacity
+      style={{
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: COLORS.primary, borderRadius: 8,
+        paddingHorizontal: 12, paddingVertical: 6, gap: 4
+      }}
+      onPress={() => router.push({
+        pathname: '/evento-chat',
+        params: {
+          eventoId:     String(item.id),
+          userId:       'academico',      // reemplazar con usuario real
+          userRole:     'academico',
+          userName:     'Académico',
+          eventoNombre: item.title
+        }
+      })}
+    >
+      <Ionicons name="chatbubbles-outline" size={16} color={COLORS.white} />
+      <Text style={{ color: COLORS.white, fontSize: 12, fontWeight: '600' }}>Chat Comité</Text>
+    </TouchableOpacity>
+  )}
+</View>
         </View>
       </TouchableOpacity>
     );

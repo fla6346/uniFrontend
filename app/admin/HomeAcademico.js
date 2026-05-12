@@ -651,6 +651,19 @@ const fetchUserProfile = useCallback(async () => {
       loading: false,
     });
     console.log('Perfil recibido:', response);
+    if (Platform.OS === 'web') {
+  localStorage.setItem('usuario', JSON.stringify({
+    id:     user.id,
+    nombre: user.nombre || '',
+    role:   user.role || 'academico'
+  }));
+} else {
+  await AsyncStorage.setItem('usuario', JSON.stringify({
+    id:     user.id,
+    nombre: user.nombre || '',
+    role:   user.role || 'academico'
+  }));
+}
   } catch (error) {
     console.error('Error al cargar perfil de usuario:', error);
     Alert.alert('Error', 'No se pudo cargar tu información personal.');
