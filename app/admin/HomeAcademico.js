@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { BarChart } from 'react-native-chart-kit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Configuración de API
 let determinedApiBaseUrl;
 /*if (Platform.OS === 'android') {
@@ -428,6 +429,125 @@ const getNotificationIcon = (type) => {
     default: return 'notifications-outline';
   }
 };
+const ChatEmbed = ({ userId, userRole }) => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput]       = useState('');
+  const [connected, setConnected] = useState(false);
+  const socketRef   = useRef(null);
+  const flatListRef = useRef(null);
+  const ioRef       = useRef(null);
+
+  useEffect(() => {
+    import('socket.io-client').then(mod => {
+      ioRef.current = mod.io || mod.default;
+      const socket = ioRef.current(BACKEND_URL, {
+        transports: Platform.OS === 'web' ? ['polling', 'websocket'] : ['websocket']
+      });
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        setConnected(true);
+        socket.emit('join_event', {
+          eventoId: SALA_GENERAL,
+          userId,
+          role: userRole,
+          userName: userId
+        });
+      });
+
+      socket.on('disconnect', () => setConnected(false));
+
+      socket.on('history', (h) => {
+        setMessages(h.map((m, i) => ({ ...m, id: `h_${i}` })));
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+      });
+
+      socket.on('receive_message', (msg) => {
+        setMessages(prev => [...prev, { ...msg, id: `m_${Date.now()}` }]);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      });
+    });
+
+    return () => {
+      socketRef.current?.emit('leave_event', { eventoId: SALA_GENERAL });
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  const handleSend = () => {
+    const texto = input.trim();
+    if (!texto || !socketRef.current?.connected) return;
+    socketRef.current.emit('send_message', {
+      eventoId: SALA_GENERAL,
+      userId, role: userRole, userName: userId, message: texto
+    });
+    setInput('');
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+      {/* Estado conexión */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 6, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' }}>
+        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: connected ? '#34C759' : '#FF3B30' }} />
+        <Text style={{ fontSize: 11, color: '#888' }}>{connected ? 'En línea' : 'Conectando...'}</Text>
+      </View>
+
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ padding: 12 }}
+        renderItem={({ item }) => {
+          if (item.system) return (
+            <View style={{ alignItems: 'center', marginVertical: 6 }}>
+              <Text style={{ fontSize: 11, color: '#bbb', fontStyle: 'italic' }}>{item.text}</Text>
+            </View>
+          );
+          const isMe = String(item.userId) === String(userId);
+          const color = ROL_COLORS[item.role] || '#888';
+          return (
+            <View style={{ flexDirection: 'row', marginVertical: 3, justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+              <View style={{ maxWidth: '75%' }}>
+                {!isMe && <Text style={{ fontSize: 11, color, fontWeight: '600', marginBottom: 2, marginLeft: 4 }}>{item.userName}</Text>}
+                <View style={{ backgroundColor: isMe ? COLORS.primary : '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16,
+                  borderBottomRightRadius: isMe ? 2 : 16, borderBottomLeftRadius: isMe ? 16 : 2 }}>
+                  <Text style={{ fontSize: 14, color: isMe ? '#fff' : '#1A1A1A' }}>{item.message}</Text>
+                </View>
+              </View>
+            </View>
+          );
+        }}
+        ListEmptyComponent={
+          <View style={{ alignItems: 'center', paddingTop: 40 }}>
+            <Text style={{ color: '#ccc', fontSize: 13 }}>Aún no hay mensajes</Text>
+          </View>
+        }
+      />
+
+      {/* Input */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={{ flexDirection: 'row', padding: 10, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee', gap: 8 }}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="Escribe un mensaje..."
+            placeholderTextColor="#999"
+            style={{ flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: 14, backgroundColor: '#f9f9f9' }}
+            multiline
+            editable={connected}
+          />
+          <TouchableOpacity
+            onPress={handleSend}
+            disabled={!input.trim() || !connected}
+            style={{ backgroundColor: !input.trim() || !connected ? '#ccc' : COLORS.primary, borderRadius: 20, paddingHorizontal: 16, justifyContent: 'center' }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Enviar</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+};
 const HomeAcademicoScreen = () => {
   const params = useLocalSearchParams();
   const nombreUsuario = params.nombre || 'Administrador';
@@ -445,6 +565,7 @@ const HomeAcademicoScreen = () => {
   const [approvedEventsCount, setApprovedEventsCount] = useState('0');
   const [comiteeEvents, setComiteeEvents] = useState([]);
   const [loadingComitee, setLoadingComitee] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 const [userProfile, setUserProfile] = useState({
   nombre: '',
   apellidopat: '',
@@ -1068,6 +1189,58 @@ const handleActionPress = (action) => {
         isExpanded={isBannerExpanded}
         onToggleExpanded={() => setIsBannerExpanded(!isBannerExpanded)}
       />
+      {!isBannerExpanded && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute', bottom: 78, right: 20,
+            width: 56, height: 56, borderRadius: 28,
+            backgroundColor: COLORS.primary,
+            justifyContent: 'center', alignItems: 'center',
+            elevation: 8, shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25, shadowRadius: 6,
+          }}
+          onPress={() => setIsChatOpen(true)}
+        >
+          <Ionicons name="chatbubble-ellipses" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+      )}
+
+      {/* ── CHAT MODAL ── */}
+      {isChatOpen && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-start',
+          paddingTop: StatusBar.currentHeight || 0, zIndex: 2000,
+        }}>
+          <View style={{
+            width: '88%', maxWidth: 400, height: '85%',
+            backgroundColor: '#F4F7F9',
+            borderTopRightRadius: 20, borderBottomRightRadius: 20,
+            marginLeft: 'auto', elevation: 10,
+          }}>
+            <View style={{
+              flexDirection: 'row', justifyContent: 'space-between',
+              alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13,
+              backgroundColor: COLORS.surface, borderBottomWidth: 1,
+              borderColor: COLORS.border, borderTopRightRadius: 20,
+            }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.textPrimary }}>
+                Chat General
+              </Text>
+              <TouchableOpacity onPress={() => setIsChatOpen(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ flex: 1 }}>
+              <ChatEmbed
+                userId={String(userProfile.id || 'academico')}
+                userRole="academico"
+              />
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
