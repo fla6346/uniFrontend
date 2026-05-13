@@ -468,7 +468,55 @@ const ChatEmbed = ({ userId, userRole }) => {
     };
     cargarEventos();
   }, []);
+// ─── Cargar SOLO los eventos donde el usuario es del comité ───────
+useEffect(() => {
+  const cargarEventos = async () => {
+    try {
+      const token = Platform.OS === 'web'
+        ? localStorage.getItem('adminAuthToken')
+        : await SecureStore.getItemAsync('adminAuthToken');
 
+      const res = await fetch(`${BACKEND_URL}/dashboard/my-committee-events`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      // El endpoint devuelve { events: [...] }
+      const misEventos = data.events || [];
+      setEventos(misEventos);
+
+    } catch (e) {
+      console.warn('Error cargando eventos del comité:', e.message);
+    } finally {
+      setLoadingEventos(false);
+    }
+  };
+  cargarEventos();
+}, []);// ─── Cargar SOLO los eventos donde el usuario es del comité ───────
+useEffect(() => {
+  const cargarEventos = async () => {
+    try {
+      const token = Platform.OS === 'web'
+        ? localStorage.getItem('adminAuthToken')
+        : await SecureStore.getItemAsync('adminAuthToken');
+
+      const res = await fetch(`${BACKEND_URL}/dashboard/my-committee-events`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+
+      // El endpoint devuelve { events: [...] }
+      const misEventos = data.events || [];
+      setEventos(misEventos);
+
+    } catch (e) {
+      console.warn('Error cargando eventos del comité:', e.message);
+    } finally {
+      setLoadingEventos(false);
+    }
+  };
+  cargarEventos();
+}, []);
   // ─── Conectar socket al seleccionar evento ────────────────────────
   const abrirChat = (evento) => {
     setEventoActual(evento);
@@ -491,7 +539,7 @@ const ChatEmbed = ({ userId, userRole }) => {
       socket.on('connect', () => {
         setConnected(true);
         socket.emit('join_event', {
-          eventoId: String(evento.idevento || evento.id),
+          eventoId: String(evento.idevento),
           userId,
           role: userRole,
           userName: userId
@@ -514,7 +562,7 @@ const ChatEmbed = ({ userId, userRole }) => {
 
   const volverAEventos = () => {
     if (socketRef.current) {
-      socketRef.current.emit('leave_event', { eventoId: String(eventoActual?.idevento || eventoActual?.id) });
+      socketRef.current.emit('leave_event', { eventoId: String(eventoActual?.idevento) });
       socketRef.current.disconnect();
     }
     setVista('eventos');
@@ -526,7 +574,7 @@ const ChatEmbed = ({ userId, userRole }) => {
     const texto = input.trim();
     if (!texto || !socketRef.current?.connected) return;
     socketRef.current.emit('send_message', {
-      eventoId: String(eventoActual?.idevento || eventoActual?.id),
+      eventoId: String(eventoActual?.idevento),
       userId, role: userRole, userName: userId, message: texto
     });
     setInput('');
