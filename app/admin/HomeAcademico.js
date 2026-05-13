@@ -480,10 +480,7 @@ useEffect(() => {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-
-      // El endpoint devuelve { events: [...] }
-      const misEventos = data.events || [];
-      setEventos(misEventos);
+      setEventos(data.events || []);
 
     } catch (e) {
       console.warn('Error cargando eventos del comité:', e.message);
@@ -492,7 +489,7 @@ useEffect(() => {
     }
   };
   cargarEventos();
-}, []);// ─── Cargar SOLO los eventos donde el usuario es del comité ───────
+}, []);
 useEffect(() => {
   const cargarEventos = async () => {
     try {
@@ -522,7 +519,18 @@ useEffect(() => {
     setEventoActual(evento);
     setMessages([]);
     setVista('chat');
+const esMiembroComite = evento.Comite?.some(
+      miembro => String(miembro.idusuario) === String(userId)
+    );
 
+    if (!esMiembroComite) {
+      Alert.alert('Acceso Denegado', 'Solo los miembros del comité pueden acceder a este chat');
+      return;
+    }
+
+    setEventoActual(evento);
+    setMessages([]);
+    setVista('chat');
     import('socket.io-client').then(mod => {
       ioRef.current = mod.io || mod.default;
 
@@ -557,6 +565,10 @@ useEffect(() => {
         setMessages(prev => [...prev, { ...msg, id: `m_${Date.now()}` }]);
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       });
+       socket.on('error', (error) => {
+        console.error('❌ Error en socket:', error);
+        Alert.alert('Error', error.message || 'Error en el chat');
+      });
     });
   };
 
@@ -580,7 +592,6 @@ useEffect(() => {
     setInput('');
   };
 
-  // ─── Vista: Lista de eventos ──────────────────────────────────────
   if (vista === 'eventos') {
     return (
       <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
@@ -590,15 +601,15 @@ useEffect(() => {
           </Text>
         </View>
 
-        {loadingEventos ? (
+         {loadingEventos ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         ) : eventos.length === 0 ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-            <Ionicons name="calendar-outline" size={40} color="#ccc" />
+            <Ionicons name="people-outline" size={40} color="#ccc" />
             <Text style={{ color: '#aaa', marginTop: 10, textAlign: 'center' }}>
-              No hay eventos aprobados disponibles
+              No eres miembro de ningún comité aún
             </Text>
           </View>
         ) : (
