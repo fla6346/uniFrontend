@@ -476,7 +476,7 @@ useEffect(() => {
         ? localStorage.getItem('adminAuthToken')
         : await SecureStore.getItemAsync('adminAuthToken');
 
-      const res = await fetch(`${BACKEND_URL}/dashboard/my-committee-events`, {
+      const res = await fetch(`${API_BASE_URL}/dashboard/my-committee-events`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -497,7 +497,7 @@ useEffect(() => {
         ? localStorage.getItem('adminAuthToken')
         : await SecureStore.getItemAsync('adminAuthToken');
 
-      const res = await fetch(`${BACKEND_URL}/dashboard/my-committee-events`, {
+      const res = await fetch(`${API_BASE_URL}/dashboard/my-committee-events`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
