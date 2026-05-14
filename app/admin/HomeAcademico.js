@@ -431,7 +431,7 @@ const getNotificationIcon = (type) => {
 };
 const ROL_COLORS = { admin: '#FF6B35', creador: '#007AFF', logistica: '#34C759', academico: '#9B59B6' };
 
-const ChatEmbed = ({ userId, userRole }) => {
+const ChatEmbed = ({ userId, userRole, userName }) => {
   const [vista, setVista]           = useState('eventos'); // 'eventos' | 'chat'
   const [eventos, setEventos]       = useState([]);
   const [loadingEventos, setLoadingEventos] = useState(true);
@@ -469,6 +469,7 @@ const ChatEmbed = ({ userId, userRole }) => {
     cargarEventos();
   }, []);
 // ─── Cargar SOLO los eventos donde el usuario es del comité ───────
+
 useEffect(() => {
   const cargarEventos = async () => {
     try {
@@ -476,38 +477,37 @@ useEffect(() => {
         ? localStorage.getItem('adminAuthToken')
         : await SecureStore.getItemAsync('adminAuthToken');
 
-      const res = await fetch(`${API_BASE_URL}/dashboard/my-committee-events`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setEventos(data.events || []);
+      // Cargar eventos del comité Y eventos que creé yo
+      const [resComite, resCreados] = await Promise.all([
+        fetch(`${API_BASE_URL}/dashboard/my-committee-events`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${API_BASE_URL}/eventos`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      const dataComite  = await resComite.json();
+      const dataCreados = await resCreados.json();
+
+      const eventosComite = dataComite.events || [];
+
+      // Solo aprobados creados por este usuario (idacademico)
+      const eventosCreados = Array.isArray(dataCreados)
+        ? dataCreados.filter(e =>
+            e.estado === 'aprobado' &&
+            String(e.idacademico) === String(userId)
+          )
+        : [];
+
+      // Unir sin duplicados por idevento
+      const idsVistos = new Set(eventosComite.map(e => e.idevento));
+      const extras    = eventosCreados.filter(e => !idsVistos.has(e.idevento));
+
+      setEventos([...eventosComite, ...extras]);
 
     } catch (e) {
-      console.warn('Error cargando eventos del comité:', e.message);
-    } finally {
-      setLoadingEventos(false);
-    }
-  };
-  cargarEventos();
-}, []);
-useEffect(() => {
-  const cargarEventos = async () => {
-    try {
-      const token = Platform.OS === 'web'
-        ? localStorage.getItem('adminAuthToken')
-        : await SecureStore.getItemAsync('adminAuthToken');
-
-      const res = await fetch(`${API_BASE_URL}/dashboard/my-committee-events`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-
-      // El endpoint devuelve { events: [...] }
-      const misEventos = data.events || [];
-      setEventos(misEventos);
-
-    } catch (e) {
-      console.warn('Error cargando eventos del comité:', e.message);
+      console.warn('Error cargando eventos:', e.message);
     } finally {
       setLoadingEventos(false);
     }
@@ -1423,14 +1423,20 @@ const handleActionPress = (action) => {
               <Text style={{ fontSize: 18, fontWeight: '700', color: COLORS.textPrimary }}>
                 Chat General
               </Text>
-              <TouchableOpacity onPress={() => setIsChatOpen(false)}>
+              <TouchableOpacity onPress={() =>{ 
+                if (!userProfile.id) {
+                Alert.alert('Espera', 'Cargando tu perfil...');
+                return;
+                }
+              setIsChatOpen(true);}}>
                 <Ionicons name="close" size={24} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={{ flex: 1 }}>
               <ChatEmbed
-                userId={String(userProfile.id || 'academico')}
-                userRole="academico"
+                userId={String(userProfile.id)}
+                 userRole={userProfile.role || 'academico'}
+                 userName={userProfile.nombre || 'Académico'}
               />
             </View>
           </View>
