@@ -539,9 +539,13 @@ const esMiembroComite = evento.Comite?.some(
         socketRef.current.disconnect();
       }
 
-      const socket = ioRef.current(API_BASE_URL, {
-        transports: Platform.OS === 'web' ? ['polling', 'websocket'] : ['websocket']
-      });
+     const socket = ioRef.current(API_BASE_URL, {
+  transports: ['polling', 'websocket'],  // polling primero en web
+  upgrade: true,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  timeout: 10000
+});
       socketRef.current = socket;
 
       socket.on('connect', () => {
