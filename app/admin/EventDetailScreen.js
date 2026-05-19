@@ -601,7 +601,7 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
   const getEventsForDay = (date) => {
     const dateStr = dayjs(date).format('YYYY-MM-DD');
     return eventos.filter(evento => {
-      const fechaEventoStr = evento.fechaevento.split('T')[0];
+      const fechaEventoStr = dayjs(evento.fechaevento).format('YYYY-MM-DD');
       return fechaEventoStr === dateStr;
     });
   };
@@ -656,9 +656,15 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
                 !editable && styles.dayCellDisabled
               ]}
               onPress={editable ? () => {
-                const newDate = new Date(day.date);
-                newDate.setHours(fechaHoraSeleccionada.getHours());
-                newDate.setMinutes(fechaHoraSeleccionada.getMinutes());
+                const selectedDay = dayjs(day.date);
+                const currentTime = dayjs(fechaHoraSeleccionada);
+                
+                const newDate = selectedDay
+                  .hour(currentTime.hour())
+                  .minute(currentTime.minute())
+                  .second(0)
+                  .toDate();
+                  
                 setFechaHoraSeleccionada(newDate);
               } : undefined}
             >
@@ -1142,6 +1148,13 @@ const EditEventScreen = () => {
         }
         populateFormFromApi(apiData);
         await cargarRecursos();
+         const token = await getTokenAsync();
+      if (token) {
+        const eventosResponse = await axios.get(`${API_BASE_URL}/eventos`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setEventos(eventosResponse.data || []);
+      }
       } catch (error) {
         console.error('❌ Error cargando datos:', error);
         Alert.alert(
@@ -1538,6 +1551,12 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
   const handleSubmitConfirmed = async () => {
     setShowConfirmModal(false);
     setIsLoading(true);
+      if (!idevento) {
+    Alert.alert('Error', 'No se encontró el ID del evento. Intenta recargar.');
+    setIsLoading(false);
+    return;
+  }
+  
     if (!authToken) {
       Alert.alert("Error de Autenticación", "No se puede enviar el formulario. Intenta iniciar sesión de nuevo.");
       setIsLoading(false);
@@ -1610,11 +1629,12 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
         ...objetivoParaEnviar,
         ...objetivosPDI.filter(texto => texto.trim()).map(texto => ({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: texto.trim() }))
       ];
+      const fechaLocal = dayjs(fechaHoraSeleccionada).local();
       const eventoPayload = {
         idevento: idevento,
         nombreevento: nombreevento.trim(),
         lugarevento: lugarevento.trim() || 'Por definir',
-        fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
+        fechaevento: fechaLocal.format('YYYY-MM-DD'),
         horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'),
         argumentacion: argumentacion.trim() || null,
         resultados_esperados: JSON.stringify(resultadosEsperados),
