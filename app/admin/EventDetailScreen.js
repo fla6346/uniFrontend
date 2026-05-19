@@ -1548,131 +1548,138 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
     setShowConfirmModal(true);
   };
 
-  const handleSubmitConfirmed = async () => {
-    setShowConfirmModal(false);
-    setIsLoading(true);
-      if (!idevento) {
-    Alert.alert('Error', 'No se encontró el ID del evento. Intenta recargar.');
+ const handleSubmitConfirmed = async () => {
+  setShowConfirmModal(false);
+  setIsLoading(true);
+  
+  // 🔁 REFRESCAR TOKEN ANTES DE USAR
+  const token = await getTokenAsync();
+  if (!idevento) {
+    console.error('❌ idevento es null/undefined');
+    Alert.alert('Error', 'No se encontró el ID del evento.');
     setIsLoading(false);
     return;
   }
-  
-    if (!authToken) {
-      Alert.alert("Error de Autenticación", "No se puede enviar el formulario. Intenta iniciar sesión de nuevo.");
-      setIsLoading(false);
-      return;
-    }
-    try {
-      const conflictos = verificarConflictoHorario(fechaHoraSeleccionada);
-      if (conflictos.length > 0 && mode === 'reprogramar') {
-        setIsLoading(false);
-        Alert.alert(
-          '⚠️ Conflicto de Horario',
-          `Ya existe un evento programado a las ${dayjs(fechaHoraSeleccionada).format('HH:mm')} del ${dayjs(fechaHoraSeleccionada).format('DD/MM/YYYY')}.
-    Evento existente: ${conflictos[0].nombreevento}
-    Lugar: ${conflictos[0].lugarevento}
-    
-    Por favor, selecciona otra hora o fecha.`,
-          [{ text: 'Entendido' }]
-        );
-        return;
-      }
-      if (!nombreevento.trim()) throw new Error('El nombre del evento es obligatorio');
-      const tiposParaEnviar = Object.keys(tiposSeleccionados)
+  if (!token) {
+    console.error('❌ Token no encontrado');
+    Alert.alert('Sesión expirada', 'Inicia sesión nuevamente.');
+    router.replace('/login');
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    // 🪵 LOG CRÍTICO: Ver payload antes de enviar
+    console.log('📤 PAYLOAD ENVIADO:', JSON.stringify({
+      idevento,
+      nombreevento,
+      fechaevento: dayjs(fechaHoraSeleccionada).format('YYYY-MM-DD'),
+      horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'),
+      idclasificacion: clasificacionSeleccionada,
+      idsubcategoria: subcategoriaSeleccionada,
+      // Agrega más campos si es necesario
+    }, null, 2));
+
+    const fechaLocal = dayjs(fechaHoraSeleccionada).local();
+    const eventoPayload = {
+      idevento,
+      nombreevento: nombreevento.trim(),
+      lugarevento: lugarevento.trim() || 'Por definir',
+      fechaevento: fechaLocal.format('YYYY-MM-DD'),
+      horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'),
+      argumentacion: argumentacion.trim() || null,
+      resultados_esperados: JSON.stringify(resultadosEsperados),
+      tipos_de_evento: Object.keys(tiposSeleccionados)
         .filter(id => tiposSeleccionados[id])
-        .map(id => {
-          const tipoObjeto = TIPOS_DE_EVENTO.find(tipo => tipo.id === id);
-          return tipoObjeto ? {
-            id: parseInt(id, 10),
-            texto_personalizado: id === '5' && textoOtroTipo.trim() !== '' ? textoOtroTipo.trim() : undefined
-          } : null;
-        })
-        .filter(item => item !== null);
-      if (tiposParaEnviar.length === 0) throw new Error('Debes seleccionar al menos un tipo de evento');
-      const objetivoParaEnviar = [];
-      Object.keys(objetivos)
-        .filter(key => objetivos[key] === true && key !== 'otroTexto')
-        .forEach(key => { if (objetivos[key]) objetivoParaEnviar.push(OBJETIVOS_EVENTO_MAP[key]); });
-      if (objetivos.otro && objetivos.otroTexto.trim()) {
-        objetivoParaEnviar.push({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: objetivos.otroTexto.trim() });
-      }
-      if (objetivos.otro) {
-        const pdiObjetivos = objetivosPDI
-          .filter(o => o.trim() !== '')
-          .map(texto => ({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: texto.trim() }));
-        objetivoParaEnviar.push(...pdiObjetivos);
-      }
-      if (objetivoParaEnviar.length === 0) throw new Error('debes seleccionar al menos un objetivo');
-      const segmentosParaEnviar = [];
-      const validKeys = ['estudiantes', 'docentes', 'publicoExterno', 'influencers'];
-      Object.keys(segmentoObjetivo)
-        .filter(key => segmentoObjetivo[key] === true && validKeys.includes(key))
-        .forEach(key => {
-          const label = { estudiantes: 'Estudiantes', docentes: 'Docentes', publicoExterno: 'Público Externo', influencers: 'Influencers' }[key];
-          const segmentoData = SEGMENTO_OBJETIVO.find(s => s.label === label);
-          if (segmentoData) segmentosParaEnviar.push({ id: parseInt(segmentoData.id, 10), texto_personalizado: segmentosTextoPersonalizado[key] || null });
-        });
-      const nuevosRecursos = [
-        ...recursosTecnologicos.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad) || 1, recurso_tipo: 'tecnologico' })),
-        ...mobiliario.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad) || 1, recurso_tipo: 'mobiliario' })),
-        ...vajilla.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad) || 1, recurso_tipo: 'vajilla' }))
-      ];
-      const recursosExistentes = recursosSeleccionados.filter(id => id != null).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
-      const presupuestoData = {
-        egresos: egresos.filter(item => item.descripcion.trim()).map(item => ({ descripcion: item.descripcion, cantidad: parseFloat(item.cantidad) || 0, precio_unitario: parseFloat(item.precio) || 0, total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0) })),
-        ingresos: ingresos.filter(item => item.descripcion.trim()).map(item => ({ descripcion: item.descripcion, cantidad: parseFloat(item.cantidad) || 0, precio_unitario: parseFloat(item.precio) || 0, total: (parseFloat(item.cantidad) || 0) * (parseFloat(item.precio) || 0) })),
+        .map(id => ({
+          id: parseInt(id, 10),
+          texto_personalizado: id === '5' && textoOtroTipo.trim() ? textoOtroTipo.trim() : undefined
+        })),
+      objetivos: [
+        ...Object.entries(objetivos)
+          .filter(([k, v]) => v === true && k !== 'otroTexto')
+          .map(([k]) => OBJETIVOS_EVENTO_MAP[k]),
+        ...(objetivos.otro && objetivos.otroTexto.trim() ? [{ id: 6, texto_personalizado: objetivos.otroTexto.trim() }] : []),
+        ...objetivosPDI.filter(t => t.trim()).map(t => ({ id: 6, texto_personalizado: t.trim() }))
+      ],
+      segmentos_objetivo: Object.entries(segmentoObjetivo)
+        .filter(([k, v]) => v && ['estudiantes','docentes','publicoExterno','influencers'].includes(k))
+        .map(([k]) => {
+          const seg = SEGMENTO_OBJETIVO.find(s => 
+            ({estudiantes:'1',docentes:'2',publicoExterno:'3',influencers:'4'})[k] === s.id
+          );
+          return seg ? { id: parseInt(seg.id), texto_personalizado: segmentosTextoPersonalizado[k] || null } : null;
+        }).filter(Boolean),
+      recursos_existentes: recursosSeleccionados.map(id => parseInt(id)).filter(id => !isNaN(id)),
+      recursos_nuevos: [
+        ...recursosTecnologicos.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad)||1, recurso_tipo: 'tecnologico' })),
+        ...mobiliario.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad)||1, recurso_tipo: 'mobiliario' })),
+        ...vajilla.filter(r => r.nombre?.trim()).map(r => ({ nombre_recurso: r.nombre.trim(), cantidad: parseInt(r.cantidad)||1, recurso_tipo: 'vajilla' }))
+      ],
+      presupuesto: {
+        egresos: egresos.filter(i => i.descripcion.trim()).map(i => ({ descripcion: i.descripcion, cantidad: parseFloat(i.cantidad)||0, precio_unitario: parseFloat(i.precio)||0 })),
+        ingresos: ingresos.filter(i => i.descripcion.trim()).map(i => ({ descripcion: i.descripcion, cantidad: parseFloat(i.cantidad)||0, precio_unitario: parseFloat(i.precio)||0 })),
         total_egresos: totalEgresos,
         total_ingresos: totalIngresos,
-        balance: balance
-      };
-      const todosLosObjetivos = [
-        ...objetivoParaEnviar,
-        ...objetivosPDI.filter(texto => texto.trim()).map(texto => ({ id: OBJETIVOS_EVENTO_MAP.otro, texto_personalizado: texto.trim() }))
-      ];
-      const fechaLocal = dayjs(fechaHoraSeleccionada).local();
-      const eventoPayload = {
-        idevento: idevento,
-        nombreevento: nombreevento.trim(),
-        lugarevento: lugarevento.trim() || 'Por definir',
-        fechaevento: fechaLocal.format('YYYY-MM-DD'),
-        horaevento: dayjs(fechaHoraSeleccionada).format('HH:mm:ss'),
-        argumentacion: argumentacion.trim() || null,
-        resultados_esperados: JSON.stringify(resultadosEsperados),
-        tipos_de_evento: tiposParaEnviar,
-        objetivos: todosLosObjetivos,
-        segmentos_objetivo: segmentosParaEnviar.length > 0 ? segmentosParaEnviar : null,
-        recursos_existentes: recursosExistentes.length > 0 ? recursosExistentes : null,
-        recursos_nuevos: nuevosRecursos.length > 0 ? nuevosRecursos : null,
-        presupuesto: presupuestoData,
-        idclasificacion: clasificacionSeleccionada ? parseInt(clasificacionSeleccionada, 10) : null,
-        idsubcategoria: subcategoriaSeleccionada ? parseInt(subcategoriaSeleccionada, 10) : null,
-        comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
-      };
-      const response = await axios.put(`${API_BASE_URL}/eventos/${idevento}`, eventoPayload, {
-        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
-      });
-      if (mode === 'reprogramar' && response.data.estado !== 'pendiente') {
-        await axios.put(
-          `${API_BASE_URL}/eventos/${idevento}/status`,
-          { estado: 'pendiente' },
-          { headers: { Authorization: `Bearer ${authToken}` } }
-        );
-      }
-      Alert.alert('Éxito', mode === 'reprogramar' ? 'El evento ha sido reprogramado correctamente.' : 'El evento ha sido actualizado correctamente.', [{ text: 'OK', onPress: () => router.replace('/HomeAcademico.js') }]);
-    } catch (error) {
-      let errorMessage = "Ocurrió un error desconocido.";
-      if (error.response) {
-        errorMessage = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data) || `Error del servidor: ${error.response.status}`;
-      } else if (error.request) {
-        errorMessage = "No se pudo conectar con el servidor. Revisa tu conexión.";
-      } else {
-        errorMessage = error.message || "Error desconocido";
-      }
-      Alert.alert(mode === 'reprogramar' ? 'Error al reprogramar' : 'Error al actualizar', errorMessage);
-    } finally {
-      setIsLoading(false);
+        balance
+      },
+      idclasificacion: clasificacionSeleccionada ? parseInt(clasificacionSeleccionada) : null,
+      idsubcategoria: subcategoriaSeleccionada ? SUBCATEGORIA_ID_MAP[subcategoriaSeleccionada] : null, // ✅ Usa el mapa correcto
+      comite: comiteSeleccionado.length > 0 ? comiteSeleccionado : null,
+    };
+
+    console.log('🔗 URL:', `${API_BASE_URL}/eventos/${idevento}`);
+    
+    const response = await axios.put(
+      `${API_BASE_URL}/eventos/${idevento}`, 
+      eventoPayload,
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    );
+    
+    console.log('✅ RESPUESTA BACKEND:', response.status, response.data);
+
+    if (mode === 'reprogramar' && response.data.estado !== 'pendiente') {
+      await axios.put(
+        `${API_BASE_URL}/eventos/${idevento}/status`,
+        { estado: 'pendiente' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
     }
-  };
+    
+    Alert.alert('Éxito', 'Evento actualizado correctamente.', [{ 
+      text: 'OK', 
+      onPress: () => router.replace('/HomeAcademico.js') 
+    }]);
+    
+  } catch (error) {
+    // 🪵 LOG CRÍTICO: Ver error completo
+    console.error('❌ ERROR DETALLADO:', {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      config: {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers
+      }
+    });
+    
+    let errorMessage = 'Error desconocido';
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.status === 400) {
+      errorMessage = 'Datos inválidos. Revisa los campos.';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Sesión expirada. Inicia sesión nuevamente.';
+    } else if (error.code === 'ECONNABORTED' || error.message.includes('Network')) {
+      errorMessage = 'Error de conexión. Revisa tu internet.';
+    }
+    
+    Alert.alert('Error al guardar', errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingContainer}>
