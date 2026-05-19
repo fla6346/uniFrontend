@@ -702,7 +702,12 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
   );
 };
 
-const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetectado, setConflictoDetectado }) => (
+const ConflictModal = ({ showConflictModal,
+  setShowConflictModal, 
+  conflictoDetectado, 
+  setConflictoDetectado,
+  onConfirm
+ }) => (
   <Modal
     visible={showConflictModal}
     transparent={true}
@@ -734,6 +739,7 @@ const ConflictModal = ({ showConflictModal, setShowConflictModal, conflictoDetec
           <TouchableOpacity style={styles.modalButtonPrimary} onPress={() => {
             setShowConflictModal(false);
             setConflictoDetectado(null);
+            onConfirm();
           }}>
             <Text style={styles.modalButtonPrimaryText}>Continuar</Text>
           </TouchableOpacity>
@@ -1066,11 +1072,12 @@ const EditEventScreen = () => {
       return Math.abs(horaEvento.diff(horaSeleccionada, 'minutes')) < 240;
     });
   };
-
+    const [pendingClockTime, setPendingClockTime] = useState(null);
   const handleClockTimeChange = (newDate) => {
     if (isReadOnly) return;
     const conflictos = verificarConflictoHorario(newDate);
     if (conflictos.length > 0) {
+      setPendingClockTime(newDate);
       setConflictoDetectado(conflictos[0]);
       setShowConflictModal(true);
     } else {
@@ -1367,6 +1374,11 @@ const populateFormFromApi = (apiData) => {
 };  // ← cierre de populateFormFromApi, solo uno
 
   useEffect(() => {
+    console.log('idevento actual:', idevento);
+    console.log('estadoEvento:', estadoEvento);
+    console.log('isReadOnly:', isReadOnly);
+  }, [idevento, estadoEvento]);
+  useEffect(() => {
     const selectedIds = Object.keys(tiposSeleccionados);
     const selectedLabels = selectedIds.map(id => {
       const tipoEncontrado = TIPOS_DE_EVENTO.find(tipo => tipo.id === id);
@@ -1597,11 +1609,15 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
         })),
       objetivos: [
         ...Object.entries(objetivos)
-          .filter(([k, v]) => v === true && k !== 'otroTexto')
-          .map(([k]) => OBJETIVOS_EVENTO_MAP[k]),
-        ...(objetivos.otro && objetivos.otroTexto.trim() ? [{ id: 6, texto_personalizado: objetivos.otroTexto.trim() }] : []),
-        ...objetivosPDI.filter(t => t.trim()).map(t => ({ id: 6, texto_personalizado: t.trim() }))
-      ],
+        .filter(([k, v]) => v === true && k !== 'otroTexto' && k !== 'otro')
+        .map(([k]) => ({ id: OBJETIVOS_EVENTO_MAP[k] })),
+        ...(objetivos.otro && objetivos.otroTexto?.trim()
+        ? [{ id: 6, texto_personalizado: objetivos.otroTexto.trim() }]
+        : objetivos.otro ? [{ id: 6 }] : []),
+        ...objetivosPDI
+        .filter(t => t.trim())
+        .map(t => ({ id: 6, texto_personalizado: t.trim() })),
+        ],
       segmentos_objetivo: Object.entries(segmentoObjetivo)
         .filter(([k, v]) => v && ['estudiantes','docentes','publicoExterno','influencers'].includes(k))
         .map(([k]) => {
@@ -2139,14 +2155,34 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
       </View>
       <View style={styles.fixedBottomContainer}>
         {!isReadOnly && (
-          <TouchableOpacity onPress={confirmSubmit} disabled={isLoading} style={[styles.floatingActionButton, isLoading && styles.buttonDisabled]}>
-            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>{mode === 'reprogramar' ? '🔄 Actualizar' : '💾 Guardar'}</Text>}
+          <TouchableOpacity
+            onPress={confirmSubmit}
+            disabled={isLoading}
+            activeOpacity={0.8}
+            style={[styles.submitButton, isLoading && styles.buttonDisabled]}
+          >
+            {isLoading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.submitButtonText}>
+                  {mode === 'reprogramar' ? '🔄 Actualizar' : '💾 Guardar Cambios'}
+                </Text>
+            }
           </TouchableOpacity>
         )}
-      </View>
+</View>
       <ConfirmModal showConfirmModal={showConfirmModal} setShowConfirmModal={setShowConfirmModal} handleSubmitConfirmed={handleSubmitConfirmed} isLoading={isLoading} formData={{ nombreevento, lugarevento, fechaHoraSeleccionada }} mode={mode} />
       <NotificationsModal visible={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} notifications={notifications} markAsRead={markNotificationAsRead} />
-      <ConflictModal showConflictModal={showConflictModal} setShowConflictModal={setShowConflictModal} conflictoDetectado={conflictoDetectado} setConflictoDetectado={setConflictoDetectado} />
+      <ConflictModal 
+        showConflictModal={showConflictModal} 
+        setShowConflictModal={setShowConflictModal} 
+        conflictoDetectado={conflictoDetectado} 
+        setConflictoDetectado={setConflictoDetectado}
+         onConfirm={() => {           // <-- nuevo prop
+    if (pendingClockTime) {
+      setFechaHoraSeleccionada(pendingClockTime);
+      setPendingClockTime(null);
+    }
+    }} />
     </KeyboardAvoidingView>
   );
 };
@@ -2853,7 +2889,20 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8,
   },
-  fixedBottomContainer: { position: 'relative', height: 80 },
+  fixedBottomContainer: {
+  backgroundColor: '#fff',
+  paddingHorizontal: 20,
+  paddingVertical: 12,
+  borderTopWidth: 1,
+  borderTopColor: '#e0e0e0',
+},
+submitButton: {
+  backgroundColor: '#e95a0c',
+  paddingVertical: 16,
+  borderRadius: 12,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
   buttonDisabled: { backgroundColor: '#f9bda3' },
   submitButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   subsection: {
