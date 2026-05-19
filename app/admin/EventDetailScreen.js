@@ -702,7 +702,8 @@ const GoogleStyleCalendarView = ({ fechaHoraSeleccionada, setFechaHoraSelecciona
   );
 };
 
-const ConflictModal = ({ showConflictModal,
+const ConflictModal = ({ 
+  showConflictModal,
   setShowConflictModal, 
   conflictoDetectado, 
   setConflictoDetectado,
@@ -739,7 +740,7 @@ const ConflictModal = ({ showConflictModal,
           <TouchableOpacity style={styles.modalButtonPrimary} onPress={() => {
             setShowConflictModal(false);
             setConflictoDetectado(null);
-            onConfirm();
+            onConfirm?.();
           }}>
             <Text style={styles.modalButtonPrimaryText}>Continuar</Text>
           </TouchableOpacity>
@@ -1135,52 +1136,8 @@ const EditEventScreen = () => {
     initialize();
   }, []);
 
-  useEffect(() => {
-    const loadEventData = async () => {
-      try {
-        setIsLoading(true);
-        let apiData;
-        if (eventData) {
-          apiData = JSON.parse(eventData);
-        } else if (eventId) {
-          const token = await getTokenAsync();
-          if (!token) throw new Error('Token no encontrado');
-          const response = await axios.get(`${API_BASE_URL}/eventos/${eventId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 15000,
-          });
-          apiData = response.data;
-        } else {
-          throw new Error('No se proporcionó eventId ni eventData');
-        }
-        populateFormFromApi(apiData);
-        await cargarRecursos();
-         const token = await getTokenAsync();
-      if (token) {
-        const eventosResponse = await axios.get(`${API_BASE_URL}/eventos`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setEventos(eventosResponse.data || []);
-      }
-      } catch (error) {
-        console.error('❌ Error cargando datos:', error);
-        Alert.alert(
-          'Error',
-          error.response?.status === 401
-            ? 'Sesión expirada. Inicia sesión nuevamente.'
-            : `No se pudieron cargar los datos: ${error.message}`
-        );
-        if (error.response?.status === 401) {
-          router.replace('/LoginAdmin');
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadEventData();
-  }, [eventId, eventData, router]);
 
-  const OBJETIVOS_ID_TO_KEY = {
+const OBJETIVOS_ID_TO_KEY = {
   1: 'modeloPedagogico',
   2: 'posicionamiento',
   3: 'internacionalizacion',
@@ -1194,22 +1151,19 @@ const SUBCATEGORIA_NUM_TO_ID = Object.fromEntries(
 );
 
 const populateFormFromApi = (apiData) => {
-  console.log('=== PRESUPUESTO RAW ===', JSON.stringify({
-    Presupuesto: apiData.Presupuesto,
-    presupuesto: apiData.presupuesto,
-    egresos: apiData.egresos,
-    ingresos: apiData.ingresos,
-  }, null, 2));
-  console.log('=== OBJETIVOS ===', apiData.Objetivos);
-  console.log('=== OBJETIVOS PDI ===', apiData.ObjetivosPDI);
+  console.log('Keys del apiData:', Object.keys(apiData));
+  console.log('TiposDeEvento:', apiData.TiposDeEvento);
+  console.log('Objetivos:', apiData.Objetivos);
+  console.log('argumentacion:', apiData.argumentacion);
+  console.log('Presupuesto raw:', apiData.Presupuesto ?? apiData.presupuesto ?? apiData.egresos);
 
-  // Datos básicos
   setIdevento(apiData.idevento);
   setEstadoEvento(apiData.estado || 'pendiente');
   setNombreevento(apiData.nombreevento || '');
   setLugarevento(apiData.lugarevento || '');
+  setArgumentacion(apiData.argumentacion || '');   // ← crítico
+  setParticipantesEsperados(apiData.participantes_esperados?.toString() || '');
 
-  // Fecha y hora
   if (apiData.fechaevento) {
     const fecha = dayjs(apiData.fechaevento);
     const horaParts = (apiData.horaevento || '00:00').split(':');
@@ -1220,99 +1174,67 @@ const populateFormFromApi = (apiData) => {
     setHoraSeleccionada(fechaHora);
   }
 
-  setParticipantesEsperados(apiData.participantes_esperados?.toString() || '');
-  setArgumentacion(apiData.argumentacion || '');
-
-  // Clasificación
   if (apiData.Clasificacion) {
     setClasificacionSeleccionada(apiData.Clasificacion.idclasificacion?.toString() || '');
     const idSubNum = apiData.Clasificacion.idsubcategoria;
-    if (idSubNum) {
-      setSubcategoriaSeleccionada(SUBCATEGORIA_NUM_TO_ID[idSubNum] || '');
-    }
+    if (idSubNum) setSubcategoriaSeleccionada(SUBCATEGORIA_NUM_TO_ID[idSubNum] || '');
   }
 
-  // Tipos de evento
   if (apiData.TiposDeEvento?.length) {
     const tiposMap = {};
     apiData.TiposDeEvento.forEach(tipo => {
-      const id = tipo.idtipoevento?.toString();
+      const id = tipo.idtipoevento != null ? String(tipo.idtipoevento) : null;
       if (id) {
         tiposMap[id] = true;
-        if (id === '5' && tipo.texto_personalizado) {
-          setTextoOtroTipo(tipo.texto_personalizado);
-        }
+        if (id === '5' && tipo.texto_personalizado) setTextoOtroTipo(tipo.texto_personalizado);
       }
     });
     setTiposSeleccionados(tiposMap);
   }
 
-  // ─── OBJETIVOS + PDI ────────────────────────────────────────────────────────
-  // Los objetivos PDI se guardan como registros con idobjetivo=6 y texto_personalizado.
-  // El checkbox "otro" sin texto es idobjetivo=6 sin texto_personalizado.
   if (apiData.Objetivos?.length) {
     const nuevosObjetivos = {
-      modeloPedagogico: false,
-      posicionamiento: false,
-      internacionalizacion: false,
-      rsu: false,
-      fidelizacion: false,
-      otro: false,
-      otroTexto: '',
+      modeloPedagogico: false, posicionamiento: false,
+      internacionalizacion: false, rsu: false,
+      fidelizacion: false, otro: false, otroTexto: '',
     };
-
     const pdiTextos = [];
 
     apiData.Objetivos.forEach(obj => {
       const key = OBJETIVOS_ID_TO_KEY[obj.idobjetivo];
-
-      if (!key) return; // id desconocido, ignorar
-
+      if (!key) return;
       if (key !== 'otro') {
-        // Objetivos normales 1-5
         nuevosObjetivos[key] = true;
       } else {
-        // idobjetivo = 6
         nuevosObjetivos.otro = true;
         if (obj.texto_personalizado?.trim()) {
-          pdiTextos.push(obj.texto_personalizado.trim());
+          if (!nuevosObjetivos.otroTexto) {
+            nuevosObjetivos.otroTexto = obj.texto_personalizado.trim();
+          } else {
+            pdiTextos.push(obj.texto_personalizado.trim());
+          }
         }
       }
     });
 
-    // Rellenar los slots PDI (mínimo 3)
-    const pdiSlots = [...pdiTextos];
-    while (pdiSlots.length < 3) pdiSlots.push('');
-    setObjetivosPDI(pdiSlots);
-
-    setObjetivos(nuevosObjetivos); // ← UNA SOLA VEZ, al final
+    while (pdiTextos.length < 3) pdiTextos.push('');
+    setObjetivosPDI(pdiTextos);
+    setObjetivos(nuevosObjetivos);  // ← una sola vez
   }
-  // ────────────────────────────────────────────────────────────────────────────
 
-  // Segmentos objetivo
   const SEG_ID_TO_KEY = { 1: 'estudiantes', 2: 'docentes', 3: 'publicoExterno', 4: 'influencers' };
   if (apiData.Segmentos?.length) {
-    const nuevosSeg = {
-      estudiantes: false, docentes: false,
-      publicoExterno: false, influencers: false,
-      otro: false, otroTexto: '',
-    };
+    const nuevosSeg = { estudiantes: false, docentes: false, publicoExterno: false, influencers: false, otro: false, otroTexto: '' };
     const nuevosTextos = {};
     apiData.Segmentos.forEach(seg => {
       const key = SEG_ID_TO_KEY[seg.idsegmento];
-      if (key) {
-        nuevosSeg[key] = true;
-        if (seg.texto_personalizado) nuevosTextos[key] = seg.texto_personalizado;
-      } else {
-        nuevosSeg.otro = true;
-        if (seg.texto_personalizado) nuevosSeg.otroTexto = seg.texto_personalizado;
-      }
+      if (key) { nuevosSeg[key] = true; if (seg.texto_personalizado) nuevosTextos[key] = seg.texto_personalizado; }
+      else { nuevosSeg.otro = true; if (seg.texto_personalizado) nuevosSeg.otroTexto = seg.texto_personalizado; }
     });
     setSegmentoObjetivo(nuevosSeg);
     setSegmentosTextoPersonalizado(nuevosTextos);
   }
 
-  // Resultados esperados
   if (apiData.Resultados?.[0]) {
     const r = apiData.Resultados[0];
     setResultadosEsperados({
@@ -1322,14 +1244,10 @@ const populateFormFromApi = (apiData) => {
     });
   }
 
-  // Recursos existentes
   if (apiData.Recursos?.length) {
-    setRecursosSeleccionados(
-      apiData.Recursos.map(r => r.idrecurso?.toString()).filter(Boolean)
-    );
+    setRecursosSeleccionados(apiData.Recursos.map(r => r.idrecurso?.toString()).filter(Boolean));
   }
 
-  // Recursos nuevos
   if (apiData.RecursosNuevos?.length) {
     const tec = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'tecnologico');
     const mob = apiData.RecursosNuevos.filter(r => r.recurso_tipo === 'mobiliario');
@@ -1339,40 +1257,81 @@ const populateFormFromApi = (apiData) => {
     if (vaj.length) setVajilla(vaj.map(r => ({ nombre: r.nombre_recurso, cantidad: r.cantidad?.toString() || '1' })));
   }
 
-  // Comité
   if (apiData.Comite?.length) {
-    setComiteSeleccionado(
-      apiData.Comite.map(m => m.id ?? m.idusuario ?? m.usuario_id).filter(Boolean)
-    );
+    setComiteSeleccionado(apiData.Comite.map(m => m.id ?? m.idusuario ?? m.usuario_id).filter(Boolean));
   }
-// Presupuesto — tolerante a string JSON o a campos planos
+
   let presupuesto = apiData.Presupuesto || apiData.presupuesto;
   if (typeof presupuesto === 'string') {
     try { presupuesto = JSON.parse(presupuesto); } catch { presupuesto = null; }
   }
-
   const egresosData = presupuesto?.egresos || apiData.egresos || [];
   const ingresosData = presupuesto?.ingresos || apiData.ingresos || [];
 
   if (egresosData.length) {
     setEgresos(egresosData.map((e, i) => ({
-      key: `egreso-${e.idegreso || i}-${Date.now()}`,
-      descripcion: e.descripcion || '',
-      cantidad: (e.cantidad ?? '').toString(),
-      precio: (e.precio_unitario ?? e.precio ?? '').toString(),
+      key: `egreso-${e.idegreso ?? i}-${Date.now()}`,
+      descripcion: e.descripcion ?? '',
+      cantidad: String(e.cantidad ?? ''),
+      precio: String(e.precio_unitario ?? e.precio ?? ''),
     })));
   }
-
   if (ingresosData.length) {
     setIngresos(ingresosData.map((e, i) => ({
-      key: `ingreso-${e.idingreso || i}-${Date.now()}`,
-      descripcion: e.descripcion || '',
-      cantidad: (e.cantidad ?? '').toString(),
-      precio: (e.precio_unitario ?? e.precio ?? '').toString(),
+      key: `ingreso-${e.idingreso ?? i}-${Date.now()}`,
+      descripcion: e.descripcion ?? '',
+      cantidad: String(e.cantidad ?? ''),
+      precio: String(e.precio_unitario ?? e.precio ?? ''),
     })));
   }
-};  // ← cierre de populateFormFromApi, solo uno
+};
 
+useEffect(() => {
+  const loadEventData = async () => {
+    try {
+      setIsLoading(true);
+      let apiData;
+      if (eventData) {
+        apiData = JSON.parse(eventData);
+      } else if (eventId) {
+        const token = await getTokenAsync();
+        if (!token) throw new Error('Token no encontrado');
+        const response = await axios.get(`${API_BASE_URL}/eventos/${eventId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000,
+        });
+        apiData = response.data;
+      } else {
+        throw new Error('No se proporcionó eventId ni eventData');
+      }
+
+      // ✅ LLAMADA CORRECTA — no redefinición
+      populateFormFromApi(apiData);
+
+      await cargarRecursos();
+
+      const token = await getTokenAsync();
+      if (token) {
+        const eventosResponse = await axios.get(`${API_BASE_URL}/eventos`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setEventos(eventosResponse.data || []);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando datos:', error);
+      Alert.alert(
+        'Error',
+        error.response?.status === 401
+          ? 'Sesión expirada. Inicia sesión nuevamente.'
+          : `No se pudieron cargar los datos: ${error.message}`
+      );
+      if (error.response?.status === 401) router.replace('/LoginAdmin');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  loadEventData();
+}, [eventId, eventData, router]);
   useEffect(() => {
     console.log('idevento actual:', idevento);
     console.log('estadoEvento:', estadoEvento);
@@ -1608,16 +1567,16 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
           texto_personalizado: id === '5' && textoOtroTipo.trim() ? textoOtroTipo.trim() : undefined
         })),
       objetivos: [
-        ...Object.entries(objetivos)
+      ...Object.entries(objetivos)
         .filter(([k, v]) => v === true && k !== 'otroTexto' && k !== 'otro')
         .map(([k]) => ({ id: OBJETIVOS_EVENTO_MAP[k] })),
-        ...(objetivos.otro && objetivos.otroTexto?.trim()
+      ...(objetivos.otro && objetivos.otroTexto?.trim()
         ? [{ id: 6, texto_personalizado: objetivos.otroTexto.trim() }]
         : objetivos.otro ? [{ id: 6 }] : []),
-        ...objetivosPDI
+      ...objetivosPDI
         .filter(t => t.trim())
         .map(t => ({ id: 6, texto_personalizado: t.trim() })),
-        ],
+    ],
       segmentos_objetivo: Object.entries(segmentoObjetivo)
         .filter(([k, v]) => v && ['estudiantes','docentes','publicoExterno','influencers'].includes(k))
         .map(([k]) => {
@@ -2170,19 +2129,25 @@ if (!tieneAlgunObjetivo) newErrors.objetivos = 'Selecciona al menos un objetivo.
           </TouchableOpacity>
         )}
 </View>
-      <ConfirmModal showConfirmModal={showConfirmModal} setShowConfirmModal={setShowConfirmModal} handleSubmitConfirmed={handleSubmitConfirmed} isLoading={isLoading} formData={{ nombreevento, lugarevento, fechaHoraSeleccionada }} mode={mode} />
+      <ConfirmModal 
+      showConfirmModal={showConfirmModal} 
+      setShowConfirmModal={setShowConfirmModal} 
+      handleSubmitConfirmed={handleSubmitConfirmed} 
+      isLoading={isLoading} 
+      formData={{ nombreevento, lugarevento, fechaHoraSeleccionada }} mode={mode} />
       <NotificationsModal visible={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} notifications={notifications} markAsRead={markNotificationAsRead} />
-      <ConflictModal 
-        showConflictModal={showConflictModal} 
-        setShowConflictModal={setShowConflictModal} 
-        conflictoDetectado={conflictoDetectado} 
-        setConflictoDetectado={setConflictoDetectado}
-         onConfirm={() => {           // <-- nuevo prop
-    if (pendingClockTime) {
-      setFechaHoraSeleccionada(pendingClockTime);
-      setPendingClockTime(null);
-    }
-    }} />
+      <ConflictModal
+      showConflictModal={showConflictModal}
+      setShowConflictModal={setShowConflictModal}
+      conflictoDetectado={conflictoDetectado}
+      setConflictoDetectado={setConflictoDetectado}
+      onConfirm={() => {           // <-- nuevo prop
+        if (pendingClockTime) {
+          setFechaHoraSeleccionada(pendingClockTime);
+          setPendingClockTime(null);
+        }
+      }}
+      />
     </KeyboardAvoidingView>
   );
 };
